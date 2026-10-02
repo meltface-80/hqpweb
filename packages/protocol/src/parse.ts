@@ -203,6 +203,10 @@ export function parseVolumeRange(el: Element): VolumeRange {
   };
 }
 
+/** <MatrixListProfiles> children are <MatrixProfile name="…"/> (SDK source; empty list measured). */
+export const parseMatrixProfiles = (el: Element): string[] =>
+  kids(el, "MatrixProfile").map((c) => c.attrs.name ?? "").filter(Boolean);
+
 /** Names only. Loading them is blocked by auth (design §2.4). */
 export function parseConfigurationList(el: Element): { names: string[]; active: string } | { error: string } {
   const o = outcome(el);

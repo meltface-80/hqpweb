@@ -22,6 +22,10 @@ export interface FakeOptions {
    * state 2 but its position falls behind real time. Not yet measured.
    */
   speed?: (c: { modeName: string; rateHz: number; filterName: string; shaperName: string }) => number;
+  /** Matrix profiles configured in HQPlayer. Measured on both instances: none. */
+  matrixProfiles?: string[];
+  /** Whether convolution impulse responses are configured. Measured: not, on both. */
+  convolutionConfigured?: boolean;
   log?: (line: string) => void;
 }
 
@@ -66,6 +70,8 @@ export class FakeHqp {
   /** Playback stopped by an incompatible combination; resumes by itself once valid. */
   stalled = false;
   position = 0;
+  convolution = false;
+  matrixProfile = "";
   /** Sample rate of the track being played. Set with setSource(). */
   sourceRate = 44_100;
   private prepared = new Set<string>();
@@ -86,6 +92,8 @@ export class FakeHqp {
       idleTimeoutMs: opts.idleTimeoutMs ?? 156_000,
       incompatible: opts.incompatible ?? defaultIncompatible,
       speed: opts.speed ?? (() => 1),
+      matrixProfiles: opts.matrixProfiles ?? [],
+      convolutionConfigured: opts.convolutionConfigured ?? false,
       log: opts.log,
     };
     const i = profile.initial;
@@ -249,13 +257,13 @@ export class FakeHqp {
         active_mode: this.modeValue,
         active_rate: this.activeRateHz,
         adaptive: this.adaptive,
-        convolution: 0,
+        convolution: this.convolution,
         filter: this.filterInUse,
         filter1x: this.rem.filter1x,
         filterNx: this.rem.filterNx,
         filter_20k: this.filter20k,
         invert: this.invert,
-        matrix_profile: "",
+        matrix_profile: this.matrixProfile,
         mode: this.modeIndex,
         random: 0,
         rate: this.rateIndex,
@@ -325,7 +333,19 @@ export class FakeHqp {
     // Measured: blocked by SessionAuthentication (design §2.4). Never emulate success.
     ConfigurationLoad: () => this.doc("ConfigurationLoad", { result: "Error" }, "missing data or not authorized"),
     ConfigurationGet: () => this.ok("ConfigurationGet", { value: "" }),
-    MatrixListProfiles: () => this.ok("MatrixListProfiles"),
+    MatrixListProfiles: () =>
+      this.doc(
+        "MatrixListProfiles",
+        { result: "OK" },
+        undefined,
+        this.opts.matrixProfiles.map((name) => element("MatrixProfile", { name })).join(""),
+      ),
+    MatrixGetProfile: () => this.ok("MatrixGetProfile", { value: this.matrixProfile }),
+    // Reported (HQPTuner): any name gets OK and State echoes it, even unknown ones.
+    MatrixSetProfile: (req) => {
+      this.matrixProfile = req.attrs.value ?? "";
+      return this.ok("MatrixSetProfile");
+    },
     GetInputs: () => this.doc("GetInputs", { result: "OK" }, undefined, element("InputsItem", { name: "cd:" })),
 
     SetMode: async (req) => {
@@ -392,7 +412,11 @@ export class FakeHqp {
       return this.doc("SetAdaptiveVolume");
     },
     // Measured: with no convolution filters configured, OK + value="0" and nothing changes.
-    SetConvolution: () => this.ok("SetConvolution", { value: 0 }),
+    // Inferred: when configured, it toggles and echoes the new value.
+    SetConvolution: (req) => {
+      if (this.opts.convolutionConfigured) this.convolution = req.attrs.value === "1";
+      return this.ok("SetConvolution", { value: this.convolution });
+    },
 
     Volume: (req) => {
       const v = Number(req.attrs.value);

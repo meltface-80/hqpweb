@@ -172,4 +172,5 @@ export class HqpClient {
   rates = async () => p.parseRates(await this.request(cmd.getRates()));
   volumeRange = async () => p.parseVolumeRange(await this.request(cmd.volumeRange()));
   configurations = async () => p.parseConfigurationList(await this.request(cmd.configurationList()));
+  matrixProfiles = async () => p.parseMatrixProfiles(await this.request(cmd.matrixListProfiles()));
 }

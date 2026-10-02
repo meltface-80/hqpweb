@@ -310,3 +310,39 @@ describe("events", () => {
     expect((await req("GET", "/api/instances/nope/events")).status).toBe(404);
   });
 });
+
+describe("convolution and matrix profiles", () => {
+  it("reports convolution as not applied, with the reason, when HQPlayer has none set up", async () => {
+    await setup();
+    const r = (await change({ convolution: true })).json();
+    expect(r.results[0]).toMatchObject({ field: "convolution", applied: false, actual: false, reply: { kind: "ok" } });
+    expect(r.results[0].note).toMatch(/no impulse responses are set up/);
+  });
+
+  it("toggles convolution when it is set up", async () => {
+    await setup({ convolutionConfigured: true });
+    const r = (await change({ convolution: true })).json();
+    expect(r.results[0]).toMatchObject({ applied: true, actual: true });
+    expect(r.playback.kind).toBe("playing"); // treated as risky: watched
+  });
+
+  it("switches to a listed matrix profile and verifies it", async () => {
+    await setup({ matrixProfiles: ["Headphones", "Room EQ"] });
+    expect((await caps()).matrixProfiles).toEqual(["Headphones", "Room EQ"]);
+    const r = (await change({ matrixProfile: "Room EQ" })).json();
+    expect(r.results[0]).toMatchObject({ field: "matrixProfile", applied: true, actual: "Room EQ" });
+  });
+
+  it("never sends an unknown profile name (HQPlayer would say OK anyway)", async () => {
+    await setup({ matrixProfiles: ["Headphones"] });
+    const r = await change({ matrixProfile: "Nope" });
+    expect(r.status).toBe(422);
+    expect(fake.matrixProfile).toBe("");
+    expect(fake.received.some((x) => x.includes("MatrixSetProfile"))).toBe(false);
+  });
+
+  it("says when no profiles are set up at all", async () => {
+    await setup();
+    expect((await change({ matrixProfile: "Anything" })).json().error).toMatch(/no matrix profiles are set up/);
+  });
+});

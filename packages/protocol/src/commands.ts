@@ -18,6 +18,12 @@ export const cmd = {
   getRates: () => element("GetRates"),
   volumeRange: () => element("VolumeRange"),
   configurationList: () => element("ConfigurationList"),
+  // Matrix profiles: syntax from the MIT SDK source (hqp-control 6.0.1). Reported
+  // (HQPTuner): an unknown name still gets OK and State echoes it, so only ever
+  // send names from matrixListProfiles.
+  matrixListProfiles: () => element("MatrixListProfiles"),
+  matrixGetProfile: () => element("MatrixGetProfile"),
+  matrixSetProfile: (name: string) => element("MatrixSetProfile", { value: name }),
 
   setMode: (i: number) => element("SetMode", { value: index(i) }),
   setRate: (i: number) => element("SetRate", { value: index(i) }),

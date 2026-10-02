@@ -46,6 +46,8 @@ const FIELDS: Record<keyof Change, "name" | "number" | "rate" | "boolean"> = {
   invert: "boolean",
   filter20k: "boolean",
   adaptive: "boolean",
+  convolution: "boolean",
+  matrixProfile: "name",
 };
 
 /** Strict: no unknown fields, no type coercion ("-20" is not a volume). */

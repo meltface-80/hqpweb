@@ -3,6 +3,7 @@
   // can disturb playback are checked by the server and rolled back if they fail.
   import Picker from "./lib/Picker.svelte";
   import Settings from "./lib/Settings.svelte";
+  import Presets from "./lib/Presets.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
   import { RECOMMENDED_MAX_VOLUME_DB, ditherHint, filterSlot, modulatorHint, ratioHint, type Hint } from "@app/protocol/compat";
   import {
@@ -175,6 +176,13 @@
   );
 
   function describe(r: ApplyResult) {
+    const base = describeCore(r);
+    if (!r.skipped?.length) return base;
+    const sk = r.skipped.map((x) => `${FIELD_LABEL[x.field]} (${x.reason})`).join("; ");
+    return { kind: "warn" as const, text: `${base.text} · Skipped: ${sk}` };
+  }
+
+  function describeCore(r: ApplyResult) {
     if (r.rolledBack) {
       const back = r.rolledBack.results.map((x) => `${FIELD_LABEL[x.field]} back to ${show(x.field, x.actual)}`).join(", ");
       const rec: PlaybackCheck = r.rolledBack.playback;
@@ -198,6 +206,7 @@
         .join(" · ");
       return { kind: "warn" as const, text };
     }
+    if (r.results.length === 0) return { kind: "warn" as const, text: "Nothing applied" };
     const text = r.results.map((x) => `${FIELD_LABEL[x.field]} → ${show(x.field, x.actual)}`);
     const pb =
       r.playback.kind === "playing" ? "playback OK"
@@ -297,6 +306,16 @@
       </dl>
     </section>
 
+    {#if caps && selected}
+      <h2>Presets</h2>
+      <Presets
+        instanceId={selected}
+        stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}`}
+        {busy}
+        {run}
+      />
+    {/if}
+
     {#if caps}
       <h2>Filters</h2>
       <section class="card list">
@@ -379,6 +398,34 @@
             />
           {/if}
         </section>
+
+        <h2 class="sub-h">Convolution and matrix</h2>
+        <section class="card list">
+          <label class="toggle">
+            <span>Convolution</span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={snap.state.convolution}
+              disabled={busy}
+              onchange={(e) => apply({ convolution: e.currentTarget.checked })}
+            />
+          </label>
+          {#if caps.matrixProfiles.length}
+            <Picker
+              label="Matrix profile"
+              items={caps.matrixProfiles.map((name, index) => ({ index, name }))}
+              current={snap.state.matrixProfile}
+              disabled={busy}
+              onpick={(i) => apply({ matrixProfile: i.name })}
+            />
+          {/if}
+        </section>
+        <p class="help">
+          Impulse responses and matrix profiles are set up in HQPlayer itself (its Convolution and Matrix menus); the
+          control API can only switch them.
+          {#if !caps.matrixProfiles.length}No matrix profiles are set up on this instance.{/if}
+        </p>
       </details>
 
       <h2>Options</h2>
@@ -455,6 +502,7 @@
   .advanced { margin-top: 22px; }
   .advanced summary { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; padding: 0 4px; cursor: pointer; }
   .advanced .help { margin: 8px 4px; }
+  .sub-h { margin-top: 14px; }
 
   footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: none; flex-direction: column; gap: 8px; align-items: center; }
   footer.show { display: flex; }

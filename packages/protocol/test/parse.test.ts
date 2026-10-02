@@ -113,3 +113,15 @@ describe("request builders", () => {
     expect(() => cmd.setMode(1.5)).toThrow();
   });
 });
+
+describe("matrix profiles", () => {
+  it("parses the SDK's MatrixProfile items, and the measured empty list", async () => {
+    const { parseMatrixProfiles } = await import("../src/index.ts");
+    const H2 = '<?xml version="1.0" encoding="utf-8"?>';
+    expect(parseMatrixProfiles(parseDocument(H2 + '<MatrixListProfiles result="OK"/>'))).toEqual([]);
+    expect(
+      parseMatrixProfiles(parseDocument(H2 + '<MatrixListProfiles result="OK"><MatrixProfile name="Headphones"/><MatrixProfile name="Room EQ"/></MatrixListProfiles>')),
+    ).toEqual(["Headphones", "Room EQ"]);
+    expect(cmd.matrixSetProfile("Room EQ")).toBe('<MatrixSetProfile value="Room EQ"/>');
+  });
+});

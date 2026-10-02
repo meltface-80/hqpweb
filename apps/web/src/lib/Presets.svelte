@@ -1,0 +1,162 @@
+<script lang="ts">
+  // Presets for the selected instance: one tap to apply, with a badge saying what
+  // applying would mean here (already active / quick / major) and warnings for
+  // settings this instance can't take or a combination that won't play.
+  import { api, formatRate, FIELD_LABEL, type ApplyResult, type PresetView } from "./api.ts";
+
+  let {
+    instanceId,
+    stateKey,
+    busy,
+    run,
+  }: {
+    instanceId: string;
+    /** Changes whenever the instance's settings change, to refresh previews. */
+    stateKey: string;
+    busy: boolean;
+    run: (label: string, fn: () => Promise<ApplyResult>) => Promise<void>;
+  } = $props();
+
+  let presets = $state<PresetView[] | null>(null);
+  let error = $state("");
+  let saving = $state(false);
+  let newName = $state("");
+  let includeVolume = $state(false);
+  let managing = $state(false);
+
+  async function load() {
+    try {
+      presets = await api.presets(instanceId);
+      error = "";
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+  $effect(() => {
+    void stateKey;
+    void instanceId;
+    load();
+  });
+
+  function summary(p: PresetView): string {
+    const s = p.settings;
+    const parts = [
+      s.mode,
+      s.rate !== undefined ? formatRate(s.rate, s.mode ?? "") : undefined,
+      s.filter1x && `1x ${s.filter1x}`,
+      s.filterNx && `Nx ${s.filterNx}`,
+      s.shaper,
+      s.volume !== undefined ? `${s.volume} dB` : undefined,
+    ].filter(Boolean);
+    return parts.join(" · ");
+  }
+
+  async function apply(p: PresetView) {
+    if (p.preview.kind === "active") return;
+    if (p.preview.predicted && !confirm(`${p.name}: ${p.preview.predicted.text}.\n\nApply anyway? It will be rolled back if playback stops.`)) return;
+    if (p.preview.kind === "major" && !p.preview.predicted &&
+      !confirm(`Apply "${p.name}"?\n\nThis changes mode or output rate: playback may pause for a few seconds, and it's rolled back if it doesn't recover.`)) return;
+    await run(`Applying ${p.name}`, () => api.applyPreset(instanceId, p.id));
+    await load();
+  }
+
+  async function save(e: SubmitEvent) {
+    e.preventDefault();
+    saving = true;
+    try {
+      await api.savePreset({ name: newName, fromInstance: instanceId, includeVolume });
+      newName = "";
+      includeVolume = false;
+      await load();
+    } catch (err) {
+      error = (err as Error).message;
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function rename(p: PresetView) {
+    const name = prompt("Rename preset", p.name);
+    if (!name || name === p.name) return;
+    try {
+      await api.renamePreset(p.id, name);
+      await load();
+    } catch (err) {
+      error = (err as Error).message;
+    }
+  }
+
+  async function remove(p: PresetView) {
+    if (!confirm(`Delete preset "${p.name}"? Presets are shared by all instances.`)) return;
+    await api.deletePreset(p.id);
+    await load();
+  }
+</script>
+
+<section class="card list">
+  {#if presets === null}
+    <p class="empty">{error || "Loading…"}</p>
+  {:else}
+    {#each presets as p (p.id)}
+      <div class="row">
+        <button class="main" onclick={() => apply(p)} disabled={busy || p.preview.kind === "active"}>
+          <span class="name">
+            {p.name}
+            <span class="badge {p.preview.kind}">{p.preview.kind === "active" ? "✓ active" : p.preview.kind}</span>
+          </span>
+          <small class="sum">{summary(p)}</small>
+          {#if p.preview.predicted}
+            <small class="warn">⚠ won't play here: {p.preview.predicted.text}</small>
+          {/if}
+          {#if p.preview.missing.length}
+            <small class="warn">⚠ {p.preview.missing.map((m) => `${FIELD_LABEL[m.field]} ${m.reason}`).join("; ")} (skipped)</small>
+          {:else if p.preview.unchecked}
+            <small class="sum">Switches mode; names are checked when applied</small>
+          {/if}
+        </button>
+        {#if managing}
+          <span class="manage">
+            <button class="small" onclick={() => rename(p)}>Rename</button>
+            <button class="small danger" onclick={() => remove(p)}>Delete</button>
+          </span>
+        {/if}
+      </div>
+    {:else}
+      <p class="empty">No presets yet. Save the current settings below.</p>
+    {/each}
+  {/if}
+</section>
+
+<form class="save" onsubmit={save}>
+  <input bind:value={newName} placeholder="Save current as…" maxlength="64" required aria-label="Preset name" />
+  <label class="vol"><input type="checkbox" bind:checked={includeVolume} /> include volume</label>
+  <button class="small" type="submit" disabled={saving || !newName.trim()}>Save</button>
+  {#if presets?.length}
+    <button class="small link" type="button" onclick={() => (managing = !managing)}>{managing ? "Done" : "Edit"}</button>
+  {/if}
+</form>
+{#if error && presets !== null}<p class="err">{error}</p>{/if}
+
+<style>
+  .card { background: var(--bg-elev); border-radius: 14px; overflow: hidden; }
+  .row { display: flex; align-items: center; }
+  .row:not(:last-child) { border-bottom: 1px solid var(--border); }
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; min-height: 44px; }
+  .main:disabled { cursor: default; }
+  .name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .badge { font-size: 0.7rem; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--bg-elev-2); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .badge.active { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); text-transform: none; letter-spacing: 0; }
+  .badge.major { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .sum { color: var(--text-dim); font-size: 0.8rem; overflow-wrap: anywhere; }
+  .warn { color: var(--warn); font-size: 0.8rem; }
+  .empty { color: var(--text-dim); padding: 12px 16px; margin: 0; }
+  .manage { display: flex; gap: 6px; padding-right: 12px; }
+  .save { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+  .save input:not([type]) { flex: 1 1 10rem; min-width: 0; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text); font: inherit; }
+  .vol { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 0.85rem; }
+  .small { font: inherit; font-size: 0.85rem; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--accent-text); cursor: pointer; min-height: 36px; }
+  .small:disabled { opacity: 0.5; }
+  .small.danger { color: var(--danger); }
+  .small.link { border-color: transparent; background: none; }
+  .err { color: var(--danger); font-size: 0.85rem; }
+</style>

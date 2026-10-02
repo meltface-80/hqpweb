@@ -24,6 +24,8 @@ export type State = {
   invert: boolean;
   filter20k: boolean;
   adaptive: boolean;
+  convolution: boolean;
+  matrixProfile: string;
   state: number;
 };
 export type Status = {
@@ -53,6 +55,7 @@ export type Capabilities = {
   shapers: Named[];
   rates: { index: number; rate: number; allowed: boolean; note?: string }[];
   rateSettable: boolean;
+  matrixProfiles: string[];
   volumeRange: { min: number; max: number; enabled: boolean };
   knownBad: Failure[];
 };
@@ -66,6 +69,8 @@ export type Change = Partial<{
   invert: boolean;
   filter20k: boolean;
   adaptive: boolean;
+  convolution: boolean;
+  matrixProfile: string;
 }>;
 export type FieldResult = {
   field: keyof Change;
@@ -75,12 +80,23 @@ export type FieldResult = {
   note?: string;
 };
 export type PlaybackCheck = { kind: "playing" | "stopped" | "struggling" | "inconclusive" | "not-checked"; detail?: string };
+export type Preset = { id: string; name: string; settings: Change; createdAt: string; updatedAt: string };
+export type PresetView = Preset & {
+  preview: {
+    kind: "active" | "quick" | "major";
+    differs: (keyof Change)[];
+    missing: { field: keyof Change; reason: string }[];
+    unchecked: boolean;
+    predicted?: { level: "hard" | "soft"; text: string };
+  };
+};
 export type ApplyResult = {
   class: "quick" | "major";
   results: FieldResult[];
   playback: PlaybackCheck;
   rolledBack: { results: FieldResult[]; playback: PlaybackCheck } | null;
   incompatible?: { level: "hard" | "soft"; text: string };
+  skipped?: { field: keyof Change; reason: string }[];
   state: State;
   undoAvailable: boolean;
 };
@@ -110,6 +126,13 @@ export const api = {
       body: JSON.stringify(change),
     }),
   undo: (id: string) => call<ApplyResult>(`/api/instances/${id}/undo`, { method: "POST" }),
+  presets: (id: string) => call<PresetView[]>(`/api/instances/${id}/presets`),
+  savePreset: (body: { name: string; fromInstance: string; includeVolume: boolean }) =>
+    call<Preset>("/api/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+  renamePreset: (pid: string, name: string) =>
+    call<Preset>(`/api/presets/${pid}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) }),
+  deletePreset: (pid: string) => call<{ ok: true }>(`/api/presets/${pid}`, { method: "DELETE" }),
+  applyPreset: (id: string, pid: string) => call<ApplyResult>(`/api/instances/${id}/presets/${pid}/apply`, { method: "POST" }),
   learned: (id: string) => call<(Failure & { engine: string })[]>(`/api/instances/${id}/learned`),
   forgetLearned: (id: string) => call<{ forgotten: number }>(`/api/instances/${id}/learned`, { method: "DELETE" }),
   events: (id: string) => new EventSource(`/api/instances/${id}/events`),
@@ -135,6 +158,8 @@ export const FIELD_LABEL: Record<keyof Change, string> = {
   invert: "Invert",
   filter20k: "20 kHz filter",
   adaptive: "Adaptive volume",
+  convolution: "Convolution",
+  matrixProfile: "Matrix profile",
 };
 
 /** Fields that make up a combination that can fail. */

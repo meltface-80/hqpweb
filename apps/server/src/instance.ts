@@ -50,11 +50,15 @@ export interface Change {
   invert?: boolean;
   filter20k?: boolean;
   adaptive?: boolean;
+  /** On/off only: impulse responses can't be configured over the control API. */
+  convolution?: boolean;
+  /** A matrix profile already set up in HQPlayer, by name. */
+  matrixProfile?: string;
 }
 export type Field = keyof Change;
 
 /** Fields whose change can stop playback or overload the machine. */
-const RISKY: readonly Field[] = ["mode", "rate", "filterNx", "filter1x", "shaper"];
+const RISKY: readonly Field[] = ["mode", "rate", "filterNx", "filter1x", "shaper", "convolution", "matrixProfile"];
 
 export interface RateOption extends Rate {
   /** False when above this instance's configured limit. */
@@ -72,6 +76,8 @@ export interface Capabilities {
   /** SetRate is ignored in [source] mode (reported by HQPTuner). */
   rateSettable: boolean;
   volumeRange: VolumeRange;
+  /** Matrix profiles set up in HQPlayer (may be empty). */
+  matrixProfiles: string[];
   /** Combinations that failed here before, for this engine and mode. */
   knownBad: Failure[];
 }
@@ -136,6 +142,8 @@ interface Settings {
   invert: boolean;
   filter20k: boolean;
   adaptive: boolean;
+  convolution: boolean;
+  matrixProfile: string;
 }
 
 const nameOf = <T extends { index: number; name: string }>(list: T[], i: number) =>
@@ -152,6 +160,8 @@ function settingsOf(caps: Capabilities, s: State): Settings {
     invert: s.invert,
     filter20k: s.filter20k,
     adaptive: s.adaptive,
+    convolution: s.convolution,
+    matrixProfile: s.matrixProfile,
   };
 }
 
@@ -206,12 +216,13 @@ export class Instance {
       return { ...this.caps.value, knownBad: this.learned.forInstance(this.cfg.id, info.engine, this.caps.value.mode.name) };
     }
 
-    const [modes, filters, shapers, rates, volumeRange] = await Promise.all([
+    const [modes, filters, shapers, rates, volumeRange, matrixProfiles] = await Promise.all([
       this.client.modes(),
       this.client.filters(),
       this.client.shapers(),
       this.client.rates(),
       this.client.volumeRange(),
+      this.client.matrixProfiles().catch(() => [] as string[]),
     ]);
     // The lists only mean anything for the mode they were read in.
     const after = await this.client.state();
@@ -236,6 +247,7 @@ export class Instance {
       rates: rateOptions,
       rateSettable: mode.value !== -1,
       volumeRange,
+      matrixProfiles,
       knownBad: this.learned.forInstance(this.cfg.id, info.engine, mode.name),
     };
     this.caps = { key, value };
@@ -375,6 +387,14 @@ export class Instance {
     const nx = resolve(caps.filters, "filterNx", change.filterNx);
     const x1 = resolve(caps.filters, "filter1x", change.filter1x);
     const shaper = resolve(caps.shapers, "shaper", change.shaper);
+    // HQPlayer accepts unknown profile names with OK (reported), so only send listed ones.
+    if (change.matrixProfile !== undefined && !caps.matrixProfiles.includes(change.matrixProfile))
+      problems.push({
+        field: "matrixProfile",
+        reason: caps.matrixProfiles.length
+          ? `"${change.matrixProfile}" is not one of this instance's matrix profiles`
+          : "no matrix profiles are set up in HQPlayer on this instance",
+      });
 
     // ---- 3. volume guards (design §7) ---------------------------------------
     let volume: number | undefined;
@@ -422,6 +442,10 @@ export class Instance {
     if (change.invert !== undefined) replies.set("invert", await this.client.send(cmd.setInvert(change.invert)));
     if (change.filter20k !== undefined) replies.set("filter20k", await this.client.send(cmd.set20kFilter(change.filter20k)));
     if (change.adaptive !== undefined) replies.set("adaptive", await this.client.send(cmd.setAdaptiveVolume(change.adaptive)));
+    if (change.convolution !== undefined && fields.includes("convolution"))
+      replies.set("convolution", await this.client.send(cmd.setConvolution(change.convolution)));
+    if (change.matrixProfile !== undefined && fields.includes("matrixProfile"))
+      replies.set("matrixProfile", await this.client.send(cmd.matrixSetProfile(change.matrixProfile)));
     if (volume !== undefined) replies.set("volume", await this.client.send(cmd.volume(volume)));
 
     // ---- 5. read back: State is the verdict, not the reply (rule 4) ----------
@@ -440,7 +464,13 @@ export class Instance {
           ...(volumeNote ? { note: volumeNote } : {}),
         };
       }
-      return { field, requested, actual: now[field], applied: now[field] === requested, reply };
+      const applied = now[field] === requested;
+      // Measured: with no impulse responses set up, SetConvolution says OK and nothing changes.
+      const note =
+        field === "convolution" && requested === true && !applied
+          ? "HQPlayer didn't enable convolution: no impulse responses are set up there (Convolution → Engine setup in HQPlayer; not possible remotely)"
+          : undefined;
+      return { field, requested, actual: now[field], applied, reply, ...(note ? { note } : {}) };
     });
 
     // ---- 6. how to undo, by name ----------------------------------------------
@@ -482,6 +512,8 @@ export class Instance {
     if (!has(caps.filters, p.filterNx)) missing.push({ field: "filterNx", reason: `"${p.filterNx}" isn't available here` });
     if (!has(caps.filters, p.filter1x)) missing.push({ field: "filter1x", reason: `"${p.filter1x}" isn't available here` });
     if (!has(caps.shapers, p.shaper)) missing.push({ field: "shaper", reason: `"${p.shaper}" isn't available here` });
+    if (p.matrixProfile !== undefined && !caps.matrixProfiles.includes(p.matrixProfile))
+      missing.push({ field: "matrixProfile", reason: `matrix profile "${p.matrixProfile}" isn't set up here` });
     if (p.rate !== undefined) {
       const opt = caps.rates.find((r) => r.rate === p.rate);
       if (!opt) missing.push({ field: "rate", reason: `${p.rate} Hz isn't offered here` });
