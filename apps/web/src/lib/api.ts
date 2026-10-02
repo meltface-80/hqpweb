@@ -80,6 +80,7 @@ export type ApplyResult = {
   results: FieldResult[];
   playback: PlaybackCheck;
   rolledBack: { results: FieldResult[]; playback: PlaybackCheck } | null;
+  incompatible?: { level: "hard" | "soft"; text: string };
   state: State;
   undoAvailable: boolean;
 };

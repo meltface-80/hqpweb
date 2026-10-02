@@ -4,6 +4,7 @@
   import Picker from "./lib/Picker.svelte";
   import Settings from "./lib/Settings.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
+  import { RECOMMENDED_MAX_VOLUME_DB, ditherHint, filterSlot, modulatorHint, ratioHint, type Hint } from "@app/protocol/compat";
   import {
     api,
     formatRate,
@@ -102,7 +103,7 @@
   const inUse = $derived.by(() => {
     if (!snap || snap.status.state === 0) return null;
     const sr = snap.status.source?.sampleRate;
-    if (sr) return sr <= 48_000 ? "1x" : "Nx";
+    if (sr) return filterSlot(sr); // manual §4.6: 1x below 50 kHz
     return snap.state.filterInUse === snap.state.filter1x ? "1x" : "Nx";
   });
 
@@ -133,17 +134,44 @@
     const f = knownBad(caps.knownBad, { ...combo, [field]: value });
     return f ? `failed here before at these settings (${f.reason})` : undefined;
   };
-  const withWarn = <T extends { name: string }>(items: T[], field: "filterNx" | "filter1x" | "shaper") =>
-    items.map((i) => ({ ...i, warn: warnFor(field, i.name) }));
+  /** Rule hints (manual) first, then learned failures. Hard → warning, soft → note. */
+  const decorate = <T extends { name: string }>(i: T, rule: Hint | undefined, learned: string | undefined, note?: string) => ({
+    ...i,
+    warn: rule?.level === "hard" ? `won't play: ${rule.text}` : learned,
+    note: [note, rule?.level === "soft" ? rule.text : undefined].filter(Boolean).join(" · ") || undefined,
+  });
+  const source = $derived(snap?.status.source?.sampleRate ?? 0);
+  const outRate = $derived(snap?.status.activeRate ?? 0);
+  /** Rate is fixed (not auto): only then can a filter choice make the ratio impossible. */
+  const fixedRate = $derived((snap?.state.rate ?? 0) !== 0);
+  const filterItems = (slot: "1x" | "Nx") =>
+    (caps?.filters ?? []).map((f) =>
+      decorate(
+        f,
+        source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm) : undefined,
+        warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name),
+      ),
+    );
+  const shaperItems = $derived(
+    (caps?.shapers ?? []).map((s) =>
+      decorate(s, isSdm ? modulatorHint(s.name, outRate) : ditherHint(s.name, outRate), warnFor("shaper", s.name)),
+    ),
+  );
+  const inUseFilter = $derived(
+    caps && snap && source ? nameAt(caps.filters, filterSlot(source) === "1x" ? snap.state.filter1x : snap.state.filterNx) : "",
+  );
+  const shaperName = $derived(caps && snap ? nameAt(caps.shapers, snap.state.shaper) : "");
   const rateItems = $derived(
-    (caps?.rates ?? []).map((r) => ({
-      index: r.index,
-      name: formatRate(r.rate, caps!.mode.name),
-      rate: r.rate,
-      disabled: !r.allowed,
-      note: r.note,
-      warn: r.rate ? warnFor("rateHz", r.rate) : undefined,
-    })),
+    (caps?.rates ?? []).map((r) => {
+      const ratio = r.rate && source ? ratioHint(inUseFilter, source, r.rate, isSdm) : undefined;
+      const mod = r.rate ? (isSdm ? modulatorHint(shaperName, r.rate) : ditherHint(shaperName, r.rate)) : undefined;
+      const rule = ratio?.level === "hard" ? ratio : mod;
+      return {
+        ...decorate({ index: r.index, name: formatRate(r.rate, caps!.mode.name) }, rule, r.rate ? warnFor("rateHz", r.rate) : undefined, r.note),
+        rate: r.rate,
+        disabled: !r.allowed,
+      };
+    }),
   );
 
   function describe(r: ApplyResult) {
@@ -156,7 +184,9 @@
         : `Playback did not recover (${rec.detail}): HQPlayer may need a restart.`;
       return {
         kind: "warn" as const,
-        text: `Rolled back: ${r.playback.detail}. ${back}. ${tail} Marked as not working on this instance.`,
+        text: r.incompatible
+          ? `Rolled back: ${r.incompatible.text}. ${back}. ${tail} That's an HQPlayer rule, not a limit of this machine.`
+          : `Rolled back: ${r.playback.detail}. ${back}. ${tail} Marked as not working on this instance.`,
       };
     }
     const failed = r.results.filter((x) => !x.applied);
@@ -274,7 +304,7 @@
           label="Nx"
           hint={inUse === "Nx" ? "in use" : ""}
           active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
-          items={withWarn(caps.filters, "filterNx")}
+          items={filterItems("Nx")}
           current={nameAt(caps.filters, snap.state.filterNx)}
           disabled={busy}
           onpick={(i) => apply({ filterNx: i.name })}
@@ -283,20 +313,20 @@
           label="1x"
           hint={inUse === "1x" ? "in use" : ""}
           active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
-          items={withWarn(caps.filters, "filter1x")}
+          items={filterItems("1x")}
           current={nameAt(caps.filters, snap.state.filter1x)}
           disabled={busy}
           onpick={(i) => apply({ filter1x: i.name })}
         />
       </section>
-      <p class="help">1x is used for 44.1/48 kHz sources, Nx for higher rates.</p>
+      <p class="help">1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.</p>
 
       <h2>{isSdm ? "Modulator" : "Dither"}</h2>
       <section class="card list">
         <Picker
           label={isSdm ? "Modulator" : "Dither"}
           active={snap.status.state === 2 ? snap.status.activeShaper === nameAt(caps.shapers, snap.state.shaper) : null}
-          items={withWarn(caps.shapers, "shaper")}
+          items={shaperItems}
           current={nameAt(caps.shapers, snap.state.shaper)}
           disabled={busy}
           onpick={(i) => apply({ shaper: i.name })}
@@ -322,6 +352,9 @@
           aria-label="Volume"
         />
         <div class="range"><span>{caps.volumeRange.min} dB</span><span>{caps.volumeRange.max} dB</span></div>
+        {#if vol > RECOMMENDED_MAX_VOLUME_DB}
+          <p class="help">Above −3 dB: HQPlayer recommends −3 dB or lower when resampling, to avoid inter-sample overs.</p>
+        {/if}
       </section>
 
       <details class="advanced" open={prefs.advancedOpen}>

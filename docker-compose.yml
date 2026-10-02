@@ -6,11 +6,14 @@ services:
     container_name: web-controller
     restart: unless-stopped
     ports:
-      - "${PORT:-8787}:8787"
+      # One setting for both sides, so it also works with host networking.
+      # BIND_ADDRESS (in .env) limits which host interface publishes it, e.g. 127.0.0.1.
+      - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-4380}:${PORT:-4380}"
     environment:
       # Set in .env (not here, so updates don't conflict): the hostname(s) you open
       # the app at, comma-separated. Other names are refused; localhost always works.
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-}
+      PORT: ${PORT:-4380}
     volumes:
       # instances.json (you write it) and learned.json (the app writes it).
       # Must be writable by uid 1000 inside the container.

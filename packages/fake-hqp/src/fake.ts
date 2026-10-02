@@ -4,7 +4,7 @@
 // so client code that copes with the fake should cope with the real thing.
 import { createServer, type Server, type Socket } from "node:net";
 import { createSocket, type Socket as UdpSocket } from "node:dgram";
-import { element, parseDocument, type AttrValue, type Element } from "@app/protocol";
+import { element, filterSlot, parseDocument, predictedStop, type AttrValue, type Element } from "@app/protocol";
 import type { ModeLists, Profile, Remembered } from "./profile.ts";
 
 export interface FakeOptions {
@@ -13,11 +13,9 @@ export interface FakeOptions {
   /** Close a connection after this much idle time. Measured ≈156 s. */
   idleTimeoutMs?: number;
   /**
-   * Whether a (mode, rate, shaper) combination stops playback. The default is
-   * the measured case (AHM7EC8B at DSD256 or DSD512) widened to all AHM…8B
-   * modulators below DSD1024. Inferred: the widening is a guess (design §4.4).
+   * Whether the settings in use stop playback. Default: defaultIncompatible.
    */
-  incompatible?: (c: { modeName: string; rateHz: number; shaperName: string }) => boolean;
+  incompatible?: (c: { modeName: string; rateHz: number; shaperName: string; filterName: string; sourceRate: number }) => boolean;
   /**
    * Simulated CPU/GPU load: playback speed (1 = real time) for the settings in
    * use. Default: never overloaded. Inferred model: an overloaded instance keeps
@@ -27,10 +25,13 @@ export interface FakeOptions {
   log?: (line: string) => void;
 }
 
-const DSD1024 = 45_158_400;
 
-export const defaultIncompatible: NonNullable<FakeOptions["incompatible"]> = ({ modeName, rateHz, shaperName }) =>
-  modeName.startsWith("SDM") && /^AHM.*8B$/.test(shaperName) && rateHz < DSD1024;
+/**
+ * Default: what the manual's rules predict (integer-ratio filters, the AHM
+ * modulator floor; see @app/protocol compat.ts). The AHM floor is also measured.
+ */
+export const defaultIncompatible: NonNullable<FakeOptions["incompatible"]> = (c) =>
+  predictedStop({ mode: c.modeName, filter: c.filterName, shaper: c.shaperName, sourceRate: c.sourceRate, outputRate: c.rateHz }) !== undefined;
 
 const DELAY = {
   /** First SetFilter for a filter: ~5 s (measured). */
@@ -137,15 +138,22 @@ export class FakeHqp {
     return this.lists.shapers.find((s) => s.index === this.rem.shaper)?.name ?? "";
   }
   /**
-   * Measured: a 44.1 kHz source uses the 1x filter and a 96 kHz source the Nx
-   * filter (both instances, 2026-10-02). Inferred: 48 kHz counts as 1x, and an
-   * idle instance reports 1x (matches the idle Linux capture).
+   * 1x below 50 kHz source, Nx above (manual §4.6; measured at 44.1k and 96k).
+   * Inferred: an idle instance reports 1x (matches the idle Linux capture).
    */
   get filterInUse() {
-    return this.playback !== 0 && this.sourceRate > 48_000 ? this.rem.filterNx : this.rem.filter1x;
+    const active = this.playback !== 0 || this.stalled;
+    return active && filterSlot(this.sourceRate) === "Nx" ? this.rem.filterNx : this.rem.filter1x;
   }
   get comboBad() {
-    return this.opts.incompatible({ modeName: this.mode.name, rateHz: this.activeRateHz, shaperName: this.shaperName });
+    const filterName = this.lists.filters.find((f) => f.index === this.filterInUse)?.name ?? "";
+    return this.opts.incompatible({
+      modeName: this.mode.name,
+      rateHz: this.activeRateHz,
+      shaperName: this.shaperName,
+      filterName,
+      sourceRate: this.sourceRate,
+    });
   }
 
   private fmtVolume(v: number): string {

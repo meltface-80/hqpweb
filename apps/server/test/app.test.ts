@@ -59,6 +59,18 @@ describe("request hardening", () => {
     expect((await req("GET", "/api/health", { headers: { host: "Controller.example:443" } })).status).toBe(200);
   });
 
+  it("accepts IP literals listed in ALLOWED_HOSTS (IPv4 plain, IPv6 in brackets)", async () => {
+    const s2 = buildApp({ instances: [] }, { allowedHosts: ["192.0.2.50", "[2001:db8::5]"] });
+    const r2 = client(await s2.listen(0, "127.0.0.1"));
+    try {
+      expect((await r2("GET", "/api/health", { headers: { host: "192.0.2.50:4380" } })).status).toBe(200);
+      expect((await r2("GET", "/api/health", { headers: { host: "[2001:db8::5]:4380" } })).status).toBe(200);
+      expect((await r2("GET", "/api/health", { headers: { host: "192.0.2.51:4380" } })).status).toBe(403);
+    } finally {
+      await s2.close();
+    }
+  });
+
   it("refuses cross-origin writes", async () => {
     const r = await req("POST", "/api/instances/fake/change", {
       body: { invert: true },

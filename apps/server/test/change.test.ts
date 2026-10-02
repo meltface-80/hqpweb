@@ -113,7 +113,7 @@ describe("quick changes", () => {
 });
 
 describe("rollback when playback fails", () => {
-  it("rolls back the measured stall (AHM7EC8B at DSD512) and learns it", async () => {
+  it("rolls back the measured stall (AHM7EC8B at DSD512) and explains it without learning", async () => {
     const learnedPath = join(mkdtempSync(join(tmpdir(), "learned-")), "learned.json");
     await setup({}, {}, new LearnedStore(learnedPath));
     const body = (await change({ rate: 22579200 })).json();
@@ -125,9 +125,29 @@ describe("rollback when playback fails", () => {
     expect(body.undoAvailable).toBe(false);
     expect(fake.playback).toBe(2);
 
-    const bad = (await caps()).knownBad;
-    expect(bad).toEqual([expect.objectContaining({ mode: "SDM (DSD)", rateHz: 22579200, shaper: "AHM7EC8B" })]);
+    expect(body.incompatible).toMatchObject({ level: "hard", text: expect.stringMatching(/AHM7EC8B needs/) });
+    expect((await caps()).knownBad).toEqual([]);
+    expect(() => readFileSync(learnedPath, "utf8")).toThrow(); // nothing learned, nothing written
+  });
+
+  it("learns an unexplained failure (overload) and persists it", async () => {
+    const learnedPath = join(mkdtempSync(join(tmpdir(), "learned-")), "learned.json");
+    await setup({ speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) }, {}, new LearnedStore(learnedPath));
+    const body = (await change({ filter1x: "poly-sinc-gauss-long" })).json();
+    expect(body.incompatible).toBeUndefined();
+    expect((await caps()).knownBad).toEqual([expect.objectContaining({ filter1x: "poly-sinc-gauss-long", rateHz: 45158400 })]);
     expect(JSON.parse(readFileSync(learnedPath, "utf8")).failures).toHaveLength(1);
+  });
+
+  it("rolls back a rule-explained stop without learning it (sinc-M, 44.1k → 192k)", async () => {
+    await setup();
+    await change({ mode: "PCM" }); // 44.1 kHz source, so the 1x filter is in use
+    await change({ filter1x: "sinc-M", rate: 176400 }); // 4×: fine
+    const body = (await change({ rate: 192000 })).json(); // 4.35×: can't
+    expect(body.playback.kind).toBe("stopped");
+    expect(body.incompatible).toMatchObject({ level: "hard", text: expect.stringMatching(/whole-number/) });
+    expect(body.rolledBack.results[0]).toMatchObject({ field: "rate", actual: 176400, applied: true });
+    expect((await req("GET", "/api/instances/mac/learned")).json()).toEqual([]);
   });
 
   it("rolls back a filter the machine can't keep up with", async () => {
@@ -141,8 +161,8 @@ describe("rollback when playback fails", () => {
   });
 
   it("lists learned failures and forgets them", async () => {
-    await setup();
-    await change({ rate: 22579200 }); // the measured stall
+    await setup({ speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) });
+    await change({ filter1x: "poly-sinc-gauss-long" }); // simulated overload
     const list = (await req("GET", "/api/instances/mac/learned")).json();
     expect(list).toHaveLength(1);
     expect((await req("DELETE", "/api/instances/mac/learned")).json()).toEqual({ forgotten: 1 });

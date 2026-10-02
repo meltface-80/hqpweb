@@ -8,6 +8,9 @@
 import {
   HqpClient,
   cmd,
+  filterSlot,
+  predictedStop,
+  type Hint,
   type Filter,
   type Info,
   type Mode,
@@ -94,6 +97,11 @@ export interface ApplyResult {
   playback: PlaybackCheck;
   /** Present when playback failed and the change was undone automatically. */
   rolledBack: { results: FieldResult[]; playback: PlaybackCheck } | null;
+  /**
+   * Set when HQPlayer's own rules explain the failure (e.g. a filter that needs a
+   * whole-number ratio). Such failures are not learned as this machine's limits.
+   */
+  incompatible?: Hint;
   state: State;
   undoAvailable: boolean;
 }
@@ -248,10 +256,13 @@ export class Instance {
     else playback = await this.watch(timing);
 
     if (playback.kind === "stopped" || playback.kind === "struggling") {
+      // A rule-explained stop is HQPlayer's design, not this machine's limit: don't learn it.
+      const incompatible = await this.explain().catch(() => undefined);
       // Never let bookkeeping (e.g. an unwritable config volume) block the rollback.
-      await this.recordFailure(playback.detail).catch((e: Error) =>
-        console.error(`could not record failed combination: ${e.message}`),
-      );
+      if (!incompatible)
+        await this.recordFailure(playback.detail).catch((e: Error) =>
+          console.error(`could not record failed combination: ${e.message}`),
+        );
       // Roll back. Volume follows the undo rule: restored only if nobody moved it.
       this.lastSetVolume = applied.volumeSet;
       const back = await this.applyFields(applied.prev, true);
@@ -265,6 +276,7 @@ export class Instance {
         rolledBack: { results: back.results, playback: recovered },
         state: back.state,
         undoAvailable: false,
+        ...(incompatible ? { incompatible } : {}),
       };
     }
 
@@ -421,6 +433,16 @@ export class Instance {
       const s = await this.client.status();
       return { state: s.state, position: s.position };
     }, timing);
+  }
+
+  /** Does a known HQPlayer rule explain why the current settings can't play? */
+  private async explain(): Promise<Hint | undefined> {
+    const [caps, state, status] = await Promise.all([this.capabilities(true), this.client.state(), this.client.status()]);
+    const source = status.source?.sampleRate;
+    if (!source) return undefined;
+    const s = settingsOf(caps, state);
+    const filter = filterSlot(source) === "1x" ? s.filter1x : s.filterNx;
+    return predictedStop({ mode: s.mode, filter, shaper: s.shaper, sourceRate: source, outputRate: status.activeRate });
   }
 
   private async recordFailure(reason: string) {

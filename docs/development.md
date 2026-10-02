@@ -38,7 +38,7 @@ npm test                 # all unit and fake-server tests
 npm run typecheck
 
 npm run fake             # fake HQPlayer on 127.0.0.1:14321, realistic timings
-npm run dev:server       # API on 127.0.0.1:8787
+npm run dev:server       # API on 127.0.0.1:4380
 npm run dev:web          # UI on 127.0.0.1:5173, proxies /api to the API
 ```
 

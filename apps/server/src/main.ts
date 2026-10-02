@@ -8,7 +8,8 @@ import { LearnedStore } from "./learned.ts";
 // set HOST=0.0.0.0 and let network placement be the gate. An authenticating
 // proxy in front is optional, not required.
 const host = process.env.HOST ?? "127.0.0.1";
-const port = Number(process.env.PORT ?? 8787);
+// 4380: unassigned in the IANA registry, and clear of common self-hosted defaults.
+const port = Number(process.env.PORT ?? 4380);
 // Names the app is reached by, besides loopback (e.g. its internal DNS name or
 // tailnet name). Requests under any other Host are refused.
 const allowedHosts = (process.env.ALLOWED_HOSTS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
