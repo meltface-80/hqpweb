@@ -1,7 +1,8 @@
 <script lang="ts">
-  // Presets for the selected instance: one tap to apply, with a badge saying what
-  // applying would mean here (already active / quick / major) and warnings for
-  // settings this instance can't take or a combination that won't play.
+  // Presets for the selected instance, as one compact row: it names the active
+  // preset and opens a sheet where one tap applies (undo stays available), with a
+  // badge saying what applying means here (already active / quick / major) and
+  // warnings for settings this instance can't take. Save and edit live in the sheet.
   import { api, formatRate, FIELD_LABEL, type ApplyResult, type PresetView } from "./api.ts";
 
   let {
@@ -23,6 +24,8 @@
   let newName = $state("");
   let includeVolume = $state(false);
   let managing = $state(false);
+  let dialog: HTMLDialogElement;
+  const active = $derived(presets?.filter((p) => p.preview.kind === "active").map((p) => p.name) ?? []);
 
   let loadSeq = 0;
   async function load() {
@@ -62,6 +65,7 @@
     if (p.preview.predicted && !confirm(`${p.name}: ${p.preview.predicted.text}.\n\nApply anyway? It will be rolled back if playback stops.`)) return;
     if (p.preview.kind === "major" && !p.preview.predicted &&
       !confirm(`Apply "${p.name}"?\n\nThis changes mode or output rate: playback may pause for a few seconds, and it's rolled back if it doesn't recover.`)) return;
+    dialog.close();
     await run(`Applying ${p.name}`, () => api.applyPreset(instanceId, p.id));
     await load();
   }
@@ -114,6 +118,19 @@
   }
 </script>
 
+<button class="trigger" onclick={() => dialog.showModal()} disabled={presets === null && !error}>
+  <span class="label">Presets</span>
+  <span class="value">{presets === null ? (error ? "unavailable" : "…") : active.length ? `✓ ${active.join(", ")}` : presets.length ? `${presets.length} saved` : "none yet"}</span>
+  <span class="chev" aria-hidden="true">›</span>
+</button>
+
+<dialog bind:this={dialog} onclick={(e) => e.target === dialog && dialog.close()}>
+<div class="sheet">
+<header>
+  <h3>Presets</h3>
+  <button class="close" onclick={() => dialog.close()} aria-label="Close">✕</button>
+</header>
+<div class="body">
 <section class="card list">
   {#if presets === null}
     <p class="empty">{error || "Loading…"}</p>
@@ -158,9 +175,25 @@
   {/if}
 </form>
 {#if error && presets !== null}<p class="err">{error}</p>{/if}
+</div>
+</div>
+</dialog>
 
 <style>
-  .card { background: var(--bg-elev); border-radius: 14px; overflow: hidden; }
+  .trigger { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .trigger .label { color: var(--text-dim); }
+  .trigger .value { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .chev { color: var(--text-dim); font-size: 1.3rem; line-height: 1; }
+  dialog { padding: 0; border: 0; background: transparent; width: min(100%, 34rem); max-width: 100%; max-height: 100%; margin: auto auto 0; color: var(--text); }
+  @media (min-width: 40rem) { dialog { margin: auto; } }
+  dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+  .sheet { background: var(--bg-elev); border-radius: 16px 16px 0 0; display: flex; flex-direction: column; max-height: 85vh; padding-bottom: env(safe-area-inset-bottom); }
+  @media (min-width: 40rem) { .sheet { border-radius: 16px; } }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
+  h3 { margin: 0; font-size: 1rem; }
+  .close { background: none; border: 0; color: var(--text-dim); font-size: 1rem; padding: 6px; cursor: pointer; }
+  .body { overflow-y: auto; padding: 0 16px 16px; }
+  .card { background: var(--bg); border-radius: 14px; overflow: hidden; border: 1px solid var(--border); }
   .row { display: flex; align-items: center; }
   .row:not(:last-child) { border-bottom: 1px solid var(--border); }
   .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; min-height: 44px; }

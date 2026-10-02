@@ -220,7 +220,7 @@ export interface InstanceOptions {
   client?: HqpClient;
   learned?: LearnedStore;
   timing?: { quick: WatchTiming; major: WatchTiming };
-  /** Window for the live playback-speed health signal. Default 8 s; tests shorten it. */
+  /** Window for the live playback-speed health signal. Default 30 s; tests shorten it. */
   speedWindowMs?: number;
 }
 
@@ -244,7 +244,7 @@ export class Instance {
     this.client = opts.client ?? new HqpClient(cfg.host, { port: cfg.port });
     this.learned = opts.learned ?? new LearnedStore(null);
     this.timing = opts.timing ?? { quick: DEFAULT_TIMING, major: MAJOR_TIMING };
-    this.speedWindowMs = opts.speedWindowMs ?? 8000;
+    this.speedWindowMs = opts.speedWindowMs ?? 30_000;
   }
 
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
@@ -714,7 +714,12 @@ export class Instance {
     };
   }
 
-  /** Playback speed over the last ~10 s; null when not playing or not enough data. */
+  /**
+   * Playback speed against real time: the least-squares slope of position over
+   * the last window (default 30 s). Position moves in ~1 s steps (measured), so a
+   * two-point difference over a short window swung 0.94–1.04 while playback was
+   * fine; a fitted slope over 30 s doesn't. Null when not playing or still filling.
+   */
   private trackSpeed(status: Status): number | null {
     const now = Date.now();
     if (status.state !== 2) {
@@ -722,15 +727,23 @@ export class Instance {
       return null;
     }
     const last = this.trail[this.trail.length - 1];
-    // A backwards jump is a track change or seek: start over.
-    if (last && status.position < last.pos - 0.5) this.trail = [];
+    // A jump either way is a track change or seek: start over.
+    if (last && (status.position < last.pos - 0.5 || status.position - last.pos > (now - last.t) / 1000 + 3)) this.trail = [];
     this.trail.push({ t: now, pos: status.position });
-    this.trail = this.trail.filter((p) => now - p.t <= this.speedWindowMs * 1.5);
+    this.trail = this.trail.filter((p) => now - p.t <= this.speedWindowMs);
     const first = this.trail[0]!;
-    const span = (now - first.t) / 1000;
-    // Position moves in ~1 s steps (measured), so wait for a long enough window.
-    if (span * 1000 < this.speedWindowMs) return null;
-    return Math.round(((status.position - first.pos) / span) * 100) / 100;
+    if (now - first.t < this.speedWindowMs * 0.9 || this.trail.length < 3) return null;
+    const n = this.trail.length;
+    const mt = this.trail.reduce((a, p) => a + (p.t - first.t) / 1000, 0) / n;
+    const mp = this.trail.reduce((a, p) => a + p.pos, 0) / n;
+    let num = 0;
+    let den = 0;
+    for (const p of this.trail) {
+      const dt = (p.t - first.t) / 1000 - mt;
+      num += dt * (p.pos - mp);
+      den += dt * dt;
+    }
+    return den > 0 ? Math.round((num / den) * 1000) / 1000 : null;
   }
 
   close() {

@@ -302,7 +302,12 @@ export class RoonLink {
     }
     ws.binaryType = "arraybuffer";
     this.ws = ws;
-    ws.onopen = () => gen === this.gen && this.handshake(gen);
+    // A connect that neither opens nor fails (a silent firewall) must not hang.
+    const opening = setTimeout(() => gen === this.gen && ws.readyState === WebSocket.CONNECTING && (ws.close(), this.lost(gen, `can't connect to ${url}`)), this.opts.replyMs);
+    ws.onopen = () => {
+      clearTimeout(opening);
+      if (gen === this.gen) this.handshake(gen);
+    };
     ws.onmessage = (ev) => {
       if (gen !== this.gen) return;
       let msg: MooMessage;
@@ -335,8 +340,12 @@ export class RoonLink {
           if (gen === this.gen) this.ws?.close();
         });
       }, this.opts.aliveMs);
-      // With a token the core answers at once; without one, the user must approve.
+      // With a token the core answers at once; without one (or if the core no longer
+      // accepts it) the user must approve. Say so after a moment rather than at once,
+      // so an approved reconnect doesn't flash "waiting for approval".
+      let approvalHint: ReturnType<typeof setTimeout> | undefined;
       if (!token) this.setStatus("unapproved");
+      else approvalHint = setTimeout(() => gen === this.gen && this.status === "connecting" && this.setStatus("unapproved"), 3000);
       // Unapproved, this reply only comes once the user enables the extension in
       // Roon (Settings → Extensions); until then the request stays open.
       const reg = await new Promise<MooMessage>((resolve, reject) =>
@@ -361,6 +370,7 @@ export class RoonLink {
           true,
         ),
       );
+      clearTimeout(approvalHint);
       if (gen !== this.gen) return;
       const r = reg.body as { core_id: string; token?: string };
       if (r.token && this.settings.tokens[r.core_id] !== r.token) {

@@ -34,7 +34,7 @@ export interface AppOptions {
   learned?: LearnedStore;
   /** Playback-check timing; tests shorten it. */
   timing?: { quick: WatchTiming; major: WatchTiming };
-  /** Live playback-speed window (default 8 s). */
+  /** Live playback-speed window (default 30 s). */
   speedWindowMs?: number;
   /** Optional Roon link. Default: off, in memory only. */
   roon?: RoonLink;

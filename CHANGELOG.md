@@ -41,8 +41,14 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 - **Stop only** when HQPlayer is playing from Roon and the Roon link isn't set up
   (play and next sent to HQPlayer don't reach Roon).
 - **Settings tabs:** General and Roon.
-- **"Keeping up"** in the Now card: playback speed against real time, green, yellow
-  or red.
+- **"Keeping up"** in the Now card: "Real-time ✓", "Struggling" (below 0.97× for
+  15 s) or "Falling behind" (below 0.90×), from a 30 s least-squares fit of
+  HQPlayer's position; the exact figure is in the tooltip. (Measured: a two-point
+  8 s difference swung 0.91–1.07 during normal playback; the fit stayed 0.99–1.00.)
+- **Layout:** wordmark and status dot beside the instance name (tooltip: response
+  time, or since when it's been unreachable); volume on the Now card; then 1x
+  filter, Nx filter, dither/modulator and presets in one card, above the fold on a
+  phone. Presets are one row that opens a sheet (apply, save, edit).
 - **Track position** from HQPlayer itself (read-only), with the length when
   HQPlayer knows it (files; a Roon stream reports none).
 - **Library (server side only for now):** the API can list HQPlayer's own library

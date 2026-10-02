@@ -44,12 +44,39 @@
   let volDraft = $state<number | null>(null);
   let settings: Settings;
   /** Consecutive status readings with playback below 0.9× real time. */
-  let behind = $state(0);
   // Local, so a re-render can't snap it shut; Settings only sets the starting state.
   let advancedOpen = $state(prefs.advancedOpen);
-  // Speed vs real time, from Status position over ~8 s: no access to the machine needed.
+  // Speed vs real time: the server fits Status position over 30 s (no access to
+  // the machine needed). Shown as a state, not a number: amber only after 15 s
+  // below 0.97, red below 0.90. The number is in the tooltip.
   const speed = $derived(snap?.health?.speed ?? null);
-  const speedClass = $derived(speed == null ? "" : speed >= 0.98 ? "ok" : speed >= 0.9 ? "warn" : "bad");
+  let slowSince = $state<number | null>(null);
+  $effect(() => {
+    const low = speed != null && speed < 0.97;
+    untrack(() => {
+      if (!low) slowSince = null;
+      else if (slowSince === null) slowSince = Date.now();
+    });
+  });
+  const speedClass = $derived(
+    speed == null ? "" : speed < 0.9 ? "bad" : slowSince !== null && (snap ? Date.now() : 0) - slowSince >= 15_000 ? "warn" : "ok",
+  );
+  const SPEED_LABEL: Record<string, string> = { ok: "Real-time ✓", warn: "Struggling", bad: "Falling behind" };
+  const speedTitle = $derived(
+    speed == null
+      ? "Shown while playing, after about 30 s of a track."
+      : `HQPlayer is processing at ${speed.toFixed(3)}× real time over the last 30 s. Below 1.0 it can't keep up and audio will drop. Brief dips during a change are normal.`,
+  );
+  let offlineSince = $state<Date | null>(null);
+  const dotTitle = $derived(
+    online === "unreachable"
+      ? `Not responding${offlineSince ? ` since ${offlineSince.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}: ${offlineReason}`
+      : online === "live"
+        ? `Responding — ${snap?.health?.latencyMs ?? "?"} ms${slow ? " (slow)" : ""}`
+        : online === "lost"
+          ? "Lost connection to the app's server"
+          : "Connecting…",
+  );
   const slow = $derived((snap?.health?.latencyMs ?? 0) > 1500);
 
   /** Load the instance list; keep the selection if it still exists. */
@@ -92,8 +119,7 @@
     es.addEventListener("now", (e) => {
       snap = JSON.parse((e as MessageEvent).data);
       online = "live";
-      const sp = snap?.health?.speed;
-      behind = sp != null && sp < 0.9 ? behind + 1 : 0;
+      offlineSince = null;
     });
     // Only sent when Roon is switched on in Settings.
     es.addEventListener("roon", (e) => {
@@ -103,6 +129,7 @@
       seekBase = seek != null ? { seek, at: Date.now() } : null;
     });
     es.addEventListener("unreachable", (e) => {
+      if (online !== "unreachable") offlineSince = new Date();
       online = "unreachable";
       offlineReason = JSON.parse((e as MessageEvent).data).error;
     });
@@ -357,18 +384,18 @@
 
 <main>
   <header class="top">
-    {#if instances.length > 1}
-      <select bind:value={selected} aria-label="Instance">
-        {#each instances as i (i.id)}<option value={i.id}>{optionLabel(i)}</option>{/each}
-      </select>
-    {:else}
-      <h1>{instances[0] ? optionLabel(instances[0]) : "No instances"}</h1>
-    {/if}
-    <span
-      class="dot {online}"
-      class:slow={online === "live" && slow}
-      title={online === "unreachable" ? offlineReason : slow ? `slow: HQPlayer took ${snap?.health?.latencyMs} ms to answer` : online}
-    ></span>
+    <span class="brand" aria-label="hqpweb"><img src="/icon-192.png" alt="" width="22" height="22" />hqpweb</span>
+    <!-- The status dot sits on the instance name it belongs to. -->
+    <div class="inst" title={dotTitle}>
+      <span class="dot {online}" class:slow={online === "live" && slow} aria-hidden="true"></span>
+      {#if instances.length > 1}
+        <select bind:value={selected} aria-label="Instance">
+          {#each instances as i (i.id)}<option value={i.id}>{optionLabel(i)}</option>{/each}
+        </select>
+      {:else}
+        <h1>{instances[0] ? optionLabel(instances[0]) : "No instances"}</h1>
+      {/if}
+    </div>
     {#if hasLibrary}
       <button class="gear" onclick={() => (message = { kind: "info", text: "Library features to come." })} aria-label="Library" title="HQPlayer library">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 4h3v16H4zM9 4h3v16H9zM14.2 4.6l2.9-.8 4.2 15.5-2.9.8z" /></svg>
@@ -392,9 +419,9 @@
     <p class="banner warn">No HQPlayer instances yet. Open Settings (⚙) to scan the network or add one by address.</p>
   {/if}
 
-  {#if behind >= 2 && snap?.health?.speed != null}
+  {#if speedClass === "bad" && speed != null}
     <p class="banner warn">
-      HQPlayer is falling behind real time ({snap.health.speed}×): it may be overloaded.
+      HQPlayer is falling behind real time ({speed.toFixed(2)}×): it may be overloaded.
       {#if undoAvailable}Undo the last change below, or pick a lighter filter or modulator.{:else}Try a lighter filter or modulator.{/if}
     </p>
   {/if}
@@ -494,47 +521,55 @@
         <dt>Source</dt>
         <dd>{snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}</dd>
         {#if caps}<dt>Engine</dt><dd>{caps.engine}</dd>{/if}
-        <dt title="Playback speed versus real time over the last ~8 s. Below 1× HQPlayer can't keep up.">Keeping up</dt>
-        <dd class="speed {speedClass}">{speed == null ? "—" : `${speed.toFixed(2)}×`}</dd>
+        <dt title={speedTitle}>Keeping up</dt>
+        <dd class="speed {speedClass}" title={speedTitle}>{speed == null ? "—" : SPEED_LABEL[speedClass]}</dd>
       </dl>
+      {#if caps}
+        <!-- Volume belongs with playback: compact, on the Now card. -->
+        <div class="vol">
+          <button class="round" onclick={() => step(-prefs.volumeStep)} disabled={busy} aria-label="Down {prefs.volumeStep} dB">−</button>
+          <input
+            type="range"
+            min={caps.volumeRange.min}
+            max={caps.volumeRange.max}
+            step="0.5"
+            value={vol}
+            disabled={busy || !caps.volumeRange.enabled}
+            oninput={(e) => (volDraft = Number(e.currentTarget.value))}
+            onchange={(e) => apply({ volume: Number(e.currentTarget.value) })}
+            aria-label="Volume"
+            title="{caps.volumeRange.min} to {caps.volumeRange.max} dB"
+          />
+          <button class="round" onclick={() => step(prefs.volumeStep)} disabled={busy} aria-label="Up {prefs.volumeStep} dB">+</button>
+          <output>{vol.toFixed(1)}<small> dB</small></output>
+        </div>
+        {#if vol > RECOMMENDED_MAX_VOLUME_DB}
+          <p class="vol-note">Above −3 dB: HQPlayer recommends −3 dB or lower when resampling, to avoid inter-sample overs.</p>
+        {/if}
+      {/if}
     </section>
 
-    {#if caps && selected}
-      <h2>Presets</h2>
-      <Presets
-        instanceId={selected}
-        stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}`}
-        {busy}
-        {run}
-      />
-    {/if}
-
     {#if caps}
-      <h2>Filters</h2>
-      <section class="card list">
+      <!-- Most frequent jobs, kept above the fold: 1x | Nx, then dither/modulator, then presets. -->
+      <section class="card list quick" title="1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.">
         <Picker
-          label="Nx"
-          hint={inUse === "Nx" ? "in use" : ""}
-          active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
-          items={filterItems("Nx")}
-          current={nameAt(caps.filters, snap.state.filterNx)}
-          disabled={busy}
-          onpick={(i) => apply({ filterNx: i.name })}
-        />
+            label="1x filter"
+            hint={inUse === "1x" ? "in use" : ""}
+            active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
+            items={filterItems("1x")}
+            current={nameAt(caps.filters, snap.state.filter1x)}
+            disabled={busy}
+            onpick={(i) => apply({ filter1x: i.name })}
+          />
         <Picker
-          label="1x"
-          hint={inUse === "1x" ? "in use" : ""}
-          active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
-          items={filterItems("1x")}
-          current={nameAt(caps.filters, snap.state.filter1x)}
-          disabled={busy}
-          onpick={(i) => apply({ filter1x: i.name })}
-        />
-      </section>
-      <p class="help">1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.</p>
-
-      <h2>{isSdm ? "Modulator" : "Dither"}</h2>
-      <section class="card list">
+            label="Nx filter"
+            hint={inUse === "Nx" ? "in use" : ""}
+            active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
+            items={filterItems("Nx")}
+            current={nameAt(caps.filters, snap.state.filterNx)}
+            disabled={busy}
+            onpick={(i) => apply({ filterNx: i.name })}
+          />
         <Picker
           label={isSdm ? "Modulator" : "Dither"}
           active={snap.status.state === 2 ? snap.status.activeShaper === nameAt(caps.shapers, snap.state.shaper) : null}
@@ -543,29 +578,13 @@
           disabled={busy}
           onpick={(i) => apply({ shaper: i.name })}
         />
-      </section>
-
-      <h2>Volume</h2>
-      <section class="card volume">
-        <div class="vol-row">
-          <button class="round" onclick={() => step(-prefs.volumeStep)} disabled={busy} aria-label="Down {prefs.volumeStep} dB">−</button>
-          <output>{vol.toFixed(1)}<small> dB</small></output>
-          <button class="round" onclick={() => step(prefs.volumeStep)} disabled={busy} aria-label="Up {prefs.volumeStep} dB">+</button>
-        </div>
-        <input
-          type="range"
-          min={caps.volumeRange.min}
-          max={caps.volumeRange.max}
-          step="0.5"
-          value={vol}
-          disabled={busy || !caps.volumeRange.enabled}
-          oninput={(e) => (volDraft = Number(e.currentTarget.value))}
-          onchange={(e) => apply({ volume: Number(e.currentTarget.value) })}
-          aria-label="Volume"
-        />
-        <div class="range"><span>{caps.volumeRange.min} dB</span><span>{caps.volumeRange.max} dB</span></div>
-        {#if vol > RECOMMENDED_MAX_VOLUME_DB}
-          <p class="help">Above −3 dB: HQPlayer recommends −3 dB or lower when resampling, to avoid inter-sample overs.</p>
+        {#if selected}
+          <Presets
+            instanceId={selected}
+            stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}`}
+            {busy}
+            {run}
+          />
         {/if}
       </section>
 
@@ -573,7 +592,7 @@
         <summary>Advanced</summary>
         <p class="help">These can stop playback. The app checks that playback recovers and rolls back if it doesn't.</p>
         <section class="card list">
-          <Picker
+        <Picker
             label="Mode"
             items={caps.modes}
             current={caps.mode.name}
@@ -650,8 +669,20 @@
   .top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
   .top h1 { font-size: 1.25rem; margin: 0; flex: 1; }
   .gear { background: none; border: 0; color: var(--text-dim); padding: 8px; margin: -8px -8px -8px 0; cursor: pointer; min-width: 44px; min-height: 44px; display: grid; place-items: center; }
-  .top select { flex: 1; font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elev); color: inherit; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); }
+  .top select { flex: 1; min-width: 0; width: 100%; font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elev); color: inherit; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); flex: none; }
+  .brand { display: flex; align-items: center; gap: 6px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-dim); font-size: 0.95rem; flex: none; }
+  .brand img { border-radius: 6px; }
+  .inst { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+  .quick { margin-top: 12px; }
+  .quick > :global(.row), .quick > :global(.trigger) { border-bottom: 1px solid var(--border); }
+  .quick > :global(.trigger:last-child) { border-bottom: 0; }
+  .vol { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; }
+  .vol input { flex: 1; min-width: 0; accent-color: var(--accent); }
+  .vol output { font-size: 1.05rem; font-variant-numeric: tabular-nums; font-weight: 600; min-width: 4.8rem; text-align: right; }
+  .vol output small { color: var(--text-dim); font-weight: 400; }
+  .vol .round { width: 34px; height: 34px; font-size: 1.1rem; }
+  .vol-note { flex: 1 1 100%; margin: 0; font-size: 0.8rem; color: var(--text-dim); }
   .dot.live { background: var(--ok); }
   .dot.live.slow { background: var(--warn); }
   .dot.unreachable, .dot.lost { background: var(--danger); }
@@ -698,14 +729,9 @@
   dt { color: var(--text-dim); }
   dd { margin: 0; overflow-wrap: anywhere; }
 
-  .volume { padding: 16px; }
-  .vol-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  output { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-  output small { font-size: 1rem; font-weight: 500; color: var(--text-dim); }
   .round { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); color: inherit; font-size: 1.5rem; cursor: pointer; }
   .round:disabled { opacity: 0.5; }
   input[type="range"] { width: 100%; accent-color: var(--accent-text); }
-  .range { display: flex; justify-content: space-between; color: var(--text-dim); font-size: 0.78rem; }
 
   .toggle { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; }
   .toggle:not(:last-child) { border-bottom: 1px solid var(--border); }
