@@ -39,6 +39,19 @@ whatever else drives HQPlayer, keeps doing that.
   - An undo or rollback won't raise it either if someone else changed it in the
     meantime.
 
+## Tested with
+
+| HQPlayer | Platform | Status |
+|---|---|---|
+| Desktop 5.32 | macOS (Apple Silicon) | works, including SDM / DSD1024 |
+| Desktop 5.35 | Linux (container, CUDA) | works, PCM |
+| Desktop 5.28 | Linux (VM) | reads verified; changes untested |
+| Desktop 6.x, Embedded, Windows | — | **untested**: reports welcome ([TESTING.md](TESTING.md)) |
+
+The controller itself runs in Docker on Linux (verified twice from this README on a
+fresh machine). Docker Desktop on macOS or Windows should work, but without
+discovery (no host networking); add instances by address.
+
 ## Install (Docker)
 
 You need **git** and **Docker** (with Compose), on a machine that can reach your

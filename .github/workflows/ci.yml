@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build -w apps/web
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t web-controller:ci .
+      - name: Start it and check health
+        run: |
+          docker run -d --name wc -p 4380:4380 web-controller:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4380/api/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs wc
+          exit 1
