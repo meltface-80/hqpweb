@@ -4,7 +4,7 @@
   import { onDestroy } from "svelte";
   import { api, type FoundCore, type RoonView } from "./api.ts";
 
-  let { instance }: { instance: { id: string; name: string } | null } = $props();
+  let { instances }: { instances: { id: string; name: string }[] } = $props();
 
   let view = $state<RoonView | null>(null);
   let host = $state("");
@@ -54,10 +54,9 @@
     }
   }
 
-  async function pickZone(zone: string) {
-    if (!instance) return;
+  async function pickZone(instanceId: string, zone: string) {
     try {
-      view = await api.setRoonZone(instance.id, zone || null);
+      view = await api.setRoonZone(instanceId, zone || null);
     } catch (e) {
       msg = (e as Error).message;
     }
@@ -109,17 +108,21 @@
     <p class="help">In Roon, open Settings → Extensions and enable <b>{view.extensionName}</b>.</p>
   {/if}
 
-  {#if view.status === "connected" && instance}
-    <label class="zone">
-      <span>Roon zone for {instance.name}</span>
-      <select value={view.zoneFor[instance.id] ?? ""} onchange={(e) => pickZone(e.currentTarget.value)}>
-        <option value="">None</option>
-        {#each view.zones as z (z.id)}
-          <option value={z.id}>{z.name}{z.hqplayer ? " · HQPlayer" : ""}</option>
-        {/each}
-      </select>
-    </label>
-    <p class="help">Roon doesn't say which HQPlayer a zone uses, so pick it once. Zones marked HQPlayer output through one.</p>
+  {#if view.status === "connected" && instances.length}
+    <p class="help">Which Roon zone feeds each HQPlayer? Roon doesn't say, so pick once. Zones marked HQPlayer output through one.</p>
+    {#each instances as inst (inst.id)}
+      {@const current = view.zoneFor[inst.id] ?? ""}
+      <label class="zone">
+        <span>{inst.name}</span>
+        <select value={current} onchange={(e) => pickZone(inst.id, e.currentTarget.value)}>
+          <option value="">None</option>
+          {#if current && !view.zones.some((z) => z.id === current)}<option value={current}>(zone not on this core)</option>{/if}
+          {#each view.zones as z (z.id)}
+            <option value={z.id}>{z.name}{z.hqplayer ? " · HQPlayer" : ""}</option>
+          {/each}
+        </select>
+      </label>
+    {/each}
   {/if}
 {/if}
 {#if msg}<p class="err">{msg}</p>{/if}

@@ -156,7 +156,7 @@
       </form>
       {#if instMsg}<p class={instMsg.kind === "error" ? "err" : "help"}>{instMsg.text}</p>{/if}
 
-      <RoonSettings bind:this={roon} {instance} />
+      <RoonSettings bind:this={roon} {instances} />
 
       <h4>Theme</h4>
       <div class="themes">
