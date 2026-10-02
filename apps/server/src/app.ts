@@ -202,6 +202,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
           const cur = await inst.currentSettings();
           settings = { ...cur };
           if (!body.includeVolume) delete settings.volume;
+          // "" means no matrix profile is active: nothing to restore, so leave it out.
+          if (!settings.matrixProfile) delete settings.matrixProfile;
         }
         if (!settings || Object.keys(settings).length === 0) throw new HttpError(400, "a preset needs settings or fromInstance");
         return send(res, 200, presets.create(body.name ?? "", settings));

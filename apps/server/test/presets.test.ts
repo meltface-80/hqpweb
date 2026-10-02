@@ -56,7 +56,6 @@ describe("saving presets", () => {
       filter20k: false,
       adaptive: false,
       convolution: false,
-      matrixProfile: "",
     });
   });
 
