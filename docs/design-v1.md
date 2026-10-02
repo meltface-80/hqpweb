@@ -38,12 +38,23 @@ decision still to make.
 - Convolution / matrix profile selection, where the instance has them configured.
 - Learned compatibility hints (§4.4) shared across instances.
 - HQPlayer Embedded profile switching via its own web interface (§2.4).
-- **Per-instance limits:** a profile of what this machine can sustain. Some filter,
-  modulator and rate combinations overload a given CPU or GPU, so they could be
-  marked off-limits per instance and rate. This must not be prescriptive, and
-  should ideally be learned. `Status` exposes `process_speed`, `output_fill` and
-  `input_fill` (measured: present in replies), which may show when an instance
-  can't keep up. That's inference, not yet tested.
+- **Per-instance load profile (yellow/red hints, never hard limits).** A profiling
+  harness would:
+  - pick a low sample rate and iterate filter × modulator combinations;
+  - read the load directly (host CPU) or through HQPlayer (`Status`
+    `process_speed`, `output_fill`, `input_fill`, which appear in replies but are
+    untested as load signals);
+  - run separately on the Mac and on the Linux instance, to compare the shapes;
+  - mark combinations yellow or red per instance and rate.
+
+  The harness must avoid tipping an instance into the overload described in §2.3.
+- **Longer-term watch after a change.** Overload can build over minutes (§2.3), so
+  the app should keep watching quietly after a risky change and offer a one-tap
+  revert if the instance starts falling behind.
+- **"Restart HQPlayer" button**, plus a "nuclear recover" path for an instance that
+  no longer answers. Embedded can restart through its web UI (port 8088). Desktop has
+  no restart command in the control protocol that we know of, so it would need a
+  host-side helper.
 - **Now-playing (track, artist, album art).** HQPlayer can't supply it when Roon
   drives it: Roon sends a raw stream, and `Status` metadata says only `song="Roon"`
   with sample rate and bit depth (measured on both instances). It would need the
@@ -143,9 +154,32 @@ playing. Every change was restored afterwards and diffed against a snapshot.
 | Convolution on, with no filters configured | Reply is OK, nothing changes |
 | `ConfigurationLoad` (built-in presets) | `result="Error">missing data or not authorized` |
 
-**Consequence:** no change *requires* a manual restart. What a "major" change needs is
-**verification and automatic rollback**, because some combinations are accepted and
-then cannot play.
+**Consequence:** none of the changes above needed a manual restart. What a risky
+change needs is **verification and automatic rollback**, because some combinations
+are accepted and then cannot play. Overload, below, is the exception.
+
+**Overload (measured 2026-10-02, the Linux instance: 8 allocated CPUs on a 64-core
+host, CUDA GPU present).** PCM output at 384 kHz with the 1x filter
+`poly-sinc-long-lp` and NS4:
+
+- **Onset was gradual.** CPU rose from ~5% to 30% in about 2 minutes, and to 100% of
+  all 8 CPUs about 3 minutes later. Network output to the NAA then stopped. A check
+  lasting a few seconds after a change cannot catch this.
+- **The control API degraded with it.**
+  - `GetInfo` and `State` took 4–7 s.
+  - `Status` stopped answering (no reply in 15 s).
+  - A `SetFilter` back to a light filter got no reply in 30 s and did not apply.
+  - `State` still said "playing" throughout.
+- **A pause from Roon did not register.** Only an HQPlayer restart recovered it; the
+  process exited cleanly on SIGTERM.
+- **The GPU was idle (P8, 0%), with CUDA enabled.** This filter's work ran on the CPU.
+- **Hypothesis, unverified:** with `multicore=auto`, HQPlayer ran 64 runnable threads
+  on 8 CPUs, which matches the host's physical core count rather than the
+  container's allocation.
+- **Settings after the restart (inferred from one restart):** HQPlayer came back with
+  older settings, including a louder volume (−15 dB versus −19.5 dB). Changes made
+  over the control API may not persist across a restart. Re-read everything after a
+  reconnect, and never assume a volume.
 
 ### 2.4 Built-in configurations (HQPlayer's own presets)
 
@@ -250,7 +284,21 @@ From the 6.0.1 SDK source and the release notes:
 | Class | Settings | Engine behaviour |
 |---|---|---|
 | **Quick** | Nx/1x filter, modulator/dither, invert, junk/20k filter, adaptive volume, volume | Apply, then read back |
-| **Major** | Mode, output rate | Apply, then confirm playback survived (if it was playing). **Auto-rollback** after ~5 s of no progress, with a clear message ("DSD512 isn't supported with AHM7EC8B on this instance"). |
+| **Major** | Mode, output rate | As quick, with a longer playback check |
+
+**Every change that can disturb playback is verified the same way:** mode, rate,
+filters and modulator/dither, during playback. The engine reads back, watches
+`Status`, and **rolls back automatically** if playback stops or falls behind real
+time. It records the combination as failed for that instance and engine. Volume and
+the toggles can't stop playback, so they aren't watched.
+
+**No gating (decided 2026-10-02).** The app informs; it does not refuse. Users take
+responsibility for their own changes, as with every other HQPlayer controller.
+
+- **Warnings are fine:** learned failures, and later yellow/red hints from profiling.
+- **So are automatic rollback and undo.**
+- **Two exceptions, both accepted:** the volume-raise guard, and per-instance DAC rate
+  caps in the config.
 
 The UI shows quick controls up front and puts major controls behind an "Advanced"
 section.
