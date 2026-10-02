@@ -62,7 +62,7 @@ HQPlayer on TCP port 4321, and a user that can run `docker` (root, `sudo`, or a
 member of the `docker` group).
 
 ```sh
-git clone https://github.com/statelycurmudgeon/hqplayer-web-controller.git hqpweb
+git clone https://github.com/statelycurmudgeon/hqpweb.git
 cd hqpweb
 docker compose up -d --build
 ```

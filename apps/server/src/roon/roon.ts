@@ -83,7 +83,7 @@ const EXTENSION = {
   display_version: "0.1",
   publisher: "hqpweb",
   email: "",
-  website: "https://github.com/statelycurmudgeon/hqplayer-web-controller",
+  website: "https://github.com/statelycurmudgeon/hqpweb",
 };
 const TRANSPORT = "com.roonlabs.transport:2";
 const PING = "com.roonlabs.ping:1";
