@@ -7,6 +7,15 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 
 ### Upgrade notes
 
+- **Renamed to hqpwc.** The container is now `hqpwc`, in a compose project of the
+  same name. **Before** pulling this update, stop the old one, or the new container
+  can't take the port:
+
+  ```sh
+  docker compose down
+  git pull
+  docker compose up -d --build
+  ```
 - **Settings now live in a Docker volume, not the `./config` folder.** That
   removes the `chown` step from installing. If you configured instances in
   `config/instances.json`, copy them into the volume once after updating:

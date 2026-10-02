@@ -203,7 +203,7 @@
 
       <h4>About</h4>
       <p class="help">
-        A web controller for HQPlayer, pre-alpha. Not affiliated with, endorsed by, or supported by Signalyst. HQPlayer
+        hqpwc: a web controller for HQPlayer, pre-alpha. Not affiliated with, endorsed by, or supported by Signalyst. HQPlayer
         is a trademark of its owner, used here only to identify compatible software.
       </p>
       <p class="help">Colour themes adapted from MusicD Remote by Lewis Menzies (MIT).</p>

@@ -1,4 +1,4 @@
-# Web controller for HQPlayer: one small Node process serving the API and the web app.
+# hqpwc, a web controller for HQPlayer: one small Node process serving the API and the web app.
 
 # ---- build the web app --------------------------------------------------------
 FROM node:24-slim AS build

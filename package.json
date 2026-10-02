@@ -1,9 +1,14 @@
 {
-  "name": "web-controller",
+  "name": "hqpwc",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
-  "workspaces": ["packages/*", "apps/*"],
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "fake": "node packages/fake-hqp/src/cli.ts",
     "dev:server": "node --watch apps/server/src/main.ts",

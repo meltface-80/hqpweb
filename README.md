@@ -1,6 +1,6 @@
-# HQPlayer Web Controller
+# hqpwc
 
-A small, modern web controller for Signalyst HQPlayer: pick an instance, see what it
+**A web controller for HQPlayer.** A small, modern controller for Signalyst HQPlayer: pick an instance, see what it
 is doing, and change filters, modulator/dither, volume, mode and output rate from any
 phone, tablet or browser.
 
@@ -129,6 +129,20 @@ you trust, or put an authenticating proxy in front. Never expose it to the inter
 By default Docker publishes the port on every interface of the host; see
 `BIND_ADDRESS` under Options to narrow that. With host networking, set
 `HOST=127.0.0.1` in the override file's `environment` instead.
+
+## How this was made
+
+I built hqpwc working with an AI coding assistant (Claude, from Anthropic). I
+couldn't have done it on my own. I tried hard to make it solid and secure:
+- HQPlayer's behaviour comes from measurements on real instances, written down
+  in [docs/design-v1.md](docs/design-v1.md), and the code says where something is
+  measured and where it's a guess;
+- there are automated tests, including a fake HQPlayer to test against;
+- every change that could disturb playback is checked and rolled back if it fails;
+- the code has had security reviews.
+
+It will still have rough edges. I'd love your feedback, especially where it falls
+short: open an issue (see [TESTING.md](TESTING.md)).
 
 ## Development
 

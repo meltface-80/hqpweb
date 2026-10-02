@@ -1,10 +1,14 @@
 # Quick start: `docker compose up -d --build`, then open http://<this-machine's-IP>:4380
 # Optional settings go in a .env file next to this one (see README → Options).
+# A fixed project name keeps the volume (and your settings) the same whatever folder
+# the repository was cloned into.
+name: hqpwc
+
 services:
   controller:
     build: .
-    image: web-controller:local
-    container_name: web-controller
+    image: hqpwc:local
+    container_name: hqpwc
     restart: unless-stopped
     ports:
       # BIND_ADDRESS limits which interface publishes it (e.g. 127.0.0.1 behind a local proxy).
