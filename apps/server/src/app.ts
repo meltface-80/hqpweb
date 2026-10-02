@@ -1,7 +1,7 @@
 // HTTP API on node:http, no framework.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AppConfig } from "./config.ts";
-import { HttpError, Instance, type Change } from "./instance.ts";
+import { HttpError, Instance, TRANSPORT_ACTIONS, type Change, type TransportAction } from "./instance.ts";
 import { LearnedStore } from "./learned.ts";
 import { serveStatic } from "./static.ts";
 import { Registry } from "./registry.ts";
@@ -162,6 +162,12 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     "GET capabilities": (_q, _r, i) => i.capabilities(),
     "POST change": async (q, _r, i) => i.applyChange(parseChange(await readJson(q))),
     "POST undo": (_q, _r, i) => i.undo(),
+    "POST transport": async (q, _r, i) => {
+      const body = (await readJson(q)) as { action?: unknown };
+      if (typeof body !== "object" || body === null || !TRANSPORT_ACTIONS.includes(body.action as TransportAction))
+        throw new HttpError(400, `action must be one of ${TRANSPORT_ACTIONS.join(", ")}`);
+      return i.transport(body.action as TransportAction);
+    },
     "GET learned": async (_q, _r, i) => i.learnedFailures(),
     "DELETE learned": async (_q, _r, i) => i.forgetFailures(),
     "GET events": events,

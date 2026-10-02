@@ -25,6 +25,13 @@ export const cmd = {
   matrixGetProfile: () => element("MatrixGetProfile"),
   matrixSetProfile: (name: string) => element("MatrixSetProfile", { value: name }),
 
+  // Transport (SDK source). With Roon driving, these act on HQPlayer underneath Roon.
+  play: () => element("Play", { last: 0 }),
+  pause: () => element("Pause"),
+  stop: () => element("Stop"),
+  previous: () => element("Previous"),
+  next: () => element("Next"),
+
   setMode: (i: number) => element("SetMode", { value: index(i) }),
   setRate: (i: number) => element("SetRate", { value: index(i) }),
   /** Always send both; the live harness did (unverified what omitting value1x does). */

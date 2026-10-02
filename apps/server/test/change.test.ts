@@ -392,3 +392,21 @@ describe("undo of a matrix profile change", () => {
     expect(r.results[0]).toMatchObject({ field: "matrixProfile", applied: true, actual: "" });
   });
 });
+
+describe("transport", () => {
+  const t = (action: unknown) => req("POST", "/api/instances/mac/transport", { body: { action } });
+  it("pauses, plays, stops and skips, reporting the resulting status", async () => {
+    await setup();
+    expect((await t("pause")).json().status.state).toBe(1);
+    expect((await t("play")).json().status.state).toBe(2);
+    const n = (await t("next")).json();
+    expect(n.reply).toEqual({ kind: "ok" });
+    expect(n.status.position).toBeLessThan(1);
+    expect((await t("stop")).json().status.state).toBe(0);
+  });
+  it("rejects unknown actions", async () => {
+    await setup();
+    expect((await t("eject")).status).toBe(400);
+    expect((await req("POST", "/api/instances/mac/transport", { body: {} })).status).toBe(400);
+  });
+});

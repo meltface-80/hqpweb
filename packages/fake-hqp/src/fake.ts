@@ -437,6 +437,15 @@ export class FakeHqp {
       if (this.playback === 2) this.playback = 1;
       return this.ok("Pause");
     },
+    // Inferred: Previous/Next move one track and restart the position.
+    Previous: () => {
+      this.position = 0;
+      return this.ok("Previous");
+    },
+    Next: () => {
+      this.position = 0;
+      return this.ok("Next");
+    },
     Stop: () => {
       // Inferred: an explicit Stop clears the auto-resume.
       this.stalled = false;

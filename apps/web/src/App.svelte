@@ -252,6 +252,20 @@
     if (snap) el.checked = snap.state[key];
   };
 
+  let tbusy = $state(false);
+  async function transport(action: "play" | "pause" | "previous" | "next") {
+    if (!selected) return;
+    tbusy = true;
+    try {
+      const r = await api.transport(selected, action);
+      if (snap) snap = { ...snap, status: r.status };
+    } catch (e) {
+      message = { kind: "error", text: (e as Error).message };
+    } finally {
+      tbusy = false;
+    }
+  }
+
   const applyMajor = (what: string, change: Change) => {
     const ok = confirm(
       `Change ${what}?\n\nPlayback may pause for a few seconds. If it doesn't recover, the change is rolled back automatically.`,
@@ -323,6 +337,26 @@
           <span class="mode">{snap.status.activeMode}</span>
           <span class="state s{snap.status.state}">{PLAYBACK[snap.status.state]}</span>
         </span>
+      </div>
+      <div class="transport">
+        <button class="tbtn" onclick={() => transport("previous")} disabled={tbusy} aria-label="Previous track">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 5h2v14H6zM20 5v14L9 12z" /></svg>
+        </button>
+        <button
+          class="tbtn main"
+          onclick={() => transport(snap!.status.state === 2 ? "pause" : "play")}
+          disabled={tbusy}
+          aria-label={snap.status.state === 2 ? "Pause" : "Play"}
+        >
+          {#if snap.status.state === 2}
+            <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
+          {:else}
+            <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M8 5v14l11-7z" /></svg>
+          {/if}
+        </button>
+        <button class="tbtn" onclick={() => transport("next")} disabled={tbusy} aria-label="Next track">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 5h2v14h-2zM4 5l11 7-11 7z" /></svg>
+        </button>
       </div>
       <dl class="side">
         <dt>Source</dt>
@@ -501,6 +535,10 @@
   .headline { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0 !important; }
   .sub { display: flex; align-items: center; gap: 8px; }
   .side { grid-template-columns: auto auto; text-align: right; font-size: 0.9rem; }
+  .transport { display: flex; align-items: center; gap: 6px; }
+  .tbtn { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--bg-elev-2); color: var(--text); display: grid; place-items: center; cursor: pointer; }
+  .tbtn.main { width: 52px; height: 52px; background: var(--accent); color: var(--on-accent); }
+  .tbtn:disabled { opacity: 0.5; }
   .side dd { font-variant-numeric: tabular-nums; }
   .headline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .state { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--bg-elev-2); color: var(--text-dim); align-self: center; }

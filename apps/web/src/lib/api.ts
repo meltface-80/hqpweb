@@ -125,6 +125,12 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(change),
     }),
+  transport: (id: string, action: "play" | "pause" | "stop" | "previous" | "next") =>
+    call<{ reply: unknown; status: Status }>(`/api/instances/${id}/transport`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action }),
+    }),
   undo: (id: string) => call<ApplyResult>(`/api/instances/${id}/undo`, { method: "POST" }),
   presets: (id: string) => call<PresetView[]>(`/api/instances/${id}/presets`),
   savePreset: (body: { name: string; fromInstance: string; includeVolume: boolean }) =>

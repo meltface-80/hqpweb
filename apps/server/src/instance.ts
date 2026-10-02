@@ -117,6 +117,9 @@ export interface ApplyResult {
   undoAvailable: boolean;
 }
 
+export const TRANSPORT_ACTIONS = ["play", "pause", "stop", "previous", "next"] as const;
+export type TransportAction = (typeof TRANSPORT_ACTIONS)[number];
+
 export interface PresetPreview {
   /** active = already in effect; quick/major as in design §4.2. */
   kind: "active" | "quick" | "major";
@@ -536,6 +539,20 @@ export class Instance {
 
     const major = modeSwitched || (rateIdx !== undefined && rateIdx !== before.rate);
     return { results, prev, state: after, volumeSet: volume ?? null, major, skipped: problems };
+  }
+
+  /**
+   * Transport: play, pause, stop, previous, next. When Roon drives HQPlayer these
+   * act underneath Roon, which may or may not follow. Measured: Play doesn't
+   * restart an instance stalled by an invalid combination.
+   */
+  transport(action: TransportAction): Promise<{ reply: Outcome; status: Status }> {
+    return this.exclusive(async () => {
+      const reply = await this.client.send(cmd[action]());
+      // Give the engine a moment, then report what actually happened.
+      await new Promise((r) => setTimeout(r, 300));
+      return { reply, status: await this.client.status() };
+    });
   }
 
   /** Current settings, by name: what "save current as preset" captures. */
