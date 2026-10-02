@@ -37,7 +37,7 @@ export type Status = {
   volume: number;
   source: { sampleRate: number; bits: number; channels: number } | null;
 };
-export type Snapshot = { status: Status; state: State };
+export type Snapshot = { status: Status; state: State; health?: { latencyMs: number; speed: number | null } };
 export type Failure = {
   mode: string;
   rateHz: number;

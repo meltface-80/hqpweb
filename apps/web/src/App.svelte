@@ -41,6 +41,9 @@
   let message = $state<{ kind: "ok" | "warn" | "error" | "info"; text: string } | null>(null);
   let volDraft = $state<number | null>(null);
   let settings: Settings;
+  /** Consecutive status readings with playback below 0.9× real time. */
+  let behind = $state(0);
+  const slow = $derived((snap?.health?.latencyMs ?? 0) > 1500);
 
   /** Load the instance list; keep the selection if it still exists. */
   async function refreshInstances() {
@@ -76,6 +79,8 @@
     es.addEventListener("now", (e) => {
       snap = JSON.parse((e as MessageEvent).data);
       online = "live";
+      const sp = snap?.health?.speed;
+      behind = sp != null && sp < 0.9 ? behind + 1 : 0;
     });
     es.addEventListener("unreachable", (e) => {
       online = "unreachable";
@@ -266,7 +271,11 @@
     {:else}
       <h1>{instances[0] ? optionLabel(instances[0]) : "No instances"}</h1>
     {/if}
-    <span class="dot {online}" title={online === "unreachable" ? offlineReason : online}></span>
+    <span
+      class="dot {online}"
+      class:slow={online === "live" && slow}
+      title={online === "unreachable" ? offlineReason : slow ? `slow: HQPlayer took ${snap?.health?.latencyMs} ms to answer` : online}
+    ></span>
     <button class="gear" onclick={() => settings.open()} aria-label="Settings">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
     </button>
@@ -282,6 +291,16 @@
 
   {#if instances.length === 0}
     <p class="banner warn">No HQPlayer instances yet. Open Settings (⚙) to scan the network or add one by address.</p>
+  {/if}
+
+  {#if behind >= 2 && snap?.health?.speed != null}
+    <p class="banner warn">
+      HQPlayer is falling behind real time ({snap.health.speed}×): it may be overloaded.
+      {#if undoAvailable}Undo the last change below, or pick a lighter filter or modulator.{:else}Try a lighter filter or modulator.{/if}
+    </p>
+  {/if}
+  {#if online === "live" && slow}
+    <p class="banner warn">HQPlayer is answering slowly ({snap?.health?.latencyMs} ms); it may be overloaded.</p>
   {/if}
 
   {#if online === "unreachable"}
@@ -459,6 +478,7 @@
   .top select { flex: 1; font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elev); color: inherit; }
   .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); }
   .dot.live { background: var(--ok); }
+  .dot.live.slow { background: var(--warn); }
   .dot.unreachable, .dot.lost { background: var(--danger); }
 
   .banner { padding: 10px 14px; border-radius: 10px; margin: 0 0 12px; }

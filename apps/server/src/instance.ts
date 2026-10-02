@@ -126,6 +126,13 @@ export interface PresetPreview {
   predicted?: Hint;
 }
 
+export interface StatusEvent {
+  snapshot?: Snapshot;
+  /** speed: playback rate vs real time over ~10 s (1 = keeping up); null = unknown. */
+  health?: { latencyMs: number; speed: number | null };
+  error?: string;
+}
+
 export interface Snapshot {
   status: Status;
   state: State;
@@ -169,6 +176,8 @@ export interface InstanceOptions {
   client?: HqpClient;
   learned?: LearnedStore;
   timing?: { quick: WatchTiming; major: WatchTiming };
+  /** Window for the live playback-speed health signal. Default 8 s; tests shorten it. */
+  speedWindowMs?: number;
 }
 
 export class Instance {
@@ -176,6 +185,7 @@ export class Instance {
   readonly client: HqpClient;
   private readonly learned: LearnedStore;
   private readonly timing: { quick: WatchTiming; major: WatchTiming };
+  private readonly speedWindowMs: number;
   private caps: { key: string; value: Capabilities } | null = null;
   /** Writes to one instance run one at a time. */
   private queue: Promise<unknown> = Promise.resolve();
@@ -190,6 +200,7 @@ export class Instance {
     this.client = opts.client ?? new HqpClient(cfg.host, { port: cfg.port });
     this.learned = opts.learned ?? new LearnedStore(null);
     this.timing = opts.timing ?? { quick: DEFAULT_TIMING, major: MAJOR_TIMING };
+    this.speedWindowMs = opts.speedWindowMs ?? 8000;
   }
 
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
@@ -568,38 +579,71 @@ export class Instance {
   }
 
   // ---- shared status poller (design §3: poll while someone is watching) ----
+  //
+  // Besides status, it reports health: how long Status took to answer, and how
+  // fast playback is advancing against the wall clock. Overload builds over
+  // minutes (measured, §2.3), so this runs continuously, not just after a change.
+  // When answers get slow, polling backs off so the app doesn't add load.
 
-  private listeners = new Set<(e: { snapshot?: Snapshot; error?: string }) => void>();
+  private listeners = new Set<(e: StatusEvent) => void>();
   private timer: NodeJS.Timeout | null = null;
+  private trail: { t: number; pos: number }[] = [];
 
-  subscribe(fn: (e: { snapshot?: Snapshot; error?: string }) => void, intervalMs = 1500): () => void {
+  subscribe(fn: (e: StatusEvent) => void, intervalMs = 1500): () => void {
     this.listeners.add(fn);
     if (!this.timer) {
       const tick = async () => {
-        let event: { snapshot?: Snapshot; error?: string };
+        let event: StatusEvent;
+        let next = intervalMs;
+        const t0 = Date.now();
         try {
           const [status, state] = await Promise.all([this.client.status(), this.client.state()]);
-          event = { snapshot: { status, state } };
+          const latencyMs = Date.now() - t0;
+          event = { snapshot: { status, state }, health: { latencyMs, speed: this.trackSpeed(status) } };
+          // Inferred threshold: normal replies take ~1 ms on a kept-open connection (measured).
+          if (latencyMs > 1000) next = Math.min(10_000, latencyMs * 3);
         } catch (e) {
           event = { error: (e as Error).message };
+          this.trail = [];
+          next = Math.min(10_000, intervalMs * 4);
         }
         for (const l of this.listeners) l(event);
+        if (this.listeners.size) this.timer = setTimeout(tick, next);
       };
-      void tick();
-      this.timer = setInterval(tick, intervalMs);
+      this.timer = setTimeout(tick, 0);
     }
     return () => {
       this.listeners.delete(fn);
       if (this.listeners.size === 0 && this.timer) {
-        clearInterval(this.timer);
+        clearTimeout(this.timer);
         this.timer = null;
+        this.trail = [];
       }
     };
   }
 
+  /** Playback speed over the last ~10 s; null when not playing or not enough data. */
+  private trackSpeed(status: Status): number | null {
+    const now = Date.now();
+    if (status.state !== 2) {
+      this.trail = [];
+      return null;
+    }
+    const last = this.trail[this.trail.length - 1];
+    // A backwards jump is a track change or seek: start over.
+    if (last && status.position < last.pos - 0.5) this.trail = [];
+    this.trail.push({ t: now, pos: status.position });
+    this.trail = this.trail.filter((p) => now - p.t <= this.speedWindowMs * 1.5);
+    const first = this.trail[0]!;
+    const span = (now - first.t) / 1000;
+    // Position moves in ~1 s steps (measured), so wait for a long enough window.
+    if (span * 1000 < this.speedWindowMs) return null;
+    return Math.round(((status.position - first.pos) / span) * 100) / 100;
+  }
+
   close() {
     this.client.close();
-    if (this.timer) clearInterval(this.timer);
+    if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     this.listeners.clear();
   }

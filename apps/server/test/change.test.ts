@@ -346,3 +346,40 @@ describe("convolution and matrix profiles", () => {
     expect((await change({ matrixProfile: "Anything" })).json().error).toMatch(/no matrix profiles are set up/);
   });
 });
+
+describe("live health in the status stream", () => {
+  async function events(n: number, pred: (d: any) => boolean) {
+    const ctl = new AbortController();
+    const res = await fetch(`${base}/api/instances/mac/events`, { signal: ctl.signal });
+    const reader = res.body!.getReader();
+    let text = "";
+    for (;;) {
+      text += new TextDecoder().decode((await reader.read()).value);
+      const datas = [...text.matchAll(/event: now\ndata: (.*)\n/g)].map((m) => JSON.parse(m[1]!));
+      const hit = datas.find(pred);
+      if (hit || datas.length >= n) {
+        ctl.abort();
+        return hit;
+      }
+    }
+  }
+
+  it("reports latency and real-time speed while playing", async () => {
+    fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
+    await fake.listen();
+    app = buildApp({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] }, { pollMs: 50, speedWindowMs: 400 });
+    base = await app.listen(0, "127.0.0.1");
+    const d = await events(40, (x) => x.health?.speed != null);
+    expect(d.health.latencyMs).toBeLessThan(1000);
+    expect(d.health.speed).toBeGreaterThan(0.8);
+  });
+
+  it("shows an instance falling behind (simulated overload)", async () => {
+    fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, speed: () => 0.5 });
+    await fake.listen();
+    app = buildApp({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] }, { pollMs: 50, speedWindowMs: 400 });
+    base = await app.listen(0, "127.0.0.1");
+    const d = await events(40, (x) => x.health?.speed != null);
+    expect(d.health.speed).toBeLessThan(0.7);
+  });
+});

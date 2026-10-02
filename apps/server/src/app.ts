@@ -31,6 +31,8 @@ export interface AppOptions {
   learned?: LearnedStore;
   /** Playback-check timing; tests shorten it. */
   timing?: { quick: WatchTiming; major: WatchTiming };
+  /** Live playback-speed window (default 8 s). */
+  speedWindowMs?: number;
 }
 
 const LOOPBACK = ["localhost", "127.0.0.1", "[::1]", "::1"];
@@ -130,7 +132,12 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     configDir: opts.configDir ?? null,
     discovery: opts.discovery ?? false,
     ...(opts.discoveredPort ? { discoveredPort: opts.discoveredPort } : {}),
-    makeInstance: (cfg) => new Instance(cfg, { learned, ...(opts.timing ? { timing: opts.timing } : {}) }),
+    makeInstance: (cfg) =>
+      new Instance(cfg, {
+        learned,
+        ...(opts.timing ? { timing: opts.timing } : {}),
+        ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
+      }),
   });
   const allowed = new Set([...LOOPBACK, ...(opts.allowedHosts ?? []).map((h) => h.toLowerCase())]);
 
@@ -144,7 +151,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     });
     res.write(": connected\n\n");
     const unsubscribe = inst.subscribe((e) => {
-      if (e.snapshot) res.write(`event: now\ndata: ${JSON.stringify(e.snapshot)}\n\n`);
+      if (e.snapshot) res.write(`event: now\ndata: ${JSON.stringify({ ...e.snapshot, health: e.health })}\n\n`);
       else res.write(`event: unreachable\ndata: ${JSON.stringify({ error: e.error })}\n\n`);
     }, opts.pollMs);
     req.on("close", unsubscribe);
