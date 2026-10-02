@@ -1,6 +1,7 @@
-// One TCP connection per request: simple, and what every measurement used
-// (design §2.1). HQPlayer closes idle sockets after ~156 s anyway.
-import { connect } from "node:net";
+// The first request on a new connection costs 265–606 ms; later requests on the
+// same connection take ~1 ms (measured 2026-10-02, both instances). So the client
+// keeps one connection per instance and sends requests over it one at a time.
+import { connect, type Socket } from "node:net";
 import { cmd } from "./commands.ts";
 import * as p from "./parse.ts";
 import { PROLOG, parseDocument, type Element } from "./xml.ts";
@@ -43,15 +44,118 @@ export class HqpClient {
   readonly host: string;
   readonly port: number;
   readonly timeoutMs: number;
+  /** Close our idle connection before HQPlayer closes it (~156 s, measured). */
+  readonly idleMs: number;
 
-  constructor(host: string, opts: ClientOptions = {}) {
+  private sock: Socket | null = null;
+  private buf = "";
+  private waiting: ((line: string) => void) | null = null;
+  private failWaiting: ((e: Error) => void) | null = null;
+  private queue: Promise<unknown> = Promise.resolve();
+  private idleTimer: NodeJS.Timeout | null = null;
+  /** Connections opened so far (diagnostics and tests). */
+  connections = 0;
+
+  constructor(host: string, opts: ClientOptions & { idleMs?: number } = {}) {
     this.host = host;
     this.port = opts.port ?? DEFAULT_PORT;
     this.timeoutMs = opts.timeoutMs ?? 15_000;
+    this.idleMs = opts.idleMs ?? 120_000;
   }
 
-  async request(body: string): Promise<Element> {
-    return parseDocument(await rawRequest(this.host, this.port, body, this.timeoutMs));
+  /** Send one request and parse the reply. Requests are queued, one in flight at a time. */
+  request(body: string): Promise<Element> {
+    const run = this.queue.then(() => this.exchange(body));
+    this.queue = run.catch(() => undefined);
+    return run.then(parseDocument);
+  }
+
+  private async exchange(body: string): Promise<string> {
+    const reused = this.sock !== null;
+    try {
+      return await this.once(body);
+    } catch (e) {
+      // A reused connection may have been closed by HQPlayer while idle. Retry once
+      // on a fresh one. Safe for setters too: they all carry absolute values.
+      if (reused && (e as { stale?: boolean }).stale) return this.once(body);
+      throw e;
+    }
+  }
+
+  private async once(body: string): Promise<string> {
+    const sock = await this.connected();
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    return new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.drop();
+        reject(new Error(`timeout after ${this.timeoutMs} ms waiting for ${this.host}:${this.port}`));
+      }, this.timeoutMs);
+      const done = () => {
+        clearTimeout(timer);
+        this.waiting = this.failWaiting = null;
+        this.idleTimer = setTimeout(() => this.drop(), this.idleMs);
+        this.idleTimer.unref();
+      };
+      this.waiting = (line) => {
+        done();
+        resolve(line);
+      };
+      this.failWaiting = (e) => {
+        done();
+        reject(e);
+      };
+      sock.write(PROLOG + body + "\n");
+    });
+  }
+
+  private connected(): Promise<Socket> {
+    if (this.sock) return Promise.resolve(this.sock);
+    return new Promise((resolve, reject) => {
+      const sock = connect({ host: this.host, port: this.port });
+      sock.setEncoding("utf8");
+      sock.setNoDelay(true);
+      const fail = (e: Error) => {
+        sock.destroy();
+        reject(e);
+      };
+      sock.once("error", fail);
+      sock.setTimeout(this.timeoutMs, () => fail(new Error(`timeout connecting to ${this.host}:${this.port}`)));
+      sock.once("connect", () => {
+        sock.off("error", fail);
+        sock.setTimeout(0);
+        this.connections++;
+        this.sock = sock;
+        this.buf = "";
+        sock.on("data", (d: string) => {
+          this.buf += d;
+          let nl: number;
+          while ((nl = this.buf.indexOf("\n")) >= 0) {
+            const line = this.buf.slice(0, nl);
+            this.buf = this.buf.slice(nl + 1);
+            this.waiting?.(line);
+          }
+        });
+        const lost = (e?: Error) => {
+          if (this.sock === sock) this.sock = null;
+          const err = Object.assign(e ?? new Error(`connection to ${this.host}:${this.port} closed`), { stale: true });
+          this.failWaiting?.(err);
+        };
+        sock.on("error", lost);
+        sock.on("close", () => lost());
+        resolve(sock);
+      });
+    });
+  }
+
+  private drop() {
+    this.sock?.destroy();
+    this.sock = null;
+  }
+
+  /** Close the connection. The client reconnects on the next request. */
+  close() {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.drop();
   }
 
   /** Send a command and report its outcome. An OK is NOT proof of effect: read State back. */

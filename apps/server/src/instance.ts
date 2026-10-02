@@ -282,6 +282,7 @@ export class Instance {
   }
 
   close() {
+    this.client.close();
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     this.listeners.clear();

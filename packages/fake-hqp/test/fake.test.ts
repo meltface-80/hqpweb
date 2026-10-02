@@ -164,3 +164,31 @@ describe("invalid rate/modulator combination (measured)", () => {
     expect((await c.status())).toMatchObject({ state: 2, activeRate: 22579200, activeShaper: "ASDM7EC" });
   });
 });
+
+describe("persistent client connection", () => {
+  it("reuses one connection for many requests", async () => {
+    const c = await start();
+    await c.state();
+    await Promise.all([c.status(), c.filters(), c.shapers(), c.volumeRange()]);
+    await c.send(cmd.volume(-30));
+    expect(c.connections).toBe(1);
+    expect(fake!.connections).toBe(1);
+    c.close();
+  });
+
+  it("reconnects transparently when the server closed an idle connection", async () => {
+    fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, idleTimeoutMs: 50 });
+    const { port } = await fake.listen();
+    const c = new HqpClient("127.0.0.1", { port, timeoutMs: 2000 });
+    await c.state();
+    await new Promise((r) => setTimeout(r, 150));
+    expect((await c.state()).volume).toBe(-22);
+    expect(c.connections).toBe(2);
+    c.close();
+  });
+
+  it("fails cleanly when nothing is listening", async () => {
+    const c = new HqpClient("127.0.0.1", { port: 1, timeoutMs: 1000 });
+    await expect(c.state()).rejects.toThrow();
+  });
+});

@@ -90,8 +90,12 @@ decision still to make.
 - **Volume is a float in dB.** The usable range comes from `VolumeRange` (measured:
   −60 to −3). **Never parse it as an integer.** A third-party client that did so got
   0 dB, which is full output.
-- **Socket:** an idle socket is closed after about 156 s. One connection per request
-  is simple and was used for every measurement below.
+- **Socket:** an idle socket is closed after about 156 s.
+- **Keep one connection open per instance.** The first request on a new connection
+  costs 265 ms locally and 606 ms across VLANs; later requests on the same
+  connection take about 1 ms. Measured 2026-10-02, after the §2.3 tests, which used
+  one connection per request. With a persistent connection, a volume change through
+  the app takes 0.02 s end to end instead of 3.8 s.
 
 **Measured later on 2026-10-02 (read-only, both instances):**
 

@@ -37,6 +37,8 @@ const DELAY = {
   stopRequested: 500,
   /** Inferred: resume delay once a valid rate is set again. */
   resume: 1000,
+  /** The first request on a new connection: 265 ms locally, 606 ms across VLANs (measured). */
+  firstRequest: 265,
 };
 
 type Reply = string;
@@ -425,8 +427,13 @@ export class FakeHqp {
     });
   }
 
+  /** Connections accepted so far. */
+  connections = 0;
+
   private serve(sock: Socket) {
+    this.connections++;
     this.sockets.add(sock);
+    let first = true;
     sock.setEncoding("utf8");
     sock.setTimeout(this.opts.idleTimeoutMs, () => sock.destroy());
     sock.on("close", () => this.sockets.delete(sock));
@@ -443,6 +450,10 @@ export class FakeHqp {
         buf = buf.slice(nl + 1);
         if (!line) continue;
         chain = chain.then(async () => {
+          if (first) {
+            first = false;
+            await this.sleep(DELAY.firstRequest);
+          }
           const reply = await this.handle(line);
           if (!sock.destroyed) sock.write(reply + "\n");
         });
