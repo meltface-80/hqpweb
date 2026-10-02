@@ -57,9 +57,17 @@
 
   async function scan() {
     scanning = true;
+    instMsg = null;
     try {
-      await api.discover();
+      const found = (await api.discover()).filter((i) => i.discovered);
       await onchange();
+      if (found.length === 0)
+        instMsg = {
+          kind: "error",
+          text: "Scan found no HQPlayer. Scanning needs Docker host networking and multicast on your network (see README → Discovery); add by address instead.",
+        };
+    } catch (err) {
+      instMsg = { kind: "error", text: (err as Error).message };
     } finally {
       scanning = false;
     }

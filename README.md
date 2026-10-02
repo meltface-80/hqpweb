@@ -54,17 +54,19 @@ discovery (no host networking); add instances by address.
 
 ## Install (Docker)
 
-You need **git** and **Docker** (with Compose), on a machine that can reach your
-HQPlayer on TCP port 4321.
+You need **git** and **Docker** (with Compose) on a machine that can reach your
+HQPlayer on TCP port 4321, and a user that can run `docker` (root, `sudo`, or a
+member of the `docker` group).
 
 ```sh
-git clone https://github.com/statelycurmudgeon/hqplayer-web-controller.git
-cd hqplayer-web-controller
+git clone https://github.com/statelycurmudgeon/hqplayer-web-controller.git hqpweb
+cd hqpweb
 docker compose up -d --build
 ```
 
-Open `http://<this machine's IP>:4380` and go to **Settings → Instances**: press
-**Scan now**, or add your HQPlayer by its address. That's it.
+Open `http://<this machine's IP>:4380`, go to **Settings → Instances**, and add your
+HQPlayer by its address. That's it. (**Scan now** finds instances automatically
+only with host networking; see Discovery under Options.)
 
 On a phone, "Add to Home Screen" gives you a full-screen app.
 
@@ -81,8 +83,8 @@ Your instances, presets and learned failures are kept (in a Docker volume).
 
 ### Options
 
-Put these in a `.env` file next to `docker-compose.yml` (create it if needed), then
-run `docker compose up -d`.
+Put these in a `.env` file next to `docker-compose.yml` (create it if needed). After
+changing any option, including the override file below, run `docker compose up -d`.
 
 - **Opening it by a name instead of an IP**, e.g. `http://controller.home.arpa:4380`
   or through a reverse proxy: `ALLOWED_HOSTS=controller.home.arpa` (several names
@@ -105,7 +107,9 @@ services:
 ```
 
 Multicast never crosses VLANs or routers, so instances elsewhere are always added by
-address. The container must reach each instance on TCP 4321; across VLANs that may
+address. If Scan finds nothing even on the same network, your switch or hypervisor
+bridge may be filtering multicast (IGMP snooping without a querier): add by address,
+or fix that on the network side. The container must reach each instance on TCP 4321; across VLANs that may
 need a firewall rule.
 
 **Behind a reverse proxy** (Caddy, nginx, Traefik): forward the original `Host`

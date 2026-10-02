@@ -16,12 +16,14 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
   git pull
   docker compose up -d --build
   ```
+
+  The old image can then be removed: `docker image rm web-controller:local`.
 - **Settings now live in a Docker volume, not the `./config` folder.** That
   removes the `chown` step from installing. If you configured instances in
   `config/instances.json`, copy them into the volume once after updating:
 
   ```sh
-  docker compose cp config/. controller:/config
+  docker compose cp config/instances.json controller:/config/
   docker compose restart
   ```
 
@@ -46,11 +48,6 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
   switch-only; they're set up in HQPlayer itself.
 - **Live health:** a warning when playback falls behind real time or HQPlayer
   answers slowly, and polling backs off when it does.
-
-### Data
-
-- `config/presets.json` is new (written by the app). It lives in the same `config/`
-  folder, so the existing volume and ownership cover it.
 
 ## 2026-10-02 · 413f79b
 
