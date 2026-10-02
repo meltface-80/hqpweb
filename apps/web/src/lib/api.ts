@@ -1,6 +1,17 @@
 // Thin client for the app's own HTTP API.
 
-export type Inst = { id: string; name: string };
+export type Inst = {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  source: "configured" | "discovered";
+  discovered: boolean;
+  reachable: boolean | null;
+  error?: string;
+  product?: string;
+  engine?: string;
+};
 export type Named = { index: number; name: string };
 export type State = {
   mode: number;
@@ -82,6 +93,14 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   instances: () => call<Inst[]>("/api/instances"),
+  addInstance: (body: { name: string; host: string; port?: number }) =>
+    call<{ id: string }>("/api/instances", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  removeInstance: (id: string) => call<{ ok: true }>(`/api/instances/${id}`, { method: "DELETE" }),
+  discover: () => call<Inst[]>("/api/discover", { method: "POST" }),
   capabilities: (id: string) => call<Capabilities>(`/api/instances/${id}/capabilities`),
   change: (id: string, change: Change) =>
     call<ApplyResult>(`/api/instances/${id}/change`, {

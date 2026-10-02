@@ -4,6 +4,8 @@ import type { AppConfig } from "./config.ts";
 import { HttpError, Instance, type Change } from "./instance.ts";
 import { LearnedStore } from "./learned.ts";
 import { serveStatic } from "./static.ts";
+import { Registry } from "./registry.ts";
+import type { DiscoverOptions } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
 
 export interface AppOptions {
@@ -16,6 +18,12 @@ export interface AppOptions {
   allowedHosts?: string[];
   /** Built web app to serve (production). Unset in development, where Vite serves it. */
   staticDir?: string;
+  /** Where instances added in Settings are saved; unset = in memory only. */
+  configDir?: string;
+  /** Discovery settings; false disables it (tests default to false). */
+  discovery?: DiscoverOptions | false;
+  /** Control port assumed for discovered instances (default 4321). */
+  discoveredPort?: number;
   /** Where failed combinations are remembered. Default: in memory only. */
   learned?: LearnedStore;
   /** Playback-check timing; tests shorten it. */
@@ -79,13 +87,25 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   }
 }
 
+function parseNewInstance(body: unknown): { name: string; host: string; port?: number } {
+  if (typeof body !== "object" || body === null) throw new HttpError(400, "body must be a JSON object");
+  const { name, host, port, ...rest } = body as Record<string, unknown>;
+  if (Object.keys(rest).length) throw new HttpError(400, `unknown field "${Object.keys(rest)[0]}"`);
+  if (typeof name !== "string" || typeof host !== "string") throw new HttpError(400, "name and host are required strings");
+  if (port !== undefined && !Number.isInteger(port)) throw new HttpError(400, "port must be a whole number");
+  return { name, host, ...(port !== undefined ? { port: port as number } : {}) };
+}
+
 type Handler = (req: IncomingMessage, res: ServerResponse, inst: Instance) => Promise<unknown> | void;
 
 export function buildApp(config: AppConfig, opts: AppOptions = {}) {
   const learned = opts.learned ?? new LearnedStore(null);
-  const instances = new Map(
-    config.instances.map((i) => [i.id, new Instance(i, { learned, ...(opts.timing ? { timing: opts.timing } : {}) })]),
-  );
+  const registry = new Registry(config, {
+    configDir: opts.configDir ?? null,
+    discovery: opts.discovery ?? false,
+    ...(opts.discoveredPort ? { discoveredPort: opts.discoveredPort } : {}),
+    makeInstance: (cfg) => new Instance(cfg, { learned, ...(opts.timing ? { timing: opts.timing } : {}) }),
+  });
   const allowed = new Set([...LOOPBACK, ...(opts.allowedHosts ?? []).map((h) => h.toLowerCase())]);
 
   const events: Handler = (req, res, inst) => {
@@ -129,15 +149,26 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
 
     const path = new URL(req.url ?? "/", "http://x").pathname;
     if (req.method === "GET" && path === "/api/health") return send(res, 200, { ok: true });
-    if (req.method === "GET" && path === "/api/instances")
-      return send(res, 200, config.instances.map(({ id, name }) => ({ id, name })));
+    if (path === "/api/instances") {
+      if (req.method === "GET") return send(res, 200, await registry.list());
+      if (req.method === "POST") return send(res, 200, registry.add(parseNewInstance(await readJson(req))));
+    }
+    if (req.method === "POST" && path === "/api/discover") {
+      await registry.scan();
+      return send(res, 200, await registry.list());
+    }
+    const one = /^\/api\/instances\/([^/]+)$/.exec(path);
+    if (one && req.method === "DELETE") {
+      registry.remove(decodeURIComponent(one[1]!));
+      return send(res, 200, { ok: true });
+    }
 
     const m = /^\/api\/instances\/([^/]+)\/([a-z]+)$/.exec(path);
     if (!m) {
       if (req.method === "GET" && opts.staticDir && !path.startsWith("/api/") && (await serveStatic(opts.staticDir, path, res))) return;
       throw new HttpError(404, "not found");
     }
-    const inst = instances.get(decodeURIComponent(m[1]!));
+    const inst = registry.get(decodeURIComponent(m[1]!));
     if (!inst) throw new HttpError(404, "unknown instance");
     const route = routes[`${req.method} ${m[2]}`];
     if (!route) throw new HttpError(404, "not found");
@@ -165,7 +196,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       );
     },
     async close() {
-      for (const i of instances.values()) i.close();
+      registry.close();
       server.closeAllConnections();
       await new Promise<void>((r) => server.close(() => r()));
     },

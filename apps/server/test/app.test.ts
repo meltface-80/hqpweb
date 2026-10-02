@@ -26,10 +26,11 @@ afterAll(async () => {
 });
 
 describe("api", () => {
-  it("lists instances without exposing hosts", async () => {
-    expect((await req("GET", "/api/instances")).json()).toEqual([
-      { id: "fake", name: "Fake" },
-      { id: "gone", name: "Gone" },
+  it("lists instances with reachability", async () => {
+    const list = (await req("GET", "/api/instances")).json();
+    expect(list).toEqual([
+      expect.objectContaining({ id: "fake", name: "Fake", source: "configured", reachable: true, engine: "5.35.10" }),
+      expect.objectContaining({ id: "gone", name: "Gone", source: "configured", reachable: false }),
     ]);
   });
 

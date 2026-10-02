@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export interface InstanceConfig {
@@ -23,20 +23,32 @@ export const DEV_DEFAULT: AppConfig = {
   instances: [{ id: "fake", name: "Fake (dev)", host: "127.0.0.1", port: 14321 }],
 };
 
+export const ID_PATTERN = /^[a-z0-9-]+$/;
+
 export function loadConfig(dir = process.env.CONFIG_DIR ?? "config"): AppConfig {
   const path = join(dir, "instances.json");
   let raw: string;
   try {
     raw = readFileSync(path, "utf8");
   } catch {
-    return DEV_DEFAULT;
+    // Production starts empty (discovery and Settings fill it); development
+    // starts with the fake so nothing can reach a real HQPlayer by accident.
+    return process.env.NODE_ENV === "production" ? { instances: [] } : structuredClone(DEV_DEFAULT);
   }
   const cfg = JSON.parse(raw) as AppConfig;
   const ids = new Set<string>();
   for (const i of cfg.instances) {
-    if (!/^[a-z0-9-]+$/.test(i.id)) throw new Error(`${path}: instance id "${i.id}" must be [a-z0-9-]`);
+    if (!ID_PATTERN.test(i.id)) throw new Error(`${path}: instance id "${i.id}" must be [a-z0-9-]`);
     if (ids.has(i.id)) throw new Error(`${path}: duplicate instance id "${i.id}"`);
     ids.add(i.id);
   }
   return cfg;
+}
+
+/** Write instances.json atomically. The app owns this file while it runs. */
+export function saveConfig(dir: string, cfg: AppConfig) {
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, "instances.json");
+  writeFileSync(`${path}.tmp`, JSON.stringify(cfg, null, 2) + "\n");
+  renameSync(`${path}.tmp`, path);
 }

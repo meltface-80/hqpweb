@@ -477,7 +477,7 @@ export class FakeHqp {
    * runs a real HQPlayer, joining its multicast group would make the fake discoverable
    * next to it. Reply shape measured.
    */
-  listenDiscovery(port: number, group = "239.192.0.199"): Promise<void> {
+  listenDiscovery(port = 0, group = "239.192.0.199"): Promise<number> {
     const udp = createSocket({ type: "udp4", reuseAddr: true });
     this.udp = udp;
     udp.on("message", (msg, rinfo) => {
@@ -496,7 +496,7 @@ export class FakeHqp {
         } catch {
           // Loopback-only setups may not support multicast; unicast still works.
         }
-        resolve();
+        resolve(udp.address().port);
       }),
     );
   }

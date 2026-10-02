@@ -15,3 +15,6 @@ config/instances.json
 __pycache__/
 config/learned.json
 config/*.tmp
+
+# Local Docker overrides (e.g. host networking for discovery).
+docker-compose.override.yml

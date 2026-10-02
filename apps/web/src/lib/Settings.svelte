@@ -1,10 +1,69 @@
 <script lang="ts">
   // Settings sheet: per-device preferences, learned failures for the selected
   // instance, and About.
-  import { api, formatRate, type Failure } from "./api.ts";
+  import { api, formatRate, type Failure, type Inst } from "./api.ts";
   import { THEMES, prefs, savePrefs, type Prefs } from "./prefs.svelte.ts";
 
-  let { instance, onforgot }: { instance: { id: string; name: string } | null; onforgot: () => void } = $props();
+  let {
+    instance,
+    instances,
+    onforgot,
+    onchange,
+  }: {
+    instance: { id: string; name: string } | null;
+    instances: Inst[];
+    onforgot: () => void;
+    onchange: () => Promise<void>;
+  } = $props();
+
+  let addName = $state("");
+  let addHost = $state("");
+  let addPort = $state(4321);
+  let instMsg = $state<{ kind: "ok" | "error"; text: string } | null>(null);
+  let scanning = $state(false);
+
+  async function addInstance(e: SubmitEvent) {
+    e.preventDefault();
+    instMsg = null;
+    try {
+      await api.addInstance({ name: addName, host: addHost, port: addPort });
+      await onchange();
+      const added = instances.find((i) => i.host === addHost.trim() && i.port === addPort);
+      instMsg =
+        added?.reachable === false
+          ? { kind: "error", text: `Added, but it doesn't answer yet (${added.error ?? "unreachable"}). Check host, port and firewall.` }
+          : { kind: "ok", text: "Added." };
+      addName = addHost = "";
+      addPort = 4321;
+    } catch (err) {
+      instMsg = { kind: "error", text: (err as Error).message };
+    }
+  }
+
+  async function remove(i: Inst) {
+    if (!confirm(`Remove ${i.name} (${i.host}:${i.port})?`)) return;
+    await api.removeInstance(i.id);
+    await onchange();
+  }
+
+  async function keep(i: Inst) {
+    try {
+      await api.addInstance({ name: i.name, host: i.host, port: i.port });
+      await onchange();
+    } catch (err) {
+      instMsg = { kind: "error", text: (err as Error).message };
+    }
+  }
+
+  async function scan() {
+    scanning = true;
+    try {
+      await api.discover();
+      await onchange();
+    } finally {
+      scanning = false;
+    }
+  }
 
   let dialog: HTMLDialogElement;
   let learned = $state<(Failure & { engine: string })[] | null>(null);
@@ -49,6 +108,43 @@
     </header>
 
     <div class="body">
+      <h4>Instances</h4>
+      <ul class="instances">
+        {#each instances as i (i.id)}
+          <li>
+            <div class="inst-main">
+              <b>{i.name}</b>
+              <small>{i.host}:{i.port}{i.engine ? ` · engine ${i.engine}` : ""}</small>
+              <small>
+                {#if i.reachable === false}<span class="bad">⚠ unreachable ({i.error})</span>
+                {:else if i.reachable}<span class="good">✓ answering</span>{/if}
+                · {i.source === "discovered" ? "found on the network" : i.discovered ? "configured · also found on the network" : "configured · not seen by discovery"}
+              </small>
+            </div>
+            {#if i.source === "configured"}
+              <button class="small" onclick={() => remove(i)}>Remove</button>
+            {:else}
+              <button class="small" onclick={() => keep(i)}>Save</button>
+            {/if}
+          </li>
+        {:else}
+          <li class="empty">No instances yet. Scan, or add one below.</li>
+        {/each}
+      </ul>
+      <p class="help">
+        Discovery only sees HQPlayer on this server's own network segment; add instances on other VLANs or subnets by
+        hand. “Not seen by discovery” is normal for those.
+      </p>
+      <button class="small" onclick={scan} disabled={scanning}>{scanning ? "Scanning…" : "Scan now"}</button>
+
+      <form class="add" onsubmit={addInstance}>
+        <input bind:value={addName} placeholder="Name, e.g. Office" required maxlength="64" aria-label="Name" />
+        <input bind:value={addHost} placeholder="Host or IP" required aria-label="Host" autocapitalize="off" autocorrect="off" spellcheck="false" />
+        <input bind:value={addPort} type="number" min="1" max="65535" aria-label="Port" class="port" />
+        <button class="small" type="submit">Add</button>
+      </form>
+      {#if instMsg}<p class={instMsg.kind === "error" ? "err" : "help"}>{instMsg.text}</p>{/if}
+
       <h4>Theme</h4>
       <div class="themes">
         {#each THEMES as t (t.id)}
@@ -152,5 +248,16 @@
   .failures li { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); }
   .failures span { overflow-wrap: anywhere; }
   .failures small { color: var(--text-dim); }
+  .instances { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .instances li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); }
+  .instances li.empty { color: var(--text-dim); }
+  .inst-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .inst-main small { color: var(--text-dim); overflow-wrap: anywhere; }
+  .good { color: var(--ok); }
+  .bad { color: var(--warn); }
+  .small { font: inherit; font-size: 0.9rem; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--accent-text); cursor: pointer; min-height: 40px; }
+  .add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .add input { flex: 1 1 8rem; min-width: 0; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
+  .add input.port { flex: 0 0 5.5rem; }
   .danger { font: inherit; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--danger); color: var(--danger); background: none; cursor: pointer; min-height: 44px; }
 </style>

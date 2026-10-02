@@ -40,14 +40,22 @@
   let volDraft = $state<number | null>(null);
   let settings: Settings;
 
-  $effect(() => {
-    api
-      .instances()
-      .then((list) => {
-        instances = list;
+  /** Load the instance list; keep the selection if it still exists. */
+  async function refreshInstances() {
+    try {
+      const list = await api.instances();
+      instances = list;
+      if (!list.some((i) => i.id === selected)) {
         selected = list.find((i) => i.id === remembered)?.id ?? list[0]?.id ?? null;
-      })
-      .catch((e) => (message = { kind: "error", text: `Can't reach the app's server: ${e.message}` }));
+      }
+    } catch (e) {
+      message = { kind: "error", text: `Can't reach the app's server: ${(e as Error).message}` };
+    }
+  }
+  $effect(() => {
+    refreshInstances();
+    const t = setInterval(refreshInstances, 30_000);
+    return () => clearInterval(t);
   });
 
   // Live status over server-sent events.
@@ -100,6 +108,9 @@
 
   const show = (field: keyof Change, v: string | number | boolean) =>
     field === "rate" ? formatRate(Number(v), caps?.mode.name ?? "") : field === "volume" ? `${v} dB` : String(v);
+
+  const optionLabel = (i: Inst) =>
+    `${i.reachable === false ? "⚠ " : ""}${i.name}${i.source === "discovered" ? " (discovered)" : ""}`;
 
   /** Has the selected filter in this slot taken? null when the slot isn't in use. */
   const takenFor = (slot: "1x" | "Nx", name: string) =>
@@ -211,10 +222,10 @@
   <header class="top">
     {#if instances.length > 1}
       <select bind:value={selected} aria-label="Instance">
-        {#each instances as i (i.id)}<option value={i.id}>{i.name}</option>{/each}
+        {#each instances as i (i.id)}<option value={i.id}>{optionLabel(i)}</option>{/each}
       </select>
     {:else}
-      <h1>{instances[0]?.name ?? "…"}</h1>
+      <h1>{instances[0] ? optionLabel(instances[0]) : "No instances"}</h1>
     {/if}
     <span class="dot {online}" title={online === "unreachable" ? offlineReason : online}></span>
     <button class="gear" onclick={() => settings.open()} aria-label="Settings">
@@ -225,8 +236,14 @@
   <Settings
     bind:this={settings}
     instance={instances.find((i) => i.id === selected) ?? null}
+    {instances}
+    onchange={refreshInstances}
     onforgot={() => selected && api.capabilities(selected).then((c) => (caps = c))}
   />
+
+  {#if instances.length === 0}
+    <p class="banner warn">No HQPlayer instances yet. Open Settings (⚙) to scan the network or add one by address.</p>
+  {/if}
 
   {#if online === "unreachable"}
     <p class="banner error">HQPlayer unreachable: {offlineReason}</p>

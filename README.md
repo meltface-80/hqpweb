@@ -111,8 +111,23 @@ Your `config/` folder is kept.
 
 - **Reachability.** The container must reach every instance on TCP 4321. Across
   VLANs or subnets you may need a firewall rule.
-- **No automatic discovery yet.** Every instance goes in `instances.json`.
-  (HQPlayer's discovery uses UDP multicast, which doesn't cross VLANs anyway.)
+- **Discovery** finds HQPlayer instances on the same network segment, using UDP
+  multicast. Multicast doesn't cross VLANs or routers, so add other instances by hand
+  in Settings, or in `instances.json`. In Docker, discovery needs **host
+  networking** (Linux only). Create `docker-compose.override.yml` next to
+  `docker-compose.yml`:
+
+  ```yaml
+  services:
+    controller:
+      network_mode: host
+      ports: !reset []
+  ```
+
+  Then run `docker compose up -d`. The app is then on port 8787 of the host itself.
+  Without host networking everything else works: you add instances by hand.
+- **Instances added in Settings** are saved to `config/instances.json`. Stop the
+  container before editing that file by hand.
 - **Behind a reverse proxy** (Caddy, nginx, Traefik):
   - forward the original `Host` header, which most do by default, and list that
     name in `ALLOWED_HOSTS`;

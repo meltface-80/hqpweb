@@ -23,7 +23,12 @@ try {
 const learned = new LearnedStore(join(configDir, "learned.json"));
 // Set in the container image; in development Vite serves the web app instead.
 const staticDir = process.env.STATIC_DIR || undefined;
-const app = buildApp(config, { allowedHosts, learned, ...(staticDir ? { staticDir } : {}) });
+// Discovery is UDP multicast: in Docker it needs host networking to see the LAN.
+// DISCOVERY=off disables it; DISCOVERY_TARGET=host:port probes one address (dev).
+const target = process.env.DISCOVERY_TARGET?.match(/^(.+):(\d+)$/);
+const discovery =
+  process.env.DISCOVERY === "off" ? (false as const) : target ? { target: { address: target[1]!, port: Number(target[2]) } } : {};
+const app = buildApp(config, { allowedHosts, learned, configDir, discovery, ...(staticDir ? { staticDir } : {}) });
 const url = await app.listen(port, host);
 console.error(`api on ${url} — instances: ${config.instances.map((i) => `${i.id}=${i.host}:${i.port}`).join(", ")}`);
 if (allowedHosts.length) console.error(`also answering to: ${allowedHosts.join(", ")}`);
