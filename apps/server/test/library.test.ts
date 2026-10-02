@@ -75,3 +75,29 @@ describe("library", () => {
     expect((await req("POST", "/api/instances/lx/library/play", { body: { album: "zz" } })).status).toBe(404);
   });
 });
+
+describe("cover art hardening", () => {
+  async function withPictures(pictures: Record<string, { type: string; data: Buffer }>) {
+    fake = new FakeHqp(loadProfile("desktop5-linux-pcm"), { timeScale: 0, pictures });
+    await fake.listen();
+    app = buildApp({ instances: [{ id: "lx", name: "Linux", host: "127.0.0.1", port: fake.port }] });
+    req = client(await app.listen(0, "127.0.0.1"));
+  }
+
+  it("serves real image types as images, with nosniff and a locked-down CSP", async () => {
+    await withPictures({ a1: { type: "image/png", data: Buffer.from("PNGDATA") } });
+    const r = await req("GET", "/api/instances/lx/library/art/a1");
+    expect(r.status).toBe(200);
+    expect(r.headers["content-type"]).toBe("image/png");
+    expect(r.headers["x-content-type-options"]).toBe("nosniff");
+    expect(r.headers["content-security-policy"]).toBe("default-src 'none'");
+    expect(r.text()).toBe("PNGDATA");
+  });
+
+  it("never serves a tag-supplied type like text/html as a document", async () => {
+    await withPictures({ a1: { type: "text/html", data: Buffer.from("<script>alert(1)</script>") } });
+    const r = await req("GET", "/api/instances/lx/library/art/a1");
+    expect(r.headers["content-type"]).toBe("application/octet-stream");
+    expect(r.headers["x-content-type-options"]).toBe("nosniff");
+  });
+});

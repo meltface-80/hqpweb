@@ -297,7 +297,15 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       if (req.method === "GET" && lm[2] === "art") {
         const pic = await inst.picture(decodeURIComponent(lm[3]!));
         if (!pic) throw new HttpError(404, "no cover art");
-        res.writeHead(200, { "content-type": pic.type, "cache-control": "max-age=86400" });
+        // HQPlayer's type string may come from a music file's tags: only ever serve
+        // it as an image, never sniffed, never as a document that can run script.
+        const type = /^image\/(jpeg|png|gif|webp|bmp)$/i.test(pic.type) ? pic.type : "application/octet-stream";
+        res.writeHead(200, {
+          "content-type": type,
+          "cache-control": "max-age=86400",
+          "x-content-type-options": "nosniff",
+          "content-security-policy": "default-src 'none'",
+        });
         return res.end(pic.data);
       }
       if (req.method === "POST" && lm[4] === "play") {

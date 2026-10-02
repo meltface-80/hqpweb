@@ -28,6 +28,8 @@ export interface FakeOptions {
   convolutionConfigured?: boolean;
   /** Synthetic library for LibraryGet. Default: a few invented albums. */
   library?: FakeAlbum[];
+  /** Cover art by album hash (type as HQPlayer would report it). Default: none. */
+  pictures?: Record<string, { type: string; data: Buffer }>;
   log?: (line: string) => void;
 }
 
@@ -117,6 +119,7 @@ export class FakeHqp {
       matrixProfiles: opts.matrixProfiles ?? [],
       convolutionConfigured: opts.convolutionConfigured ?? false,
       library: opts.library ?? DEFAULT_LIBRARY,
+      pictures: opts.pictures ?? {},
       log: opts.log,
     };
     const i = profile.initial;
@@ -483,7 +486,12 @@ export class FakeHqp {
           .join(""),
       ),
     // Inferred: no extracted covers (measured: none on the Mac's library).
-    LibraryPicture: () => this.doc("LibraryPicture", { size: 0 }),
+    LibraryPicture: (req) => {
+      const pic = this.opts.pictures?.[req.attrs.hash ?? ""];
+      if (!pic) return this.doc("LibraryPicture", { size: 0 });
+      // Real replies: the XML line, then `size` raw bytes (SDK source).
+      return this.doc("LibraryPicture", { size: pic.data.length, type: pic.type }) + "\n" + pic.data.toString("latin1");
+    },
     // SDK: only sent with a session key; we expect refusal like ConfigurationLoad (inferred).
     LibraryLoad: () => this.doc("LibraryLoad", { result: "Error" }, "missing data or not authorized"),
     // Inferred: plain PlaylistAdd is accepted (untested on a real instance).
