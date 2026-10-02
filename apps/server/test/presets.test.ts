@@ -212,3 +212,16 @@ describe("mode-bound settings", () => {
     expect(linux.rateIndex).toBe(0); // untouched
   });
 });
+
+describe("update from current", () => {
+  it("replaces a preset's settings with the instance's current ones, keeping its volume choice", async () => {
+    await setup();
+    const p = (await save({ name: "Mine", fromInstance: "mac" })).json();
+    await req("POST", "/api/instances/mac/change", { body: { filter1x: "poly-sinc-gauss-long" } });
+    const u = (await req("PATCH", `/api/presets/${p.id}`, { body: { fromInstance: "mac" } })).json();
+    expect(u.settings.filter1x).toBe("poly-sinc-gauss-long");
+    expect(u.settings.volume).toBeUndefined();
+    const [pv] = await previews("mac");
+    expect(pv.preview.kind).toBe("active");
+  });
+});

@@ -9,7 +9,8 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 
 - **Presets:** saved from an instance's current settings (volume opt-in), shared
   across instances, previewed per instance, and applied with read-back and
-  rollback. Settings an instance can't take are skipped and listed.
+  rollback. Settings an instance can't take are skipped and listed. "Update" re-saves
+  a preset from the current settings.
 - **Convolution on/off and matrix profile selection** (Advanced). Both are
   switch-only; they're set up in HQPlayer itself.
 - **Live health:** a warning when playback falls behind real time or HQPlayer

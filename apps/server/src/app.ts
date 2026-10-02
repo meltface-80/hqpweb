@@ -104,7 +104,6 @@ function parsePresetBody(
   if (name !== undefined && typeof name !== "string") throw new HttpError(400, "name must be a string");
   if (!patch && name === undefined) throw new HttpError(400, "name is required");
   if (fromInstance !== undefined && typeof fromInstance !== "string") throw new HttpError(400, "fromInstance must be an instance id");
-  if (patch && fromInstance !== undefined) throw new HttpError(400, "fromInstance is only for creating");
   if (includeVolume !== undefined && typeof includeVolume !== "boolean") throw new HttpError(400, "includeVolume must be a boolean");
   return {
     ...(name !== undefined ? { name: name as string } : {}),
@@ -168,6 +167,17 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     "GET events": events,
   };
 
+  /** An instance's current settings, by name, as preset settings. */
+  async function captureFrom(instanceId: string, includeVolume: boolean): Promise<Change> {
+    const inst = registry.get(instanceId);
+    if (!inst) throw new HttpError(404, "unknown instance");
+    const settings: Change = { ...(await inst.currentSettings()) };
+    if (!includeVolume) delete settings.volume;
+    // "" means no matrix profile is active: nothing to restore, so leave it out.
+    if (!settings.matrixProfile) delete settings.matrixProfile;
+    return settings;
+  }
+
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const host = hostnameOf(req.headers.host ?? "");
     if (!allowed.has(host)) throw new HttpError(403, `host "${host}" not allowed; add it to ALLOWED_HOSTS`);
@@ -196,15 +206,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       if (req.method === "POST") {
         const body = parsePresetBody(await readJson(req));
         let settings = body.settings;
-        if (body.fromInstance) {
-          const inst = registry.get(body.fromInstance);
-          if (!inst) throw new HttpError(404, "unknown instance");
-          const cur = await inst.currentSettings();
-          settings = { ...cur };
-          if (!body.includeVolume) delete settings.volume;
-          // "" means no matrix profile is active: nothing to restore, so leave it out.
-          if (!settings.matrixProfile) delete settings.matrixProfile;
-        }
+        if (body.fromInstance) settings = await captureFrom(body.fromInstance, body.includeVolume ?? false);
         if (!settings || Object.keys(settings).length === 0) throw new HttpError(400, "a preset needs settings or fromInstance");
         return send(res, 200, presets.create(body.name ?? "", settings));
       }
@@ -218,7 +220,12 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       }
       if (req.method === "PATCH") {
         const body = parsePresetBody(await readJson(req), true);
-        return send(res, 200, presets.update(id, { ...(body.name !== undefined ? { name: body.name } : {}), ...(body.settings ? { settings: body.settings } : {}) }));
+        let settings = body.settings;
+        if (body.fromInstance) {
+          // "Update from current": replace the settings with the instance's current ones.
+          settings = await captureFrom(body.fromInstance, body.includeVolume ?? presets.get(id).settings.volume !== undefined);
+        }
+        return send(res, 200, presets.update(id, { ...(body.name !== undefined ? { name: body.name } : {}), ...(settings ? { settings } : {}) }));
       }
     }
     const ipm = /^\/api\/instances\/([^/]+)\/presets(?:\/([^/]+)\/apply)?$/.exec(path);

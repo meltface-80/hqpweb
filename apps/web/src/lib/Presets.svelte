@@ -92,6 +92,17 @@
     }
   }
 
+  async function updateFromCurrent(p: PresetView) {
+    const vol = p.settings.volume !== undefined ? " (including volume, as before)" : "";
+    if (!confirm(`Replace "${p.name}" with this instance's current settings${vol}?`)) return;
+    try {
+      await api.updatePresetFromCurrent(p.id, instanceId);
+    } catch (err) {
+      error = (err as Error).message;
+    }
+    await load();
+  }
+
   async function remove(p: PresetView) {
     if (!confirm(`Delete preset "${p.name}"? Presets are shared by all instances.`)) return;
     try {
@@ -127,6 +138,7 @@
         {#if managing}
           <span class="manage">
             <button class="small" onclick={() => rename(p)}>Rename</button>
+            <button class="small" onclick={() => updateFromCurrent(p)} disabled={p.preview.kind === "active"}>Update</button>
             <button class="small danger" onclick={() => remove(p)}>Delete</button>
           </span>
         {/if}

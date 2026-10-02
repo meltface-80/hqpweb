@@ -131,6 +131,8 @@ export const api = {
     call<Preset>("/api/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
   renamePreset: (pid: string, name: string) =>
     call<Preset>(`/api/presets/${pid}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) }),
+  updatePresetFromCurrent: (pid: string, fromInstance: string) =>
+    call<Preset>(`/api/presets/${pid}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ fromInstance }) }),
   deletePreset: (pid: string) => call<{ ok: true }>(`/api/presets/${pid}`, { method: "DELETE" }),
   applyPreset: (id: string, pid: string) => call<ApplyResult>(`/api/instances/${id}/presets/${pid}/apply`, { method: "POST" }),
   learned: (id: string) => call<(Failure & { engine: string })[]>(`/api/instances/${id}/learned`),
