@@ -7,6 +7,7 @@
     items,
     current,
     hint = "",
+    active = null,
     disabled = false,
     onpick,
   }: {
@@ -14,6 +15,8 @@
     items: Item[];
     current: string;
     hint?: string;
+    /** true: HQPlayer reports this selection active; false: it doesn't; null: not applicable. */
+    active?: boolean | null;
     disabled?: boolean;
     onpick: (item: Item) => void;
   } = $props();
@@ -41,7 +44,10 @@
 
 <button class="row" onclick={open} {disabled}>
   <span class="label">{label}{#if hint}<span class="hint">{hint}</span>{/if}</span>
-  <span class="value">{current || "—"}</span>
+  <span class="value">
+    {#if active === true}<span class="taken" title="Active in HQPlayer">✓</span>{:else if active === false}<span class="not-taken" title="HQPlayer reports a different one active">⚠</span>{/if}
+    {current || "—"}
+  </span>
   <span class="chev" aria-hidden="true">›</span>
 </button>
 
@@ -99,6 +105,8 @@
   }
   .value { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
   .chev { color: var(--text-dim); font-size: 1.3rem; line-height: 1; }
+  .taken { color: var(--ok); font-weight: 700; margin-right: 4px; }
+  .not-taken { color: var(--warn); margin-right: 4px; }
 
   dialog {
     padding: 0;

@@ -101,6 +101,10 @@
   const show = (field: keyof Change, v: string | number | boolean) =>
     field === "rate" ? formatRate(Number(v), caps?.mode.name ?? "") : field === "volume" ? `${v} dB` : String(v);
 
+  /** Has the selected filter in this slot taken? null when the slot isn't in use. */
+  const takenFor = (slot: "1x" | "Nx", name: string) =>
+    snap?.status.state === 2 && inUse === slot ? snap.status.activeFilter === name : null;
+
   /** The combination in use now, by name, for matching known failures. */
   const combo = $derived.by((): Combo | null => {
     if (!snap || !caps) return null;
@@ -237,18 +241,9 @@
         <span class="big">{formatRate(snap.status.activeRate, snap.status.activeMode)}</span>
         <span class="mode">{snap.status.activeMode}</span>
       </div>
-      <dl>
-        <dt>Filter</dt>
-        <dd>
-          {snap.status.activeFilter || "—"}
-          {#if inUse}<span class="pill">{inUse}</span>{/if}
-        </dd>
-        <dt>{isSdm ? "Modulator" : "Dither"}</dt>
-        <dd>{snap.status.activeShaper || "—"}</dd>
-        {#if snap.status.source}
-          <dt>Source</dt>
-          <dd>{formatRate(snap.status.source.sampleRate, "PCM")} / {snap.status.source.bits}-bit</dd>
-        {/if}
+      <dl class="side">
+        <dt>Source</dt>
+        <dd>{snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}</dd>
         {#if caps}<dt>Engine</dt><dd>{caps.engine}</dd>{/if}
       </dl>
     </section>
@@ -259,6 +254,7 @@
         <Picker
           label="Nx"
           hint={inUse === "Nx" ? "in use" : ""}
+          active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
           items={withWarn(caps.filters, "filterNx")}
           current={nameAt(caps.filters, snap.state.filterNx)}
           disabled={busy}
@@ -267,6 +263,7 @@
         <Picker
           label="1x"
           hint={inUse === "1x" ? "in use" : ""}
+          active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
           items={withWarn(caps.filters, "filter1x")}
           current={nameAt(caps.filters, snap.state.filter1x)}
           disabled={busy}
@@ -279,6 +276,7 @@
       <section class="card list">
         <Picker
           label={isSdm ? "Modulator" : "Dither"}
+          active={snap.status.state === 2 ? snap.status.activeShaper === nameAt(caps.shapers, snap.state.shaper) : null}
           items={withWarn(caps.shapers, "shaper")}
           current={nameAt(caps.shapers, snap.state.shaper)}
           disabled={busy}
@@ -374,7 +372,10 @@
   .help { color: var(--text-dim); font-size: 0.82rem; margin: 6px 4px 0; }
   .muted { color: var(--text-dim); }
 
-  .now { padding: 16px; }
+  .now { padding: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+  .headline { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 0 !important; }
+  .side { grid-template-columns: auto auto; text-align: right; font-size: 0.9rem; }
+  .side dd { font-variant-numeric: tabular-nums; }
   .headline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .state { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--bg-elev-2); color: var(--text-dim); align-self: center; }
   .state.s2 { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
@@ -384,7 +385,6 @@
   dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
   dt { color: var(--text-dim); }
   dd { margin: 0; overflow-wrap: anywhere; }
-  .pill { font-size: 0.72rem; padding: 1px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); margin-left: 4px; }
 
   .volume { padding: 16px; }
   .vol-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
