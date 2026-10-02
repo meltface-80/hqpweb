@@ -1,6 +1,7 @@
 // Combinations that failed on an instance, learned from rollbacks (design §4.4).
 // Kept per instance and engine version, because both change what works.
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { loadList } from "./jsonstore.ts";
 import { dirname } from "node:path";
 
 export interface Combo {
@@ -30,11 +31,7 @@ export class LearnedStore {
   constructor(path: string | null) {
     this.path = path;
     if (!path) return;
-    try {
-      this.failures = (JSON.parse(readFileSync(path, "utf8")) as { failures: Failure[] }).failures ?? [];
-    } catch {
-      this.failures = [];
-    }
+    this.failures = loadList<Failure>(path, "failures");
   }
 
   record(f: Failure) {

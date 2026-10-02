@@ -58,6 +58,9 @@ export interface Change {
 export type Field = keyof Change;
 
 /** Fields whose change can stop playback or overload the machine. */
+/** Settings whose meaning depends on the mode they were chosen in. */
+const MODE_BOUND = ["rate", "filterNx", "filter1x", "shaper"] as const;
+
 const RISKY: readonly Field[] = ["mode", "rate", "filterNx", "filter1x", "shaper", "convolution", "matrixProfile"];
 
 export interface RateOption extends Rate {
@@ -131,6 +134,41 @@ export interface StatusEvent {
   /** speed: playback rate vs real time over ~10 s (1 = keeping up); null = unknown. */
   health?: { latencyMs: number; speed: number | null };
   error?: string;
+}
+
+function previewOne(p: Change, caps: Capabilities, cur: Settings, status: Status): PresetPreview {
+  const fields = (Object.keys(p) as Field[]).filter((k) => p[k] !== undefined);
+  const differs = fields.filter((f) => (f === "volume" ? Math.abs(cur.volume - p.volume!) > VOLUME_EPS : cur[f] !== p[f]));
+  const switchesMode = p.mode !== undefined && p.mode !== cur.mode;
+  const kind: PresetPreview["kind"] =
+    differs.length === 0 ? "active" : switchesMode || (p.rate !== undefined && p.rate !== cur.rate) ? "major" : "quick";
+  const missing: { field: Field; reason: string }[] = [];
+  if (p.matrixProfile !== undefined && !caps.matrixProfiles.includes(p.matrixProfile))
+    missing.push({ field: "matrixProfile", reason: `matrix profile "${p.matrixProfile}" isn't set up here` });
+  if (switchesMode) {
+    if (caps.modes.some((m) => m.name === p.mode)) return { kind, differs, missing, unchecked: true };
+    missing.unshift({ field: "mode", reason: `mode "${p.mode}" is not available here` });
+    for (const f of MODE_BOUND) if (p[f] !== undefined) missing.push({ field: f, reason: `belongs to mode "${p.mode}"` });
+    return { kind, differs, missing, unchecked: false };
+  }
+  const has = (list: { name: string }[], n?: string) => n === undefined || list.some((x) => x.name === n);
+  if (!has(caps.filters, p.filterNx)) missing.push({ field: "filterNx", reason: `"${p.filterNx}" isn't available here` });
+  if (!has(caps.filters, p.filter1x)) missing.push({ field: "filter1x", reason: `"${p.filter1x}" isn't available here` });
+  if (!has(caps.shapers, p.shaper)) missing.push({ field: "shaper", reason: `"${p.shaper}" isn't available here` });
+  if (p.rate !== undefined) {
+    const opt = caps.rates.find((r) => r.rate === p.rate);
+    if (!opt) missing.push({ field: "rate", reason: `${p.rate} Hz isn't offered here` });
+    else if (!opt.allowed) missing.push({ field: "rate", reason: opt.note ?? "above this instance's limit" });
+  }
+  // Would the resulting combination play? Only knowable with a source and a fixed rate.
+  const source = status.source?.sampleRate;
+  const rate = p.rate ?? cur.rate;
+  let predicted: Hint | undefined;
+  if (source && rate) {
+    const filter = filterSlot(source) === "1x" ? (p.filter1x ?? cur.filter1x) : (p.filterNx ?? cur.filterNx);
+    predicted = predictedStop({ mode: cur.mode, filter, shaper: p.shaper ?? cur.shaper, sourceRate: source, outputRate: rate });
+  }
+  return { kind, differs, missing, unchecked: false, ...(predicted ? { predicted } : {}) };
 }
 
 export interface Snapshot {
@@ -367,6 +405,8 @@ export class Instance {
       if (!m) {
         if (!lenient) throw new HttpError(422, `mode "${change.mode}" is not available on this instance`);
         problems.push({ field: "mode", reason: `mode "${change.mode}" is not available on this instance` });
+        // Rate, filters and modulator/dither were chosen for that mode: don't apply them to this one.
+        for (const f of MODE_BOUND) if (change[f] !== undefined) problems.push({ field: f, reason: `belongs to mode "${change.mode}"` });
       } else {
         replies.set("mode", await this.client.send(cmd.setMode(m.index)));
         caps = await this.capabilities(true);
@@ -380,14 +420,15 @@ export class Instance {
     };
 
     // ---- 2. resolve everything else against the lists of the mode we're in --
+    const alreadySkipped = (f: Field) => problems.some((p) => p.field === f);
     const resolve = <T extends { index: number; name: string }>(list: T[], field: Field, name?: string) => {
-      if (name === undefined) return undefined;
+      if (name === undefined || alreadySkipped(field)) return undefined;
       const hit = list.find((x) => x.name === name);
       if (!hit) problems.push({ field, reason: `"${name}" is not available in ${caps.mode.name} on engine ${caps.engine}` });
       return hit?.index;
     };
     let rateIdx: number | undefined;
-    if (change.rate !== undefined) {
+    if (change.rate !== undefined && !alreadySkipped("rate")) {
       const opt = caps.rates.find((r) => r.rate === change.rate);
       const p = (reason: string) => problems.push({ field: "rate", reason });
       if (!caps.rateSettable) p(`rate can't be set in ${caps.mode.name} mode`);
@@ -399,7 +440,9 @@ export class Instance {
     const x1 = resolve(caps.filters, "filter1x", change.filter1x);
     const shaper = resolve(caps.shapers, "shaper", change.shaper);
     // HQPlayer accepts unknown profile names with OK (reported), so only send listed ones.
-    if (change.matrixProfile !== undefined && !caps.matrixProfiles.includes(change.matrixProfile))
+    // Undo/rollback may restore "" (no profile active); read-back verifies it took.
+    const restoringNone = isUndo && change.matrixProfile === "";
+    if (change.matrixProfile !== undefined && !restoringNone && !caps.matrixProfiles.includes(change.matrixProfile))
       problems.push({
         field: "matrixProfile",
         reason: caps.matrixProfiles.length
@@ -502,44 +545,14 @@ export class Instance {
   }
 
   /**
-   * How a preset relates to this instance right now. Names can only be checked
-   * against the current mode's lists; a preset for another mode is checked when
-   * applied.
+   * How presets relate to this instance right now, from one set of reads. Names
+   * can only be checked against the current mode's lists; a preset for another
+   * mode is checked when applied.
    */
-  async previewPreset(p: Change): Promise<PresetPreview> {
+  async previewPresets(list: Change[]): Promise<PresetPreview[]> {
     const [caps, state, status] = await Promise.all([this.capabilities(), this.client.state(), this.client.status()]);
     const cur = settingsOf(caps, state);
-    const fields = (Object.keys(p) as Field[]).filter((k) => p[k] !== undefined);
-    const differs = fields.filter((f) => (f === "volume" ? Math.abs(cur.volume - p.volume!) > VOLUME_EPS : cur[f] !== p[f]));
-    const switchesMode = p.mode !== undefined && p.mode !== cur.mode;
-    const kind: PresetPreview["kind"] =
-      differs.length === 0 ? "active" : switchesMode || (p.rate !== undefined && p.rate !== cur.rate) ? "major" : "quick";
-    if (switchesMode) {
-      const ok = caps.modes.some((m) => m.name === p.mode);
-      return { kind, differs, missing: ok ? [] : [{ field: "mode", reason: `mode "${p.mode}" is not available here` }], unchecked: ok };
-    }
-    const missing: { field: Field; reason: string }[] = [];
-    const has = (list: { name: string }[], n?: string) => n === undefined || list.some((x) => x.name === n);
-    if (!has(caps.filters, p.filterNx)) missing.push({ field: "filterNx", reason: `"${p.filterNx}" isn't available here` });
-    if (!has(caps.filters, p.filter1x)) missing.push({ field: "filter1x", reason: `"${p.filter1x}" isn't available here` });
-    if (!has(caps.shapers, p.shaper)) missing.push({ field: "shaper", reason: `"${p.shaper}" isn't available here` });
-    if (p.matrixProfile !== undefined && !caps.matrixProfiles.includes(p.matrixProfile))
-      missing.push({ field: "matrixProfile", reason: `matrix profile "${p.matrixProfile}" isn't set up here` });
-    if (p.rate !== undefined) {
-      const opt = caps.rates.find((r) => r.rate === p.rate);
-      if (!opt) missing.push({ field: "rate", reason: `${p.rate} Hz isn't offered here` });
-      else if (!opt.allowed) missing.push({ field: "rate", reason: opt.note ?? "above this instance's limit" });
-    }
-    // Would the resulting combination play? Only knowable with a source and a fixed rate.
-    const source = status.source?.sampleRate;
-    const rate = p.rate ?? cur.rate;
-    let predicted: Hint | undefined;
-    if (source && rate) {
-      const slot = filterSlot(source);
-      const filter = slot === "1x" ? (p.filter1x ?? cur.filter1x) : (p.filterNx ?? cur.filterNx);
-      predicted = predictedStop({ mode: cur.mode, filter, shaper: p.shaper ?? cur.shaper, sourceRate: source, outputRate: rate });
-    }
-    return { kind, differs, missing, unchecked: false, ...(predicted ? { predicted } : {}) };
+    return list.map((p) => previewOne(p, caps, cur, status));
   }
 
   /** Every failure learned on this instance, across engines and modes. */
@@ -588,10 +601,13 @@ export class Instance {
   private listeners = new Set<(e: StatusEvent) => void>();
   private timer: NodeJS.Timeout | null = null;
   private trail: { t: number; pos: number }[] = [];
+  /** Bumped whenever polling starts or stops, so an in-flight tick from an old chain can't restart it. */
+  private pollGen = 0;
 
   subscribe(fn: (e: StatusEvent) => void, intervalMs = 1500): () => void {
     this.listeners.add(fn);
     if (!this.timer) {
+      const gen = ++this.pollGen;
       const tick = async () => {
         let event: StatusEvent;
         let next = intervalMs;
@@ -607,6 +623,7 @@ export class Instance {
           this.trail = [];
           next = Math.min(10_000, intervalMs * 4);
         }
+        if (gen !== this.pollGen) return; // stopped (or restarted) while this tick was in flight
         for (const l of this.listeners) l(event);
         if (this.listeners.size) this.timer = setTimeout(tick, next);
       };
@@ -618,6 +635,7 @@ export class Instance {
         clearTimeout(this.timer);
         this.timer = null;
         this.trail = [];
+        this.pollGen++;
       }
     };
   }

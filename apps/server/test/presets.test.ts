@@ -110,7 +110,8 @@ describe("previews", () => {
     await save({ name: "LR", fromInstance: "mac" }); // SDM preset
     await save({ name: "Mod only", settings: { shaper: "AHM7EC8B" } });
     const [lr, mod] = await previews("linux"); // PCM-only box
-    expect(lr.preview.missing).toEqual([{ field: "mode", reason: 'mode "SDM (DSD)" is not available here' }]);
+    expect(lr.preview.missing.map((m: { field: string }) => m.field)).toEqual(["mode", "rate", "filterNx", "filter1x", "shaper"]);
+    expect(lr.preview.missing[0]).toEqual({ field: "mode", reason: 'mode "SDM (DSD)" is not available here' });
     expect(mod.preview.missing).toEqual([{ field: "shaper", reason: "\"AHM7EC8B\" isn't available here" }]);
   });
 
@@ -173,5 +174,41 @@ describe("applying", () => {
     await setup();
     expect((await apply("mac", "nope")).status).toBe(404);
     expect((await req("GET", "/api/instances/nope/presets")).status).toBe(404);
+  });
+});
+
+describe("store robustness", () => {
+  it("moves a corrupt presets.json aside instead of overwriting it", async () => {
+    const { writeFileSync, readdirSync } = await import("node:fs");
+    const dir = mkdtempSync(join(tmpdir(), "presets-"));
+    writeFileSync(join(dir, "presets.json"), '{"presets": [ {"id":"a","name":"x",} ]}'); // trailing comma
+    const store = new PresetStore(join(dir, "presets.json"));
+    expect(store.list()).toEqual([]);
+    store.create("New", { invert: true });
+    expect(readdirSync(dir).some((f) => f.startsWith("presets.json.corrupt-"))).toBe(true);
+  });
+
+  it("drops individual invalid entries and keeps the rest", async () => {
+    const { writeFileSync } = await import("node:fs");
+    const { parseChange } = await import("../src/app.ts");
+    const dir = mkdtempSync(join(tmpdir(), "presets-"));
+    writeFileSync(
+      join(dir, "presets.json"),
+      JSON.stringify({ presets: [{ id: "a", name: "Good", settings: { invert: true } }, { id: "b", name: "Bad", settings: { volume: "loud" } }] }),
+    );
+    expect(new PresetStore(join(dir, "presets.json"), parseChange).list().map((p) => p.name)).toEqual(["Good"]);
+  });
+});
+
+describe("mode-bound settings", () => {
+  it("skips a missing mode's rate/filters/modulator, and the preview says so", async () => {
+    await setup();
+    const p = (await save({ name: "LR", settings: { mode: "SDM (DSD)", rate: 22579200, filter1x: "poly-sinc-gauss-xla", shaper: "ASDM7EC", invert: true } })).json();
+    const [pv] = await previews("linux");
+    expect(pv.preview.missing.map((m: { field: string }) => m.field)).toEqual(["mode", "rate", "filter1x", "shaper"]);
+    const r = (await apply("linux", p.id)).json();
+    expect(r.results.map((x: { field: string }) => x.field)).toEqual(["invert"]);
+    expect(r.skipped.map((x: { field: string }) => x.field)).toEqual(["mode", "rate", "filter1x", "shaper"]);
+    expect(linux.rateIndex).toBe(0); // untouched
   });
 });

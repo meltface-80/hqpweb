@@ -383,3 +383,12 @@ describe("live health in the status stream", () => {
     expect(d.health.speed).toBeLessThan(0.7);
   });
 });
+
+describe("undo of a matrix profile change", () => {
+  it("restores 'no profile' (empty name) on undo", async () => {
+    await setup({ matrixProfiles: ["Headphones"] });
+    await change({ matrixProfile: "Headphones" });
+    const r = (await undo()).json();
+    expect(r.results[0]).toMatchObject({ field: "matrixProfile", applied: true, actual: "" });
+  });
+});

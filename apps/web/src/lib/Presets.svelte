@@ -24,12 +24,18 @@
   let includeVolume = $state(false);
   let managing = $state(false);
 
+  let loadSeq = 0;
   async function load() {
+    // Only the latest request may update the list (instance switches race otherwise).
+    const seq = ++loadSeq;
+    const id = instanceId;
     try {
-      presets = await api.presets(instanceId);
+      const list = await api.presets(id);
+      if (seq !== loadSeq) return;
+      presets = list;
       error = "";
     } catch (e) {
-      error = (e as Error).message;
+      if (seq === loadSeq) error = (e as Error).message;
     }
   }
   $effect(() => {
@@ -88,7 +94,11 @@
 
   async function remove(p: PresetView) {
     if (!confirm(`Delete preset "${p.name}"? Presets are shared by all instances.`)) return;
-    await api.deletePreset(p.id);
+    try {
+      await api.deletePreset(p.id);
+    } catch (err) {
+      error = (err as Error).message;
+    }
     await load();
   }
 </script>

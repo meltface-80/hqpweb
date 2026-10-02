@@ -1,4 +1,4 @@
-import { buildApp } from "./app.ts";
+import { buildApp, parseChange } from "./app.ts";
 import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "./config.ts";
@@ -30,7 +30,7 @@ const staticDir = process.env.STATIC_DIR || undefined;
 const target = process.env.DISCOVERY_TARGET?.match(/^(.+):(\d+)$/);
 const discovery =
   process.env.DISCOVERY === "off" ? (false as const) : target ? { target: { address: target[1]!, port: Number(target[2]) } } : {};
-const presets = new PresetStore(join(configDir, "presets.json"));
+const presets = new PresetStore(join(configDir, "presets.json"), parseChange);
 const app = buildApp(config, { allowedHosts, learned, presets, configDir, discovery, ...(staticDir ? { staticDir } : {}) });
 const url = await app.listen(port, host);
 console.error(`api on ${url} — instances: ${config.instances.map((i) => `${i.id}=${i.host}:${i.port}`).join(", ")}`);

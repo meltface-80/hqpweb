@@ -226,9 +226,9 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       const inst = registry.get(decodeURIComponent(ipm[1]!));
       if (!inst) throw new HttpError(404, "unknown instance");
       if (!ipm[2] && req.method === "GET") {
-        const out = [];
-        for (const p of presets.list()) out.push({ ...p, preview: await inst.previewPreset(p.settings) });
-        return send(res, 200, out);
+        const list = presets.list();
+        const previews = await inst.previewPresets(list.map((p) => p.settings));
+        return send(res, 200, list.map((p, i) => ({ ...p, preview: previews[i] })));
       }
       if (ipm[2] && req.method === "POST") return send(res, 200, await inst.applyPreset(presets.get(decodeURIComponent(ipm[2])).settings));
       throw new HttpError(404, "not found");

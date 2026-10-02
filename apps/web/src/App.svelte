@@ -246,6 +246,12 @@
     const label = risky && snap?.status.state === 2 ? "Applying and checking playback" : "Applying";
     return run(label, () => api.change(selected!, change));
   };
+  /** Apply a switch, then show what HQPlayer actually reports (it can say OK and not change). */
+  const toggle = async (el: HTMLInputElement, key: "invert" | "filter20k" | "adaptive" | "convolution") => {
+    await apply({ [key]: el.checked });
+    if (snap) el.checked = snap.state[key];
+  };
+
   const applyMajor = (what: string, change: Change) => {
     const ok = confirm(
       `Change ${what}?\n\nPlayback may pause for a few seconds. If it doesn't recover, the change is rolled back automatically.`,
@@ -329,7 +335,7 @@
       <h2>Presets</h2>
       <Presets
         instanceId={selected}
-        stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}`}
+        stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}`}
         {busy}
         {run}
       />
@@ -427,7 +433,7 @@
               role="switch"
               checked={snap.state.convolution}
               disabled={busy}
-              onchange={(e) => apply({ convolution: e.currentTarget.checked })}
+              onchange={(e) => toggle(e.currentTarget, "convolution")}
             />
           </label>
           {#if caps.matrixProfiles.length}
@@ -453,7 +459,7 @@
           {@const k = key as "invert" | "filter20k" | "adaptive"}
           <label class="toggle">
             <span>{label}</span>
-            <input type="checkbox" role="switch" checked={snap.state[k]} disabled={busy} onchange={(e) => apply({ [k]: e.currentTarget.checked })} />
+            <input type="checkbox" role="switch" checked={snap.state[k]} disabled={busy} onchange={(e) => toggle(e.currentTarget, k)} />
           </label>
         {/each}
       </section>

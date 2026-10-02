@@ -1,6 +1,7 @@
 // App-owned presets (design §4.3): named bundles of settings, stored by NAME so
 // they work across instances and modes. Global; resolved per instance at apply time.
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { loadList } from "./jsonstore.ts";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { HttpError, type Change } from "./instance.ts";
@@ -17,14 +18,20 @@ export class PresetStore {
   private presets: Preset[] = [];
   private readonly path: string | null;
 
-  /** path null = in memory only (tests). */
-  constructor(path: string | null) {
+  /**
+   * path null = in memory only (tests). `validate` checks each stored entry's
+   * settings (the same rules as a change); invalid entries are dropped and logged.
+   */
+  constructor(path: string | null, validate?: (settings: unknown) => Change) {
     this.path = path;
     if (!path) return;
-    try {
-      this.presets = (JSON.parse(readFileSync(path, "utf8")) as { presets: Preset[] }).presets ?? [];
-    } catch {
-      this.presets = [];
+    for (const p of loadList<Preset>(path, "presets")) {
+      try {
+        if (typeof p.id !== "string" || typeof p.name !== "string") throw new Error("missing id or name");
+        this.presets.push(validate ? { ...p, settings: validate(p.settings) } : p);
+      } catch (e) {
+        console.error(`ignoring invalid preset ${JSON.stringify(p?.name ?? p)} in ${path}: ${(e as Error).message}`);
+      }
     }
   }
 
