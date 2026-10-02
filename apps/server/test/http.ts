@@ -4,6 +4,7 @@ import { request as httpRequest } from "node:http";
 export interface Res {
   status: number;
   json: () => any;
+  text: () => string;
   headers: Record<string, string | string[] | undefined>;
 }
 
@@ -21,7 +22,7 @@ export function client(base: string) {
         let text = "";
         res.setEncoding("utf8");
         res.on("data", (d) => (text += d));
-        res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, json: () => JSON.parse(text) }));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, json: () => JSON.parse(text), text: () => text }));
       });
       req.on("error", reject);
       if (payload !== undefined) req.write(payload);

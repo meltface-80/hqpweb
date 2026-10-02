@@ -88,3 +88,38 @@ describe("request hardening", () => {
     expect(r.status).toBe(413);
   });
 });
+
+describe("static web app", () => {
+  it("serves index, hashed assets, SPA fallback, and refuses traversal", async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { tmpdir } = await import("node:os");
+    const dir = mkdtempSync(join(tmpdir(), "web-"));
+    mkdirSync(join(dir, "assets"));
+    writeFileSync(join(dir, "index.html"), "<!doctype html><p>app</p>");
+    writeFileSync(join(dir, "assets", "app-abc123.js"), "console.log(1)");
+    const s = buildApp({ instances: [] }, { staticDir: dir });
+    const r = client(await s.listen(0, "127.0.0.1"));
+    try {
+      const index = await r("GET", "/");
+      expect(index.status).toBe(200);
+      expect(index.headers["cache-control"]).toBe("no-cache");
+      const asset = await r("GET", "/assets/app-abc123.js");
+      expect(asset.headers["content-type"]).toMatch(/javascript/);
+      expect(asset.headers["cache-control"]).toMatch(/immutable/);
+      expect((await r("GET", "/settings")).status).toBe(200); // client-side route
+      expect((await r("GET", "/missing.js")).status).toBe(404);
+      // Dot segments are collapsed by URL parsing, so these resolve inside the web
+      // root and fall back to the app. What matters: never a file outside it.
+      for (const p of ["/../../etc/passwd", "/%2e%2e/%2e%2e/etc/passwd", "/..%2f..%2fetc%2fpasswd"]) {
+        const res = await r("GET", p);
+        expect(res.text()).not.toMatch(/root:/);
+        expect([200, 404]).toContain(res.status);
+      }
+      expect((await r("GET", "/api/nope")).status).toBe(404);
+      expect((await r("GET", "/", { headers: { host: "evil.example" } })).status).toBe(403);
+    } finally {
+      await s.close();
+    }
+  });
+});

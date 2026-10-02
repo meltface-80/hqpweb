@@ -237,9 +237,11 @@
   {#if snap}
     <section class="card now">
       <div class="headline">
-        <span class="state s{snap.status.state}">{PLAYBACK[snap.status.state]}</span>
         <span class="big">{formatRate(snap.status.activeRate, snap.status.activeMode)}</span>
-        <span class="mode">{snap.status.activeMode}</span>
+        <span class="sub">
+          <span class="mode">{snap.status.activeMode}</span>
+          <span class="state s{snap.status.state}">{PLAYBACK[snap.status.state]}</span>
+        </span>
       </div>
       <dl class="side">
         <dt>Source</dt>
@@ -373,7 +375,8 @@
   .muted { color: var(--text-dim); }
 
   .now { padding: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
-  .headline { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 0 !important; }
+  .headline { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0 !important; }
+  .sub { display: flex; align-items: center; gap: 8px; }
   .side { grid-template-columns: auto auto; text-align: right; font-size: 0.9rem; }
   .side dd { font-variant-numeric: tabular-nums; }
   .headline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }

@@ -1,4 +1,5 @@
 import { buildApp } from "./app.ts";
+import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "./config.ts";
 import { LearnedStore } from "./learned.ts";
@@ -13,8 +14,16 @@ const port = Number(process.env.PORT ?? 8787);
 const allowedHosts = (process.env.ALLOWED_HOSTS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
 const config = loadConfig();
-const learned = new LearnedStore(join(process.env.CONFIG_DIR ?? "config", "learned.json"));
-const app = buildApp(config, { allowedHosts, learned });
+const configDir = process.env.CONFIG_DIR ?? "config";
+try {
+  accessSync(configDir, constants.W_OK);
+} catch {
+  console.error(`warning: ${configDir} is not writable; learned failures won't be saved (rollback still works)`);
+}
+const learned = new LearnedStore(join(configDir, "learned.json"));
+// Set in the container image; in development Vite serves the web app instead.
+const staticDir = process.env.STATIC_DIR || undefined;
+const app = buildApp(config, { allowedHosts, learned, ...(staticDir ? { staticDir } : {}) });
 const url = await app.listen(port, host);
 console.error(`api on ${url} — instances: ${config.instances.map((i) => `${i.id}=${i.host}:${i.port}`).join(", ")}`);
 if (allowedHosts.length) console.error(`also answering to: ${allowedHosts.join(", ")}`);

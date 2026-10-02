@@ -248,7 +248,10 @@ export class Instance {
     else playback = await this.watch(timing);
 
     if (playback.kind === "stopped" || playback.kind === "struggling") {
-      await this.recordFailure(playback.detail);
+      // Never let bookkeeping (e.g. an unwritable config volume) block the rollback.
+      await this.recordFailure(playback.detail).catch((e: Error) =>
+        console.error(`could not record failed combination: ${e.message}`),
+      );
       // Roll back. Volume follows the undo rule: restored only if nobody moved it.
       this.lastSetVolume = applied.volumeSet;
       const back = await this.applyFields(applied.prev, true);

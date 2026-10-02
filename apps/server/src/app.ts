@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { AppConfig } from "./config.ts";
 import { HttpError, Instance, type Change } from "./instance.ts";
 import { LearnedStore } from "./learned.ts";
+import { serveStatic } from "./static.ts";
 import type { WatchTiming } from "./watch.ts";
 
 export interface AppOptions {
@@ -13,6 +14,8 @@ export interface AppOptions {
    * server, but the browser still sends that name in Host.
    */
   allowedHosts?: string[];
+  /** Built web app to serve (production). Unset in development, where Vite serves it. */
+  staticDir?: string;
   /** Where failed combinations are remembered. Default: in memory only. */
   learned?: LearnedStore;
   /** Playback-check timing; tests shorten it. */
@@ -130,7 +133,10 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       return send(res, 200, config.instances.map(({ id, name }) => ({ id, name })));
 
     const m = /^\/api\/instances\/([^/]+)\/([a-z]+)$/.exec(path);
-    if (!m) throw new HttpError(404, "not found");
+    if (!m) {
+      if (req.method === "GET" && opts.staticDir && !path.startsWith("/api/") && (await serveStatic(opts.staticDir, path, res))) return;
+      throw new HttpError(404, "not found");
+    }
     const inst = instances.get(decodeURIComponent(m[1]!));
     if (!inst) throw new HttpError(404, "unknown instance");
     const route = routes[`${req.method} ${m[2]}`];

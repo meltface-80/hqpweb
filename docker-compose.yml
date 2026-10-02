@@ -1,0 +1,17 @@
+# Setup: see README (config/instances.json, and ALLOWED_HOSTS in a .env file).
+services:
+  controller:
+    build: .
+    image: web-controller:local
+    container_name: web-controller
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8787}:8787"
+    environment:
+      # Set in .env (not here, so updates don't conflict): the hostname(s) you open
+      # the app at, comma-separated. Other names are refused; localhost always works.
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-}
+    volumes:
+      # instances.json (you write it) and learned.json (the app writes it).
+      # Must be writable by uid 1000 inside the container.
+      - ./config:/config

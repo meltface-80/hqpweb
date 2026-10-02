@@ -149,6 +149,18 @@ describe("rollback when playback fails", () => {
     expect((await caps()).knownBad).toEqual([]);
   });
 
+  it("still rolls back when the learned store can't be written", async () => {
+    // A path whose parent is a file: mkdir and write both fail.
+    const dir = mkdtempSync(join(tmpdir(), "learned-"));
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(join(dir, "blocker"), "");
+    await setup({}, {}, new LearnedStore(join(dir, "blocker", "learned.json")));
+    const body = (await change({ rate: 22579200 })).json();
+    expect(body.playback.kind).toBe("stopped");
+    expect(body.rolledBack.results[0]).toMatchObject({ field: "rate", actual: 0, applied: true });
+    expect(fake.playback).toBe(2);
+  });
+
   it("keeps a valid combination (ASDM7EC at DSD512)", async () => {
     await setup();
     await change({ shaper: "ASDM7EC" });
