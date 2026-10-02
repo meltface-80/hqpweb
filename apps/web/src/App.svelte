@@ -45,6 +45,11 @@
   let library: Library;
   /** Consecutive status readings with playback below 0.9× real time. */
   let behind = $state(0);
+  // Local, so a re-render can't snap it shut; Settings only sets the starting state.
+  let advancedOpen = $state(prefs.advancedOpen);
+  // Speed vs real time, from Status position over ~8 s: no access to the machine needed.
+  const speed = $derived(snap?.health?.speed ?? null);
+  const speedClass = $derived(speed == null ? "" : speed >= 0.98 ? "ok" : speed >= 0.9 ? "warn" : "bad");
   const slow = $derived((snap?.health?.latencyMs ?? 0) > 1500);
 
   /** Load the instance list; keep the selection if it still exists. */
@@ -377,6 +382,8 @@
         <dt>Source</dt>
         <dd>{snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}</dd>
         {#if caps}<dt>Engine</dt><dd>{caps.engine}</dd>{/if}
+        <dt title="Playback speed versus real time over the last ~8 s. Below 1× HQPlayer can't keep up.">Keeping up</dt>
+        <dd class="speed {speedClass}">{speed == null ? "—" : `${speed.toFixed(2)}×`}</dd>
       </dl>
     </section>
 
@@ -450,8 +457,8 @@
         {/if}
       </section>
 
-      <details class="advanced" open={prefs.advancedOpen}>
-        <summary>Advanced: mode and output rate</summary>
+      <details class="advanced" bind:open={advancedOpen}>
+        <summary>Advanced</summary>
         <p class="help">These can stop playback. The app checks that playback recovers and rolls back if it doesn't.</p>
         <section class="card list">
           <Picker
@@ -500,18 +507,19 @@
           control API can only switch them.
           {#if !caps.matrixProfiles.length}No matrix profiles are set up on this instance.{/if}
         </p>
+
+        <h2 class="sub-h">Options</h2>
+        <section class="card list">
+          {#each [["invert", "Invert polarity"], ["filter20k", "20 kHz filter"], ["adaptive", "Adaptive volume"]] as [key, label] (key)}
+            {@const k = key as "invert" | "filter20k" | "adaptive"}
+            <label class="toggle">
+              <span>{label}</span>
+              <input type="checkbox" role="switch" checked={snap.state[k]} disabled={busy} onchange={(e) => toggle(e.currentTarget, k)} />
+            </label>
+          {/each}
+        </section>
       </details>
 
-      <h2>Options</h2>
-      <section class="card list">
-        {#each [["invert", "Invert polarity"], ["filter20k", "20 kHz filter"], ["adaptive", "Adaptive volume"]] as [key, label] (key)}
-          {@const k = key as "invert" | "filter20k" | "adaptive"}
-          <label class="toggle">
-            <span>{label}</span>
-            <input type="checkbox" role="switch" checked={snap.state[k]} disabled={busy} onchange={(e) => toggle(e.currentTarget, k)} />
-          </label>
-        {/each}
-      </section>
     {/if}
   {:else if online === "connecting"}
     <p class="muted">Connecting…</p>
@@ -555,6 +563,9 @@
   .tbtn.main { width: 52px; height: 52px; background: var(--accent); color: var(--on-accent); }
   .tbtn:disabled { opacity: 0.5; }
   .side dd { font-variant-numeric: tabular-nums; }
+  .speed.ok { color: var(--ok); }
+  .speed.warn { color: var(--warn); }
+  .speed.bad { color: var(--danger); font-weight: 600; }
   .headline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .state { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--bg-elev-2); color: var(--text-dim); align-self: center; }
   .state.s2 { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
