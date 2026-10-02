@@ -176,6 +176,19 @@ host, CUDA GPU present).** PCM output at 384 kHz with the 1x filter
 - **Hypothesis, unverified:** with `multicore=auto`, HQPlayer ran 64 runnable threads
   on 8 CPUs, which matches the host's physical core count rather than the
   container's allocation.
+**Overload (measured 2026-10-02, the Mac: Desktop 5.32.5, 10-core Apple Silicon).**
+SDM, DSD1024, 44.1 kHz source, 1x `poly-sinc-gauss-xla`:
+
+- **AHM7EC8B plays normally:** about 3.1 cores, GPU near 0%, 1.0× real time.
+- **ASDM7EC overloads:** playback ran at **0.53× real time within 10 s**, while the
+  process used only about **3.8 of 10 cores**. That was audible as stuttering. The
+  limit is per-thread, not total CPU, so CPU percentage is a poor overload signal;
+  playback speed (Status position against wall clock) is the reliable one.
+- **Recovery was immediate on reverting the modulator,** twice.
+- **Practical consequence:** moving between DSD1024 + AHM7EC8B and lower rates should
+  pass through the AHM stall (recovers instantly once valid), never through ASDM7EC
+  at DSD1024.
+
 - **Settings after the restart (inferred from one restart):** HQPlayer came back with
   older settings, including a louder volume (−15 dB versus −19.5 dB). Changes made
   over the control API may not persist across a restart. Re-read everything after a
