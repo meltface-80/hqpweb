@@ -1,0 +1,7 @@
+# Local-only context for the operator's own deployment. Never commit: it names
+# real hosts and addresses.
+*.local.md
+.env
+node_modules/
+dist/
+.DS_Store
