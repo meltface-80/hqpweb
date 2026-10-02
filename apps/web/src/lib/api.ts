@@ -25,14 +25,29 @@ export type Status = {
   source: { sampleRate: number; bits: number; channels: number } | null;
 };
 export type Snapshot = { status: Status; state: State };
+export type Failure = {
+  mode: string;
+  rateHz: number;
+  filterNx: string;
+  filter1x: string;
+  shaper: string;
+  reason: string;
+  at: string;
+};
 export type Capabilities = {
   engine: string;
   mode: { index: number; name: string; value: number };
+  modes: { index: number; name: string; value: number }[];
   filters: Named[];
   shapers: Named[];
+  rates: { index: number; rate: number; allowed: boolean; note?: string }[];
+  rateSettable: boolean;
   volumeRange: { min: number; max: number; enabled: boolean };
+  knownBad: Failure[];
 };
-export type QuickChange = Partial<{
+export type Change = Partial<{
+  mode: string;
+  rate: number;
   filterNx: string;
   filter1x: string;
   shaper: string;
@@ -42,13 +57,21 @@ export type QuickChange = Partial<{
   adaptive: boolean;
 }>;
 export type FieldResult = {
-  field: keyof QuickChange;
+  field: keyof Change;
   requested: string | number | boolean;
   actual: string | number | boolean;
   applied: boolean;
   note?: string;
 };
-export type ApplyResult = { results: FieldResult[]; state: State; undoAvailable: boolean };
+export type PlaybackCheck = { kind: "playing" | "stopped" | "struggling" | "inconclusive" | "not-checked"; detail?: string };
+export type ApplyResult = {
+  class: "quick" | "major";
+  results: FieldResult[];
+  playback: PlaybackCheck;
+  rolledBack: { results: FieldResult[]; playback: PlaybackCheck } | null;
+  state: State;
+  undoAvailable: boolean;
+};
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, init);
@@ -60,8 +83,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   instances: () => call<Inst[]>("/api/instances"),
   capabilities: (id: string) => call<Capabilities>(`/api/instances/${id}/capabilities`),
-  quick: (id: string, change: QuickChange) =>
-    call<ApplyResult>(`/api/instances/${id}/quick`, {
+  change: (id: string, change: Change) =>
+    call<ApplyResult>(`/api/instances/${id}/change`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(change),
@@ -72,15 +95,17 @@ export const api = {
 
 export const PLAYBACK = ["Stopped", "Paused", "Playing", "Stopping"];
 
-/** "DSD256", "384 kHz", "1.536 MHz". */
+/** "DSD256", "384 kHz", "1.536 MHz"; 0 is "Auto". */
 export function formatRate(hz: number, modeName: string): string {
-  if (!hz) return "—";
+  if (!hz) return "Auto";
   if (modeName.startsWith("SDM") && hz % 44100 === 0) return `DSD${hz / 44100}`;
   if (hz >= 1_000_000) return `${hz / 1_000_000} MHz`;
   return `${hz / 1000} kHz`;
 }
 
-export const FIELD_LABEL: Record<keyof QuickChange, string> = {
+export const FIELD_LABEL: Record<keyof Change, string> = {
+  mode: "Mode",
+  rate: "Output rate",
   filterNx: "Nx filter",
   filter1x: "1x filter",
   shaper: "Modulator",
@@ -89,3 +114,17 @@ export const FIELD_LABEL: Record<keyof QuickChange, string> = {
   filter20k: "20 kHz filter",
   adaptive: "Adaptive volume",
 };
+
+/** Fields that make up a combination that can fail. */
+export type Combo = Pick<Failure, "mode" | "rateHz" | "filterNx" | "filter1x" | "shaper">;
+
+export function knownBad(list: Failure[], combo: Combo): Failure | undefined {
+  return list.find(
+    (f) =>
+      f.mode === combo.mode &&
+      f.rateHz === combo.rateHz &&
+      f.filterNx === combo.filterNx &&
+      f.filter1x === combo.filter1x &&
+      f.shaper === combo.shaper,
+  );
+}

@@ -6,6 +6,12 @@ export interface InstanceConfig {
   name: string;
   host: string;
   port: number;
+  /**
+   * Optional hard caps, e.g. what the DAC accepts. HQPlayer's own rate list
+   * already seems to follow the output device (inferred from two instances);
+   * these are a second line of defence. Rates above them are never offered.
+   */
+  limits?: { maxPcmRate?: number; maxDsdRate?: number };
 }
 
 export interface AppConfig {

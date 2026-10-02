@@ -13,3 +13,5 @@ tools/probe/local/
 # Real instance config (hosts, addresses). Copy config/instances.example.json.
 config/instances.json
 __pycache__/
+config/learned.json
+config/*.tmp

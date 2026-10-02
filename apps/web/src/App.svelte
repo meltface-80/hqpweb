@@ -1,16 +1,19 @@
 <script lang="ts">
-  // PoC: live "Now" card + quick changes (filters, modulator/dither, volume,
-  // toggles) + undo. Mode and rate come with the rollback engine.
+  // Live "Now" card, quick changes, Advanced (mode and rate), undo. Changes that
+  // can disturb playback are checked by the server and rolled back if they fail.
   import Picker from "./lib/Picker.svelte";
   import {
     api,
     formatRate,
     FIELD_LABEL,
     PLAYBACK,
+    knownBad,
     type ApplyResult,
     type Capabilities,
+    type Change,
+    type Combo,
     type Inst,
-    type QuickChange,
+    type PlaybackCheck,
     type Snapshot,
   } from "./lib/api.ts";
 
@@ -92,18 +95,68 @@
     return snap.state.filterInUse === snap.state.filter1x ? "1x" : "Nx";
   });
 
+  const show = (field: keyof Change, v: string | number | boolean) =>
+    field === "rate" ? formatRate(Number(v), caps?.mode.name ?? "") : field === "volume" ? `${v} dB` : String(v);
+
+  /** The combination in use now, by name, for matching known failures. */
+  const combo = $derived.by((): Combo | null => {
+    if (!snap || !caps) return null;
+    return {
+      mode: caps.mode.name,
+      rateHz: snap.status.activeRate,
+      filterNx: nameAt(caps.filters, snap.state.filterNx),
+      filter1x: nameAt(caps.filters, snap.state.filter1x),
+      shaper: nameAt(caps.shapers, snap.state.shaper),
+    };
+  });
+  /** Warning text if switching `field` to `value` gives a combination that failed here before. */
+  const warnFor = (field: keyof Combo, value: string | number) => {
+    if (!combo || !caps) return undefined;
+    const f = knownBad(caps.knownBad, { ...combo, [field]: value });
+    return f ? `failed here before at these settings (${f.reason})` : undefined;
+  };
+  const withWarn = <T extends { name: string }>(items: T[], field: "filterNx" | "filter1x" | "shaper") =>
+    items.map((i) => ({ ...i, warn: warnFor(field, i.name) }));
+  const rateItems = $derived(
+    (caps?.rates ?? []).map((r) => ({
+      index: r.index,
+      name: formatRate(r.rate, caps!.mode.name),
+      rate: r.rate,
+      disabled: !r.allowed,
+      note: r.note,
+      warn: r.rate ? warnFor("rateHz", r.rate) : undefined,
+    })),
+  );
+
   function describe(r: ApplyResult) {
+    if (r.rolledBack) {
+      const back = r.rolledBack.results.map((x) => `${FIELD_LABEL[x.field]} back to ${show(x.field, x.actual)}`).join(", ");
+      const rec: PlaybackCheck = r.rolledBack.playback;
+      const tail =
+        rec.kind === "playing" ? "Playback resumed."
+        : rec.kind === "not-checked" ? ""
+        : `Playback did not recover (${rec.detail}): HQPlayer may need a restart.`;
+      return {
+        kind: "warn" as const,
+        text: `Rolled back: ${r.playback.detail}. ${back}. ${tail} Marked as not working on this instance.`,
+      };
+    }
     const failed = r.results.filter((x) => !x.applied);
     const notes = r.results.filter((x) => x.note).map((x) => `${FIELD_LABEL[x.field]} ${x.note}`);
     if (failed.length) {
       const text = failed
-        .map((x) => `${FIELD_LABEL[x.field]}: asked for ${x.requested}, HQPlayer reports ${x.actual}`)
+        .map((x) => `${FIELD_LABEL[x.field]}: asked for ${show(x.field, x.requested)}, HQPlayer reports ${show(x.field, x.actual)}`)
         .concat(notes)
         .join(" · ");
       return { kind: "warn" as const, text };
     }
-    const text = r.results.map((x) => `${FIELD_LABEL[x.field]} → ${x.actual}${x.field === "volume" ? " dB" : ""}`);
-    return { kind: "ok" as const, text: ["✓ " + text.join(", "), ...notes].join(" · ") };
+    const text = r.results.map((x) => `${FIELD_LABEL[x.field]} → ${show(x.field, x.actual)}`);
+    const pb =
+      r.playback.kind === "playing" ? "playback OK"
+      : r.playback.kind === "not-checked" && r.playback.detail?.startsWith("nothing") ? "not playing, so not checked"
+      : r.playback.kind === "inconclusive" ? `playback not checked (${r.playback.detail})`
+      : "";
+    return { kind: "ok" as const, text: ["✓ " + text.join(", "), pb, ...notes].filter(Boolean).join(" · ") };
   }
 
   async function run(label: string, fn: () => Promise<ApplyResult>) {
@@ -115,6 +168,8 @@
       if (snap) snap = { ...snap, state: r.state };
       undoAvailable = r.undoAvailable;
       message = describe(r);
+      // A rollback teaches the server a failed combination: refresh the warnings.
+      if (r.rolledBack && selected) caps = await api.capabilities(selected);
     } catch (e) {
       message = { kind: "error", text: (e as Error).message };
     } finally {
@@ -123,7 +178,18 @@
     }
   }
 
-  const apply = (change: QuickChange) => run("Applying", () => api.quick(selected!, change));
+  const RISKY: (keyof Change)[] = ["mode", "rate", "filterNx", "filter1x", "shaper"];
+  const apply = (change: Change) => {
+    const risky = (Object.keys(change) as (keyof Change)[]).some((k) => RISKY.includes(k));
+    const label = risky && snap?.status.state === 2 ? "Applying and checking playback" : "Applying";
+    return run(label, () => api.change(selected!, change));
+  };
+  const applyMajor = (what: string, change: Change) => {
+    const ok = confirm(
+      `Change ${what}?\n\nPlayback may pause for a few seconds. If it doesn't recover, the change is rolled back automatically.`,
+    );
+    if (ok) apply(change);
+  };
   const undo = () => run("Undoing", () => api.undo(selected!));
 
   const vol = $derived(volDraft ?? snap?.state.volume ?? 0);
@@ -181,18 +247,18 @@
         <Picker
           label="Nx"
           hint={inUse === "Nx" ? "in use" : ""}
-          items={caps.filters}
+          items={withWarn(caps.filters, "filterNx")}
           current={nameAt(caps.filters, snap.state.filterNx)}
           disabled={busy}
-          onpick={(n) => apply({ filterNx: n })}
+          onpick={(i) => apply({ filterNx: i.name })}
         />
         <Picker
           label="1x"
           hint={inUse === "1x" ? "in use" : ""}
-          items={caps.filters}
+          items={withWarn(caps.filters, "filter1x")}
           current={nameAt(caps.filters, snap.state.filter1x)}
           disabled={busy}
-          onpick={(n) => apply({ filter1x: n })}
+          onpick={(i) => apply({ filter1x: i.name })}
         />
       </section>
       <p class="help">1x is used for 44.1/48 kHz sources, Nx for higher rates.</p>
@@ -201,10 +267,10 @@
       <section class="card list">
         <Picker
           label={isSdm ? "Modulator" : "Dither"}
-          items={caps.shapers}
+          items={withWarn(caps.shapers, "shaper")}
           current={nameAt(caps.shapers, snap.state.shaper)}
           disabled={busy}
-          onpick={(n) => apply({ shaper: n })}
+          onpick={(i) => apply({ shaper: i.name })}
         />
       </section>
 
@@ -228,6 +294,30 @@
         />
         <div class="range"><span>{caps.volumeRange.min} dB</span><span>{caps.volumeRange.max} dB</span></div>
       </section>
+
+      <details class="advanced">
+        <summary>Advanced: mode and output rate</summary>
+        <p class="help">These can stop playback. The app checks that playback recovers and rolls back if it doesn't.</p>
+        <section class="card list">
+          <Picker
+            label="Mode"
+            items={caps.modes}
+            current={caps.mode.name}
+            disabled={busy}
+            onpick={(i) => applyMajor(`mode to ${i.name}`, { mode: i.name })}
+          />
+          {#if caps.rateSettable}
+            <Picker
+              label="Output rate"
+              hint={snap.state.rate === 0 ? `now ${formatRate(snap.status.activeRate, caps.mode.name)}` : ""}
+              items={rateItems}
+              current={formatRate(caps.rates.find((r) => r.index === snap!.state.rate)?.rate ?? 0, caps.mode.name)}
+              disabled={busy}
+              onpick={(i) => applyMajor(`output rate to ${i.name}`, { rate: (i as (typeof rateItems)[number]).rate })}
+            />
+          {/if}
+        </section>
+      </details>
 
       <h2>Options</h2>
       <section class="card list">
@@ -307,6 +397,10 @@
   .toggle { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; }
   .toggle:not(:last-child) { border-bottom: 1px solid var(--line); }
   .toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+  .advanced { margin-top: 22px; }
+  .advanced summary { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; padding: 0 4px; cursor: pointer; }
+  .advanced .help { margin: 8px 4px; }
 
   footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--line); display: none; flex-direction: column; gap: 8px; align-items: center; }
   footer.show { display: flex; }

@@ -1,6 +1,7 @@
 // Run a fake HQPlayer:  npm run fake -- [--profile ID] [--port N] [--host ADDR]
 //                                       [--time-scale X] [--discovery PORT]
-//                                       [--source-rate HZ] [--ignore COMMAND]... [--quiet]
+//                                       [--source-rate HZ] [--ignore COMMAND]...
+//                                       [--overload-filter NAME]... [--quiet]
 import { parseArgs } from "node:util";
 import { FakeHqp } from "./fake.ts";
 import { PROFILE_IDS, loadProfile } from "./profile.ts";
@@ -14,6 +15,7 @@ const { values } = parseArgs({
     discovery: { type: "string" },
     "source-rate": { type: "string", default: "44100" },
     ignore: { type: "string", multiple: true, default: [] },
+    "overload-filter": { type: "string", multiple: true, default: [] },
     quiet: { type: "boolean", default: false },
   },
 });
@@ -29,8 +31,11 @@ if (!(PROFILE_IDS as readonly string[]).includes(values.profile)) {
   process.exit(2);
 }
 
+const heavy = new Set(values["overload-filter"]);
 const fake = new FakeHqp(loadProfile(values.profile), {
   timeScale: Number(values["time-scale"]),
+  // Simulate a machine that can't keep up with these filters: half speed.
+  speed: ({ filterName }) => (heavy.has(filterName) ? 0.5 : 1),
   log: values.quiet ? undefined : (l) => console.error(l),
 });
 fake.setSource(Number(values["source-rate"]));

@@ -59,7 +59,7 @@ describe("request hardening", () => {
   });
 
   it("refuses cross-origin writes", async () => {
-    const r = await req("POST", "/api/instances/fake/quick", {
+    const r = await req("POST", "/api/instances/fake/change", {
       body: { invert: true },
       headers: { origin: "https://evil.example" },
     });
@@ -68,7 +68,7 @@ describe("request hardening", () => {
   });
 
   it("allows same-origin writes", async () => {
-    const r = await req("POST", "/api/instances/fake/quick", {
+    const r = await req("POST", "/api/instances/fake/change", {
       body: { invert: false },
       headers: { origin: "https://controller.example" },
     });
@@ -76,7 +76,7 @@ describe("request hardening", () => {
   });
 
   it("requires a JSON content type (no simple-form CSRF)", async () => {
-    const r = await req("POST", "/api/instances/fake/quick", {
+    const r = await req("POST", "/api/instances/fake/change", {
       rawBody: '{"invert":true}',
       headers: { "content-type": "text/plain" },
     });
@@ -84,7 +84,7 @@ describe("request hardening", () => {
   });
 
   it("caps body size", async () => {
-    const r = await req("POST", "/api/instances/fake/quick", { body: { filterNx: "x".repeat(20_000) } });
+    const r = await req("POST", "/api/instances/fake/change", { body: { filterNx: "x".repeat(20_000) } });
     expect(r.status).toBe(413);
   });
 });

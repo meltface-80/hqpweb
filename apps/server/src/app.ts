@@ -1,8 +1,9 @@
-// HTTP API on node:http, no framework. Quick changes only (design §4.2); mode
-// and rate need the rollback engine and come next.
+// HTTP API on node:http, no framework.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AppConfig } from "./config.ts";
-import { HttpError, Instance, type QuickChange } from "./instance.ts";
+import { HttpError, Instance, type Change } from "./instance.ts";
+import { LearnedStore } from "./learned.ts";
+import type { WatchTiming } from "./watch.ts";
 
 export interface AppOptions {
   pollMs?: number;
@@ -12,12 +13,18 @@ export interface AppOptions {
    * server, but the browser still sends that name in Host.
    */
   allowedHosts?: string[];
+  /** Where failed combinations are remembered. Default: in memory only. */
+  learned?: LearnedStore;
+  /** Playback-check timing; tests shorten it. */
+  timing?: { quick: WatchTiming; major: WatchTiming };
 }
 
 const LOOPBACK = ["localhost", "127.0.0.1", "[::1]", "::1"];
 const MAX_BODY = 16 * 1024;
 
-const QUICK_FIELDS: Record<keyof QuickChange, "name" | "number" | "boolean"> = {
+const FIELDS: Record<keyof Change, "name" | "number" | "rate" | "boolean"> = {
+  mode: "name",
+  rate: "rate",
   filterNx: "name",
   filter1x: "name",
   shaper: "name",
@@ -28,20 +35,22 @@ const QUICK_FIELDS: Record<keyof QuickChange, "name" | "number" | "boolean"> = {
 };
 
 /** Strict: no unknown fields, no type coercion ("-20" is not a volume). */
-export function parseQuickChange(body: unknown): QuickChange {
+export function parseChange(body: unknown): Change {
   if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
   const entries = Object.entries(body);
   if (entries.length === 0) throw new HttpError(400, "empty change");
   for (const [k, v] of entries) {
-    const kind = QUICK_FIELDS[k as keyof QuickChange];
+    const kind = FIELDS[k as keyof Change];
     if (!kind) throw new HttpError(400, `unknown field "${k}"`);
     const ok =
       kind === "name" ? typeof v === "string" && v.length > 0
       : kind === "number" ? typeof v === "number" && Number.isFinite(v)
+      : kind === "rate" ? Number.isInteger(v) && (v as number) >= 0
       : typeof v === "boolean";
-    if (!ok) throw new HttpError(400, `"${k}" must be ${kind === "name" ? "a non-empty string" : `a ${kind}`}`);
+    const want = { name: "a non-empty string", number: "a number", rate: "a whole number of Hz (0 = auto)", boolean: "a boolean" }[kind];
+    if (!ok) throw new HttpError(400, `"${k}" must be ${want}`);
   }
-  return body as QuickChange;
+  return body as Change;
 }
 
 const hostnameOf = (hostHeader: string) => hostHeader.replace(/:\d+$/, "").toLowerCase();
@@ -70,7 +79,10 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 type Handler = (req: IncomingMessage, res: ServerResponse, inst: Instance) => Promise<unknown> | void;
 
 export function buildApp(config: AppConfig, opts: AppOptions = {}) {
-  const instances = new Map(config.instances.map((i) => [i.id, new Instance(i)]));
+  const learned = opts.learned ?? new LearnedStore(null);
+  const instances = new Map(
+    config.instances.map((i) => [i.id, new Instance(i, { learned, ...(opts.timing ? { timing: opts.timing } : {}) })]),
+  );
   const allowed = new Set([...LOOPBACK, ...(opts.allowedHosts ?? []).map((h) => h.toLowerCase())]);
 
   const events: Handler = (req, res, inst) => {
@@ -93,7 +105,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
   const routes: Record<string, Handler> = {
     "GET now": (_q, _r, i) => i.now(),
     "GET capabilities": (_q, _r, i) => i.capabilities(),
-    "POST quick": async (q, _r, i) => i.applyQuick(parseQuickChange(await readJson(q))),
+    "POST change": async (q, _r, i) => i.applyChange(parseChange(await readJson(q))),
     "POST undo": (_q, _r, i) => i.undo(),
     "GET events": events,
   };

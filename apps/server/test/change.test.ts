@@ -1,0 +1,271 @@
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { FakeHqp, loadProfile, type FakeOptions } from "@app/fake-hqp";
+import { buildApp } from "../src/app.ts";
+import type { InstanceConfig } from "../src/config.ts";
+import { LearnedStore } from "../src/learned.ts";
+import type { WatchTiming } from "../src/watch.ts";
+import { client } from "./http.ts";
+
+const FAST: WatchTiming = { graceMs: 100, healthyMs: 300, maxMs: 1200, sampleMs: 40, minSpeed: 0.85 };
+const timing = { quick: FAST, major: { ...FAST, maxMs: 1500 } };
+
+let fake: FakeHqp;
+let app: ReturnType<typeof buildApp>;
+let req: ReturnType<typeof client>;
+let base: string;
+
+async function setup(fakeOpts: FakeOptions = {}, extra: Partial<InstanceConfig> = {}, learned?: LearnedStore) {
+  fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, ...fakeOpts });
+  await fake.listen();
+  app = buildApp(
+    { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port, ...extra }] },
+    { pollMs: 50, timing, ...(learned ? { learned } : {}) },
+  );
+  base = await app.listen(0, "127.0.0.1");
+  req = client(base);
+}
+afterEach(async () => {
+  await app.close();
+  await fake.close();
+});
+
+const change = (body: object) => req("POST", "/api/instances/mac/change", { body });
+const undo = () => req("POST", "/api/instances/mac/undo");
+const caps = async () => (await req("GET", "/api/instances/mac/capabilities")).json();
+
+describe("capabilities", () => {
+  it("returns the current mode's lists and volume range", async () => {
+    await setup();
+    const r = await caps();
+    expect(r.mode.name).toBe("SDM (DSD)");
+    expect(r.filters).toHaveLength(77);
+    expect(r.shapers).toHaveLength(36);
+    expect(r.volumeRange).toMatchObject({ min: -60, max: -3 });
+    expect(r.rates.every((x: { allowed: boolean }) => x.allowed)).toBe(true);
+  });
+
+  it("follows a mode change made elsewhere", async () => {
+    await setup();
+    await caps();
+    fake.modeIndex = 1; // PCM, as if changed from HQPlayer's own UI
+    expect((await caps()).shapers).toHaveLength(10);
+  });
+
+  it("marks rates above a configured limit as not allowed", async () => {
+    await setup({}, { limits: { maxPcmRate: 384000 } });
+    fake.modeIndex = 1;
+    const rates = (await caps()).rates as { rate: number; allowed: boolean }[];
+    expect(rates.filter((r) => !r.allowed).map((r) => r.rate)).toEqual([705600, 768000, 1411200, 1536000]);
+  });
+});
+
+describe("quick changes", () => {
+  it("resolves names, applies, verifies, and confirms playback", async () => {
+    await setup();
+    const body = (await change({ filterNx: "poly-sinc-gauss-long", shaper: "ASDM7EC" })).json();
+    expect(body.class).toBe("quick");
+    expect(body.results).toEqual([
+      expect.objectContaining({ field: "filterNx", actual: "poly-sinc-gauss-long", applied: true }),
+      expect.objectContaining({ field: "shaper", actual: "ASDM7EC", applied: true }),
+    ]);
+    expect(body.playback).toEqual({ kind: "playing" });
+    expect(body.state.filter1x).toBe(49); // carried over untouched
+  });
+
+  it("doesn't watch playback for volume or toggles", async () => {
+    await setup();
+    const body = (await change({ volume: -30, invert: true })).json();
+    expect(body.playback.kind).toBe("not-checked");
+  });
+
+  it("says so when nothing was playing", async () => {
+    await setup();
+    fake.playback = 0;
+    const body = (await change({ filterNx: "poly-sinc-gauss-long" })).json();
+    expect(body.playback).toMatchObject({ kind: "not-checked", detail: expect.stringMatching(/nothing was playing/) });
+  });
+
+  it("reports applied=false when the reply says OK but nothing changed", async () => {
+    await setup();
+    fake.ignore.add("SetShaping");
+    const body = (await change({ shaper: "ASDM7EC" })).json();
+    expect(body.results[0]).toMatchObject({ applied: false, actual: "AHM7EC8B", reply: { kind: "ok" } });
+  });
+
+  it("rejects names that don't exist in the current mode, and applies nothing", async () => {
+    await setup();
+    const r = await change({ shaper: "NS5", filterNx: "poly-sinc-gauss-long" });
+    expect(r.status).toBe(422);
+    expect(r.json().error).toMatch(/NS5.*SDM/);
+    expect(fake.rem.filterNx).toBe(51);
+  });
+
+  it("rejects unknown fields, wrong types and empty bodies", async () => {
+    await setup();
+    expect((await change({})).status).toBe(400);
+    expect((await change({ bogus: 1 })).status).toBe(400);
+    expect((await change({ volume: "-20" })).status).toBe(400);
+    expect((await change({ rate: 44100.5 })).status).toBe(400);
+  });
+});
+
+describe("rollback when playback fails", () => {
+  it("rolls back the measured stall (AHM7EC8B at DSD512) and learns it", async () => {
+    const learnedPath = join(mkdtempSync(join(tmpdir(), "learned-")), "learned.json");
+    await setup({}, {}, new LearnedStore(learnedPath));
+    const body = (await change({ rate: 22579200 })).json();
+    expect(body.class).toBe("major");
+    expect(body.results[0]).toMatchObject({ field: "rate", actual: 22579200, applied: true });
+    expect(body.playback.kind).toBe("stopped");
+    expect(body.rolledBack.results[0]).toMatchObject({ field: "rate", actual: 0, applied: true });
+    expect(body.rolledBack.playback).toEqual({ kind: "playing" });
+    expect(body.undoAvailable).toBe(false);
+    expect(fake.playback).toBe(2);
+
+    const bad = (await caps()).knownBad;
+    expect(bad).toEqual([expect.objectContaining({ mode: "SDM (DSD)", rateHz: 22579200, shaper: "AHM7EC8B" })]);
+    expect(JSON.parse(readFileSync(learnedPath, "utf8")).failures).toHaveLength(1);
+  });
+
+  it("rolls back a filter the machine can't keep up with", async () => {
+    await setup({ speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) });
+    // 44.1 kHz source: the 1x filter is the one in use.
+    const body = (await change({ filter1x: "poly-sinc-gauss-long" })).json();
+    expect(body.playback).toMatchObject({ kind: "struggling" });
+    expect(body.rolledBack.results[0]).toMatchObject({ field: "filter1x", actual: "poly-sinc-gauss-xla", applied: true });
+    expect(body.rolledBack.playback).toEqual({ kind: "playing" });
+    expect((await caps()).knownBad[0]).toMatchObject({ filter1x: "poly-sinc-gauss-long" });
+  });
+
+  it("keeps a valid combination (ASDM7EC at DSD512)", async () => {
+    await setup();
+    await change({ shaper: "ASDM7EC" });
+    const body = (await change({ rate: 22579200 })).json();
+    expect(body.playback).toEqual({ kind: "playing" });
+    expect(body.rolledBack).toBeNull();
+  });
+});
+
+describe("mode and rate", () => {
+  it("switches mode, and undo restores mode, rate and that mode's filters", async () => {
+    await setup();
+    await change({ shaper: "ASDM7EC" });
+    await change({ rate: 22579200 });
+    const toPcm = (await change({ mode: "PCM" })).json();
+    expect(toPcm.class).toBe("major");
+    expect(toPcm.results[0]).toMatchObject({ field: "mode", actual: "PCM", applied: true });
+    expect(toPcm.playback).toEqual({ kind: "playing" });
+
+    const back = (await undo()).json();
+    expect(back.state).toMatchObject({ mode: 2, rate: 4 }); // SDM, DSD512
+    expect(fake.shaperName).toBe("ASDM7EC");
+  });
+
+  it("applies mode, then resolves the other fields against the new mode's lists", async () => {
+    await setup();
+    const body = (await change({ mode: "PCM", shaper: "NS5", rate: 384000 })).json();
+    expect(body.results.map((r: { applied: boolean }) => r.applied)).toEqual([true, true, true]);
+  });
+
+  it("restores the mode if a later field can't be resolved", async () => {
+    await setup();
+    const r = await change({ mode: "PCM", shaper: "AHM7EC8B" }); // a modulator, not a PCM dither
+    expect(r.status).toBe(422);
+    expect(fake.mode.name).toBe("SDM (DSD)");
+  });
+
+  it("refuses a rate above the configured limit", async () => {
+    await setup({}, { limits: { maxPcmRate: 384000 } });
+    const r = await change({ mode: "PCM", rate: 768000 });
+    expect(r.status).toBe(422);
+    expect(r.json().error).toMatch(/limit/);
+    expect(fake.mode.name).toBe("SDM (DSD)");
+  });
+
+  it("refuses rates in [source] mode", async () => {
+    await setup();
+    const r = await change({ mode: "[source]", rate: 44100 });
+    expect(r.status).toBe(422);
+  });
+});
+
+describe("volume safety", () => {
+  it("lowers freely, as a float", async () => {
+    await setup();
+    expect((await change({ volume: -40.5 })).json().results[0]).toMatchObject({ applied: true, actual: -40.5 });
+  });
+
+  it("refuses a raise of more than 6 dB in one step", async () => {
+    await setup();
+    expect((await change({ volume: -10 })).status).toBe(422);
+    expect(fake.volume).toBe(-22);
+  });
+
+  it("allows a raise of up to 6 dB", async () => {
+    await setup();
+    expect((await change({ volume: -16 })).json().results[0].applied).toBe(true);
+  });
+
+  it("clamps to VolumeRange.max and says so", async () => {
+    await setup();
+    fake.volume = -5;
+    const res = (await change({ volume: 0 })).json().results[0];
+    expect(res).toMatchObject({ actual: -3, applied: true });
+    expect(res.note).toMatch(/clamped to -3/);
+  });
+});
+
+describe("undo", () => {
+  it("restores exactly the fields the last change touched", async () => {
+    await setup();
+    await change({ filter1x: "poly-sinc-gauss-long", volume: -30 });
+    const body = (await undo()).json();
+    expect(body.state).toMatchObject({ filter1x: 49, filterNx: 51, volume: -22 });
+    expect(body.undoAvailable).toBe(false);
+  });
+
+  it("does not raise volume past the guard if it was changed elsewhere since", async () => {
+    await setup();
+    await change({ volume: -40 });
+    fake.volume = -45; // e.g. lowered from Roon
+    const body = (await undo()).json();
+    expect(body.results[0]).toMatchObject({ field: "volume", applied: false });
+    expect(body.results[0].note).toMatch(/not restored/);
+    expect(fake.volume).toBe(-45);
+  });
+
+  it("refuses after a mode change made elsewhere", async () => {
+    await setup();
+    await change({ shaper: "ASDM7EC" });
+    fake.modeIndex = 1;
+    expect((await undo()).status).toBe(409);
+  });
+
+  it("has nothing to undo at first", async () => {
+    await setup();
+    expect((await undo()).status).toBe(409);
+  });
+});
+
+describe("events", () => {
+  it("streams status snapshots", async () => {
+    await setup();
+    const ctl = new AbortController();
+    const res = await fetch(`${base}/api/instances/mac/events`, { signal: ctl.signal });
+    expect(res.headers.get("content-type")).toBe("text/event-stream");
+    const reader = res.body!.getReader();
+    let text = "";
+    while (!text.includes("event: now")) text += new TextDecoder().decode((await reader.read()).value);
+    ctl.abort();
+    const data = JSON.parse(text.split("event: now\ndata: ")[1]!.split("\n")[0]!);
+    expect(data.status.activeShaper).toBe("AHM7EC8B");
+  });
+
+  it("404s for an unknown instance", async () => {
+    await setup();
+    expect((await req("GET", "/api/instances/nope/events")).status).toBe(404);
+  });
+});

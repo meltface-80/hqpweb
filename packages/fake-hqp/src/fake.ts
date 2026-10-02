@@ -18,6 +18,12 @@ export interface FakeOptions {
    * modulators below DSD1024. Inferred: the widening is a guess (design §4.4).
    */
   incompatible?: (c: { modeName: string; rateHz: number; shaperName: string }) => boolean;
+  /**
+   * Simulated CPU/GPU load: playback speed (1 = real time) for the settings in
+   * use. Default: never overloaded. Inferred model: an overloaded instance keeps
+   * state 2 but its position falls behind real time. Not yet measured.
+   */
+  speed?: (c: { modeName: string; rateHz: number; filterName: string; shaperName: string }) => number;
   log?: (line: string) => void;
 }
 
@@ -78,6 +84,7 @@ export class FakeHqp {
       timeScale: opts.timeScale ?? 1,
       idleTimeoutMs: opts.idleTimeoutMs ?? 156_000,
       incompatible: opts.incompatible ?? defaultIncompatible,
+      speed: opts.speed ?? (() => 1),
       log: opts.log,
     };
     const i = profile.initial;
@@ -148,7 +155,11 @@ export class FakeHqp {
 
   private tick() {
     const now = Date.now();
-    if (this.playback === 2) this.position += (now - this.lastTick) / 1000;
+    if (this.playback === 2) {
+      const f = this.lists.filters.find((x) => x.index === this.filterInUse)?.name ?? "";
+      const speed = this.opts.speed({ modeName: this.mode.name, rateHz: this.activeRateHz, filterName: f, shaperName: this.shaperName });
+      this.position += ((now - this.lastTick) / 1000) * speed;
+    }
     this.lastTick = now;
   }
 

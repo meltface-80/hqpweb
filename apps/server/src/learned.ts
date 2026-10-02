@@ -1,0 +1,62 @@
+// Combinations that failed on an instance, learned from rollbacks (design §4.4).
+// Kept per instance and engine version, because both change what works.
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+export interface Combo {
+  mode: string;
+  /** Output rate actually in use, Hz. */
+  rateHz: number;
+  filterNx: string;
+  filter1x: string;
+  shaper: string;
+}
+
+export interface Failure extends Combo {
+  instance: string;
+  engine: string;
+  reason: string;
+  at: string;
+}
+
+const sameCombo = (a: Combo, b: Combo) =>
+  a.mode === b.mode && a.rateHz === b.rateHz && a.filterNx === b.filterNx && a.filter1x === b.filter1x && a.shaper === b.shaper;
+
+export class LearnedStore {
+  private failures: Failure[] = [];
+  private readonly path: string | null;
+
+  /** path null = in memory only (tests). */
+  constructor(path: string | null) {
+    this.path = path;
+    if (!path) return;
+    try {
+      this.failures = (JSON.parse(readFileSync(path, "utf8")) as { failures: Failure[] }).failures ?? [];
+    } catch {
+      this.failures = [];
+    }
+  }
+
+  record(f: Failure) {
+    this.failures = this.failures.filter((x) => !(x.instance === f.instance && x.engine === f.engine && sameCombo(x, f)));
+    this.failures.push(f);
+    this.save();
+  }
+
+  forInstance(instance: string, engine: string, mode: string): Failure[] {
+    return this.failures.filter((f) => f.instance === instance && f.engine === engine && f.mode === mode);
+  }
+
+  forget(instance: string) {
+    this.failures = this.failures.filter((f) => f.instance !== instance);
+    this.save();
+  }
+
+  private save() {
+    if (!this.path) return;
+    mkdirSync(dirname(this.path), { recursive: true });
+    const tmp = `${this.path}.tmp`;
+    writeFileSync(tmp, JSON.stringify({ failures: this.failures }, null, 1) + "\n");
+    renameSync(tmp, this.path);
+  }
+}

@@ -1,5 +1,7 @@
 import { buildApp } from "./app.ts";
+import { join } from "node:path";
 import { loadConfig } from "./config.ts";
+import { LearnedStore } from "./learned.ts";
 
 // Loopback by default, because the app has no login (design §7). In a container,
 // set HOST=0.0.0.0 and let network placement be the gate. An authenticating
@@ -11,7 +13,8 @@ const port = Number(process.env.PORT ?? 8787);
 const allowedHosts = (process.env.ALLOWED_HOSTS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
 const config = loadConfig();
-const app = buildApp(config, { allowedHosts });
+const learned = new LearnedStore(join(process.env.CONFIG_DIR ?? "config", "learned.json"));
+const app = buildApp(config, { allowedHosts, learned });
 const url = await app.listen(port, host);
 console.error(`api on ${url} — instances: ${config.instances.map((i) => `${i.id}=${i.host}:${i.port}`).join(", ")}`);
 if (allowedHosts.length) console.error(`also answering to: ${allowedHosts.join(", ")}`);

@@ -1,6 +1,7 @@
 <script lang="ts">
   // A searchable picker for long lists (36–77 items). Opens as a bottom sheet.
-  type Item = { index: number; name: string };
+  // Items can be disabled (with a reason) or carry a warning, e.g. "failed here before".
+  type Item = { index: number; name: string; disabled?: boolean; note?: string; warn?: string };
   let {
     label,
     items,
@@ -14,7 +15,7 @@
     current: string;
     hint?: string;
     disabled?: boolean;
-    onpick: (name: string) => void;
+    onpick: (item: Item) => void;
   } = $props();
 
   let dialog: HTMLDialogElement;
@@ -31,9 +32,10 @@
     // Don't pop the keyboard on phones; do focus search on desktop.
     if (matchMedia("(pointer: fine)").matches) search.focus();
   }
-  function pick(name: string) {
+  function pick(item: Item) {
+    if (item.disabled) return;
     dialog.close();
-    if (name !== current) onpick(name);
+    if (item.name !== current) onpick(item);
   }
 </script>
 
@@ -53,8 +55,12 @@
     <ul>
       {#each shown as item (item.index)}
         <li>
-          <button class:current={item.name === current} onclick={() => pick(item.name)}>
-            {item.name}{#if item.name === current}<span class="tick">✓</span>{/if}
+          <button class:current={item.name === current} class:warn={!!item.warn} disabled={item.disabled} onclick={() => pick(item)}>
+            <span class="name">
+              {item.name}
+              {#if item.warn}<small class="why">⚠ {item.warn}</small>{:else if item.note}<small class="why">{item.note}</small>{/if}
+            </span>
+            {#if item.name === current}<span class="tick">✓</span>{/if}
           </button>
         </li>
       {:else}
@@ -142,5 +148,9 @@
   }
   li button:hover { background: var(--hover); }
   li button.current { color: var(--accent); font-weight: 600; }
+  li button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .name { display: flex; flex-direction: column; }
+  .why { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+  li button.warn .why { color: var(--warn); }
   .empty { padding: 12px 16px; color: var(--muted); }
 </style>
