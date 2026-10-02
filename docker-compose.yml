@@ -2,13 +2,13 @@
 # Optional settings go in a .env file next to this one (see README → Options).
 # A fixed project name keeps the volume (and your settings) the same whatever folder
 # the repository was cloned into.
-name: hqpwc
+name: hqpweb
 
 services:
   controller:
     build: .
-    image: hqpwc:local
-    container_name: hqpwc
+    image: hqpweb:local
+    container_name: hqpweb
     restart: unless-stopped
     ports:
       # BIND_ADDRESS limits which interface publishes it (e.g. 127.0.0.1 behind a local proxy).

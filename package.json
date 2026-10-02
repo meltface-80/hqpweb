@@ -1,5 +1,5 @@
 {
-  "name": "hqpwc",
+  "name": "hqpweb",
   "private": true,
   "type": "module",
   "engines": {
@@ -20,5 +20,6 @@
     "@types/node": "^24.19.1",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
-  }
+  },
+  "license": "MIT"
 }

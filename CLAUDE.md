@@ -44,8 +44,7 @@ to reach the session that did the groundwork.
   keep that discipline in code comments and PRs.
 - **Commit with an explicit pathspec** (`git commit -m "…" -- path …`). Other
   sessions may share this working tree's index.
-- **Licence:** MIT is the intent (Signalyst's control SDK is MIT, design §8). Add
-  `LICENSE` only once the operator confirms.
+- **Licence:** MIT, confirmed by the operator 2026-10-02; `LICENSE` added.
 - **README must keep the non-affiliation notice.** Don't use "HQPlayer" as the leading
   brand word in any app or package name.
 

@@ -1,6 +1,6 @@
 {
-  "name": "hqpwc",
-  "short_name": "hqpwc",
+  "name": "hqpweb",
+  "short_name": "hqpweb",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1d2125",

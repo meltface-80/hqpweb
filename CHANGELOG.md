@@ -7,7 +7,7 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 
 ### Upgrade notes
 
-- **Renamed to hqpwc.** The container is now `hqpwc`, in a compose project of the
+- **Renamed to hqpweb.** The container is now `hqpweb`, in a compose project of the
   same name. **Before** pulling this update, stop the old one, or the new container
   can't take the port:
 
