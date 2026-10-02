@@ -19,6 +19,7 @@
     type Combo,
     type Inst,
     type PlaybackCheck,
+    type RoonZone,
     type Snapshot,
   } from "./lib/api.ts";
 
@@ -82,12 +83,17 @@
     undoAvailable = false;
     message = null;
     online = "connecting";
+    roonZone = null;
     const es = api.events(id);
     es.addEventListener("now", (e) => {
       snap = JSON.parse((e as MessageEvent).data);
       online = "live";
       const sp = snap?.health?.speed;
       behind = sp != null && sp < 0.9 ? behind + 1 : 0;
+    });
+    // Only sent when Roon is switched on in Settings.
+    es.addEventListener("roon", (e) => {
+      roonZone = JSON.parse((e as MessageEvent).data).zone;
     });
     es.addEventListener("unreachable", (e) => {
       online = "unreachable";
@@ -260,19 +266,27 @@
   };
 
   let tbusy = $state(false);
+  // Roon's zone for this instance, when Roon is on and a zone is mapped.
+  let roonZone = $state<RoonZone | null>(null);
+  const playing = $derived(roonZone ? roonZone.state === "playing" : snap?.status.state === 2);
   /**
    * Measured 2026-10-02: a Pause sent to HQPlayer pauses the Roon zone, but Play and
    * Next don't reach Roon, so after a pause only Roon can resume. With Roon as the
    * source, leave transport to Roon.
    */
   const fromRoon = $derived(snap?.status.source?.song === "Roon");
-  const ROON_NOTE = "Playing from Roon: use Roon to control playback";
+  const ROON_NOTE = "Playing from Roon: control it in Roon, or connect Roon in Settings";
+  // With a Roon zone, controls go to Roon (HQPlayer-side play/next don't reach Roon).
+  const allowed = (a: "play" | "pause" | "previous" | "next") => (roonZone ? roonZone.allowed[a] : !fromRoon);
   async function transport(action: "play" | "pause" | "previous" | "next") {
     if (!selected) return;
     tbusy = true;
     try {
-      const r = await api.transport(selected, action);
-      if (snap) snap = { ...snap, status: r.status };
+      if (roonZone) roonZone = await api.roonTransport(selected, action);
+      else {
+        const r = await api.transport(selected, action);
+        if (snap) snap = { ...snap, status: r.status };
+      }
     } catch (e) {
       message = { kind: "error", text: (e as Error).message };
     } finally {
@@ -350,6 +364,16 @@
 
   {#if snap}
     <section class="card now">
+      {#if roonZone?.nowPlaying}
+        {@const np = roonZone.nowPlaying}
+        <div class="track">
+          {#if np.imageKey}<img src={`/api/roon/art/${np.imageKey}?size=192`} alt="" width="64" height="64" />{/if}
+          <div>
+            <b>{np.track}</b>
+            <small>{[np.artist, np.album].filter(Boolean).join(" · ")}</small>
+          </div>
+        </div>
+      {/if}
       <div class="headline">
         <span class="big">{formatRate(snap.status.activeRate, snap.status.activeMode)}</span>
         <span class="sub">
@@ -358,23 +382,23 @@
         </span>
       </div>
       <div class="transport">
-        <button class="tbtn" onclick={() => transport("previous")} disabled={tbusy || fromRoon} title={fromRoon ? ROON_NOTE : "Previous"} aria-label="Previous track">
+        <button class="tbtn" onclick={() => transport("previous")} disabled={tbusy || !allowed("previous")} title={!roonZone && fromRoon ? ROON_NOTE : "Previous"} aria-label="Previous track">
           <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 5h2v14H6zM20 5v14L9 12z" /></svg>
         </button>
         <button
           class="tbtn main"
-          onclick={() => transport(snap!.status.state === 2 ? "pause" : "play")}
-          disabled={tbusy || fromRoon}
-          title={fromRoon ? ROON_NOTE : snap.status.state === 2 ? "Pause" : "Play"}
-          aria-label={snap.status.state === 2 ? "Pause" : "Play"}
+          onclick={() => transport(playing ? "pause" : "play")}
+          disabled={tbusy || !allowed(playing ? "pause" : "play")}
+          title={!roonZone && fromRoon ? ROON_NOTE : playing ? "Pause" : "Play"}
+          aria-label={playing ? "Pause" : "Play"}
         >
-          {#if snap.status.state === 2}
+          {#if playing}
             <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
           {:else}
             <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M8 5v14l11-7z" /></svg>
           {/if}
         </button>
-        <button class="tbtn" onclick={() => transport("next")} disabled={tbusy || fromRoon} title={fromRoon ? ROON_NOTE : "Next"} aria-label="Next track">
+        <button class="tbtn" onclick={() => transport("next")} disabled={tbusy || !allowed("next")} title={!roonZone && fromRoon ? ROON_NOTE : "Next"} aria-label="Next track">
           <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 5h2v14h-2zM4 5l11 7-11 7z" /></svg>
         </button>
       </div>
@@ -559,6 +583,11 @@
   .sub { display: flex; align-items: center; gap: 8px; }
   .side { grid-template-columns: auto auto; text-align: right; font-size: 0.9rem; }
   .transport { display: flex; align-items: center; gap: 6px; }
+  .track { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .track img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; flex: none; background: var(--bg-elev-2); }
+  .track div { display: flex; flex-direction: column; min-width: 0; }
+  .track b, .track small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track small { color: var(--text-dim); font-size: 0.85rem; }
   .tbtn { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--bg-elev-2); color: var(--text); display: grid; place-items: center; cursor: pointer; }
   .tbtn.main { width: 52px; height: 52px; background: var(--accent); color: var(--on-accent); }
   .tbtn:disabled { opacity: 0.5; }

@@ -9,6 +9,8 @@ import { Registry } from "./registry.ts";
 import { PresetStore } from "./presets.ts";
 import type { DiscoverOptions, LibraryAlbum } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
+import { ROON_ACTIONS, RoonLink, type RoonAction } from "./roon/roon.ts";
+import { discoverCores } from "./roon/sood.ts";
 
 export interface AppOptions {
   pollMs?: number;
@@ -34,6 +36,8 @@ export interface AppOptions {
   timing?: { quick: WatchTiming; major: WatchTiming };
   /** Live playback-speed window (default 8 s). */
   speedWindowMs?: number;
+  /** Optional Roon link. Default: off, in memory only. */
+  roon?: RoonLink;
 }
 
 const LOOPBACK = ["localhost", "127.0.0.1", "[::1]", "::1"];
@@ -140,6 +144,20 @@ function parsePresetBody(
   };
 }
 
+function parseRoonSettings(body: unknown): { enabled?: boolean; host?: string; port?: number } {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
+  const { enabled, host, port, ...rest } = body as Record<string, unknown>;
+  if (Object.keys(rest).length) throw new HttpError(400, `unknown field "${Object.keys(rest)[0]}"`);
+  if (enabled !== undefined && typeof enabled !== "boolean") throw new HttpError(400, "enabled must be a boolean");
+  if (host !== undefined && typeof host !== "string") throw new HttpError(400, "host must be a string");
+  if (port !== undefined && !Number.isInteger(port)) throw new HttpError(400, "port must be a whole number");
+  return {
+    ...(enabled !== undefined ? { enabled: enabled as boolean } : {}),
+    ...(host !== undefined ? { host: (host as string).trim() } : {}),
+    ...(port !== undefined ? { port: port as number } : {}),
+  };
+}
+
 function parseNewInstance(body: unknown): { name: string; host: string; port?: number } {
   if (typeof body !== "object" || body === null) throw new HttpError(400, "body must be a JSON object");
   const { name, host, port, ...rest } = body as Record<string, unknown>;
@@ -165,6 +183,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
       }),
   });
+  const roon = opts.roon ?? new RoonLink(null);
   const allowed = new Set([...LOOPBACK, ...(opts.allowedHosts ?? []).map((h) => h.toLowerCase())]);
 
   const events: Handler = (req, res, inst) => {
@@ -180,7 +199,22 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       if (e.snapshot) res.write(`event: now\ndata: ${JSON.stringify({ ...e.snapshot, health: e.health })}\n\n`);
       else res.write(`event: unreachable\ndata: ${JSON.stringify({ error: e.error })}\n\n`);
     }, opts.pollMs);
-    req.on("close", unsubscribe);
+    // Roon now-playing for this instance's zone, only when Roon is switched on.
+    let lastRoon = "";
+    const sendRoon = () => {
+      const v = roon.view();
+      if (!v.enabled && lastRoon === "") return;
+      const data = JSON.stringify({ status: v.status, zone: roon.zoneFor(inst.cfg.id) });
+      if (data === lastRoon) return;
+      lastRoon = data;
+      res.write(`event: roon\ndata: ${data}\n\n`);
+    };
+    sendRoon();
+    const offRoon = roon.onChange(sendRoon);
+    req.on("close", () => {
+      unsubscribe();
+      offRoon();
+    });
   };
 
   // Per-instance routes: /api/instances/:id/<action>
@@ -198,6 +232,18 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     "GET learned": async (_q, _r, i) => i.learnedFailures(),
     "DELETE learned": async (_q, _r, i) => i.forgetFailures(),
     "GET events": events,
+    "PUT roonzone": async (q, _r, i) => {
+      const body = (await readJson(q)) as { zone?: unknown };
+      if (typeof body !== "object" || body === null || !(body.zone === null || (typeof body.zone === "string" && body.zone.length > 0)))
+        throw new HttpError(400, "zone must be a Roon zone id or null");
+      return roon.setZone(i.cfg.id, body.zone as string | null);
+    },
+    "POST roontransport": async (q, _r, i) => {
+      const body = (await readJson(q)) as { action?: unknown };
+      if (typeof body !== "object" || body === null || !ROON_ACTIONS.includes(body.action as RoonAction))
+        throw new HttpError(400, `action must be one of ${ROON_ACTIONS.join(", ")}`);
+      return roon.control(i.cfg.id, body.action as RoonAction);
+    },
   };
 
   /** An instance's current settings, by name, as preset settings. */
@@ -238,6 +284,27 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       await registry.scan();
       return send(res, 200, await registry.list());
     }
+    // ---- Roon (optional) ----
+    if (path === "/api/roon") {
+      if (req.method === "GET") return send(res, 200, roon.view());
+      if (req.method === "PUT") return send(res, 200, roon.configure(parseRoonSettings(await readJson(req))));
+    }
+    if (req.method === "POST" && path === "/api/roon/discover")
+      return send(res, 200, opts.discovery === false ? [] : await discoverCores({ timeoutMs: 1500 }));
+    const ra = /^\/api\/roon\/art\/([A-Za-z0-9_-]{1,128})$/.exec(path);
+    if (ra && req.method === "GET") {
+      const size = Math.min(1000, Math.max(50, Number(new URL(req.url ?? "/", "http://x").searchParams.get("size")) || 300));
+      const img = await roon.image(ra[1]!, size);
+      const type = /^image\/(jpeg|png)$/i.test(img.type) ? img.type : "application/octet-stream";
+      res.writeHead(200, {
+        "content-type": type,
+        "cache-control": "max-age=86400",
+        "x-content-type-options": "nosniff",
+        "content-security-policy": "default-src 'none'",
+      });
+      return res.end(img.data);
+    }
+
     // ---- presets (global) ----
     if (path === "/api/presets") {
       if (req.method === "GET") return send(res, 200, presets.list());
@@ -320,6 +387,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     const one = /^\/api\/instances\/([^/]+)$/.exec(path);
     if (one && req.method === "DELETE") {
       registry.remove(decodeURIComponent(one[1]!));
+      roon.forgetInstance(decodeURIComponent(one[1]!));
       return send(res, 200, { ok: true });
     }
 
@@ -357,6 +425,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     },
     async close() {
       registry.close();
+      roon.close();
       server.closeAllConnections();
       await new Promise<void>((r) => server.close(() => r()));
     },

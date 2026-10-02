@@ -8,5 +8,6 @@ net.Socket.prototype.connect = function (this: net.Socket, ...args: unknown[]) {
   if (Array.isArray(a)) a = a[0]; // net.connect passes normalised args
   const port = typeof a === "object" && a !== null ? (a as { port?: unknown }).port : a;
   if (Number(port) === 4321) throw new Error("tests must never connect to port 4321 (a real HQPlayer)");
+  if (Number(port) === 9330) throw new Error("tests must never connect to port 9330 (a real Roon Core)");
   return connect.apply(this, args as Parameters<typeof connect>);
 } as typeof connect;

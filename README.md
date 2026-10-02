@@ -33,6 +33,9 @@ whatever else drives HQPlayer, keeps doing that.
   HQPlayer unable to keep up, the app puts the previous settings back. It remembers
   the combination and warns about it next time.
 - **Undo** for the last change.
+- **Roon now playing (optional).** If Roon feeds your HQPlayer, the app can show
+  the track and cover art and give you working play/pause, previous and next. Off
+  until you switch it on; nothing else needs it.
 - **Volume safety.**
   - It is never raised by more than 6 dB in one step, and never above HQPlayer's
     own maximum.
@@ -117,7 +120,16 @@ header (most do by default), list that name in `ALLOWED_HOSTS`, and don't buffer
 `/api/instances/*/events` (a server-sent event stream; the app sends
 `X-Accel-Buffering: no`).
 
-**Config by file** (optional): the app keeps `instances.json`, `presets.json` and
+**Roon (optional).** In Settings → Roon, switch it on, then **Find** the core or
+enter its address (port 9330). In Roon, open Settings → Extensions and enable the
+`hqpweb …` entry, then pick which Roon zone feeds this HQPlayer (Roon doesn't say,
+so it's a one-time choice; zones that output through HQPlayer are marked). Find uses
+multicast like Scan, so it needs the same host networking; the address always works.
+The container must reach the core on TCP 9330. Each install of the app has its own
+approval: a Roon Core keeps one connection per extension, so two installs sharing
+one would keep knocking each other off.
+
+**Config by file** (optional): the app keeps `instances.json`, `presets.json`, `roon.json` and
 `learned.json` in its volume. To copy them out or in:
 `docker compose cp controller:/config ./config-backup` /
 `docker compose cp ./config-backup/. controller:/config`. Hand-edit

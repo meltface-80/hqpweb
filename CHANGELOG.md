@@ -33,6 +33,13 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 
 ### Added
 
+- **Roon (optional, off by default):** now playing with cover art, and play/pause,
+  previous and next that act on the Roon zone feeding the selected HQPlayer. A small
+  built-in client of Roon's extension API (no new dependencies); approval once in
+  Roon → Settings → Extensions; zone chosen in Settings.
+- **"Keeping up"** in the Now card: playback speed against real time, green, yellow
+  or red.
+
 - **Library:** browse HQPlayer's own library (search, albums, tracks) and play an
   album or track. Playing queues the files with `PlaylistAdd` and switches HQPlayer
   to its playlist (verified on Desktop 5.35). The library itself is scanned in

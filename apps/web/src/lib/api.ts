@@ -80,6 +80,27 @@ export type FieldResult = {
   note?: string;
 };
 export type PlaybackCheck = { kind: "playing" | "stopped" | "struggling" | "inconclusive" | "not-checked"; detail?: string };
+export type RoonZone = {
+  id: string;
+  name: string;
+  state: string;
+  hqplayer: boolean;
+  nowPlaying: { track: string; artist: string; album: string; imageKey?: string; seek?: number; length?: number } | null;
+  allowed: { play: boolean; pause: boolean; next: boolean; previous: boolean };
+};
+export type RoonStatus = "off" | "connecting" | "unapproved" | "connected" | "unreachable";
+export type RoonView = {
+  enabled: boolean;
+  host?: string;
+  port?: number;
+  status: RoonStatus;
+  error?: string;
+  core?: { name: string; version: string };
+  extensionName: string;
+  zones: RoonZone[];
+  zoneFor: Record<string, string>;
+};
+export type FoundCore = { host: string; port: number; name?: string; version?: string };
 export type Preset = { id: string; name: string; settings: Change; createdAt: string; updatedAt: string };
 export type PresetView = Preset & {
   preview: {
@@ -155,6 +176,14 @@ export const api = {
   learned: (id: string) => call<(Failure & { engine: string })[]>(`/api/instances/${id}/learned`),
   forgetLearned: (id: string) => call<{ forgotten: number }>(`/api/instances/${id}/learned`, { method: "DELETE" }),
   events: (id: string) => new EventSource(`/api/instances/${id}/events`),
+  roon: () => call<RoonView>("/api/roon"),
+  configureRoon: (body: { enabled?: boolean; host?: string; port?: number }) =>
+    call<RoonView>("/api/roon", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+  discoverRoon: () => call<FoundCore[]>("/api/roon/discover", { method: "POST" }),
+  setRoonZone: (id: string, zone: string | null) =>
+    call<RoonView>(`/api/instances/${id}/roonzone`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ zone }) }),
+  roonTransport: (id: string, action: "play" | "pause" | "playpause" | "previous" | "next") =>
+    call<RoonZone>(`/api/instances/${id}/roontransport`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action }) }),
 };
 
 export const PLAYBACK = ["Stopped", "Paused", "Playing", "Stopping"];

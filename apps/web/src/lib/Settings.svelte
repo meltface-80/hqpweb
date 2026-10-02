@@ -3,6 +3,7 @@
   // instance, and About.
   import { api, formatRate, type Failure, type Inst } from "./api.ts";
   import { THEMES, prefs, savePrefs, type Prefs } from "./prefs.svelte.ts";
+  import RoonSettings from "./RoonSettings.svelte";
 
   let {
     instance,
@@ -74,12 +75,14 @@
   }
 
   let dialog: HTMLDialogElement;
+  let roon: RoonSettings;
   let learned = $state<(Failure & { engine: string })[] | null>(null);
   let learnedError = $state("");
 
   export function open() {
     dialog.showModal();
     loadLearned();
+    roon.refresh();
   }
 
   async function loadLearned() {
@@ -152,6 +155,8 @@
         <button class="small" type="submit">Add</button>
       </form>
       {#if instMsg}<p class={instMsg.kind === "error" ? "err" : "help"}>{instMsg.text}</p>{/if}
+
+      <RoonSettings bind:this={roon} {instance} />
 
       <h4>Theme</h4>
       <div class="themes">
