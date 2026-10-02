@@ -62,6 +62,11 @@ export class FakeHqp {
   private prepared = new Set<string>();
   private lastTick = Date.now();
   private timers = new Set<NodeJS.Timeout>();
+  /**
+   * Fault injection: commands named here reply OK and change nothing, which is how
+   * a no-op looks on the real thing (design §2.1). For testing read-back checks.
+   */
+  readonly ignore = new Set<string>();
   /** Every request received, for tests. */
   readonly received: string[] = [];
 
@@ -190,6 +195,7 @@ export class FakeHqp {
       // Inferred: malformed XML is not measured. Reply with a generic error.
       return this.doc("Error", { result: "Error" }, "parse error");
     }
+    if (this.ignore.has(req.name)) return this.ok(req.name);
     const h = this.handlers[req.name];
     const out = h ? await h(req) : this.doc(req.name, { result: "Error" }, "Unknown command");
     this.opts.log?.(`${requestXml.replace(/^<\?xml[^>]*\?>/, "")} -> ${out.length > 160 ? out.slice(0, 160) + "…" : out.replace(/^<\?xml[^>]*\?>/, "")}`);

@@ -1,6 +1,6 @@
 // Run a fake HQPlayer:  npm run fake -- [--profile ID] [--port N] [--host ADDR]
 //                                       [--time-scale X] [--discovery PORT]
-//                                       [--source-rate HZ] [--quiet]
+//                                       [--source-rate HZ] [--ignore COMMAND]... [--quiet]
 import { parseArgs } from "node:util";
 import { FakeHqp } from "./fake.ts";
 import { PROFILE_IDS, loadProfile } from "./profile.ts";
@@ -13,6 +13,7 @@ const { values } = parseArgs({
     "time-scale": { type: "string", default: "1" },
     discovery: { type: "string" },
     "source-rate": { type: "string", default: "44100" },
+    ignore: { type: "string", multiple: true, default: [] },
     quiet: { type: "boolean", default: false },
   },
 });
@@ -33,6 +34,7 @@ const fake = new FakeHqp(loadProfile(values.profile), {
   log: values.quiet ? undefined : (l) => console.error(l),
 });
 fake.setSource(Number(values["source-rate"]));
+for (const c of values.ignore) fake.ignore.add(c);
 const addr = await fake.listen(Number(values.port), values.host);
 console.error(`fake HQPlayer "${values.profile}" listening on ${addr.host}:${addr.port} (time scale ${values["time-scale"]})`);
 if (values.discovery) {
