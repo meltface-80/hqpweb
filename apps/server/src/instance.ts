@@ -589,8 +589,8 @@ export class Instance {
 
   /**
    * Play an album (from `track`, 0-based) by queueing its files with PlaylistAdd,
-   * then SelectTrack and Play. UNTESTED on a real instance: whether v5 accepts a
-   * plain (unencrypted) PlaylistAdd, and which URI form it wants for files.
+   * then SelectTrack and Play. Measured on Desktop 5.35.10: plain paths are
+   * accepted, and start=1 on the first item switches HQPlayer to its playlist.
    */
   playAlbum(hash: string, track = 0): Promise<{ queued: number; replies: Outcome[]; status: Status }> {
     return this.exclusive(async () => {
@@ -601,7 +601,7 @@ export class Instance {
       const replies: Outcome[] = [];
       for (const [i, t] of album.tracks.entries()) {
         const uri = `${album.path.replace(/\/$/, "")}/${t.name}`;
-        replies.push(await this.client.send(libraryCmd.playlistAdd(uri, { clear: i === 0, queued: i > 0 })));
+        replies.push(await this.client.send(libraryCmd.playlistAdd(uri, { clear: i === 0, start: i === 0, queued: i > 0 })));
       }
       const failed = replies.find((r) => r.kind === "error");
       if (failed && failed.kind === "error") throw new HttpError(502, `HQPlayer refused PlaylistAdd: ${failed.message}`);

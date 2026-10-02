@@ -494,10 +494,12 @@ export class FakeHqp {
     },
     // SDK: only sent with a session key; we expect refusal like ConfigurationLoad (inferred).
     LibraryLoad: () => this.doc("LibraryLoad", { result: "Error" }, "missing data or not authorized"),
-    // Inferred: plain PlaylistAdd is accepted (untested on a real instance).
+    // Measured (5.35.10): plain PlaylistAdd is accepted; start="1" makes the playlist
+    // the active transport, without it Play stays on the previous source (Roon).
     PlaylistAdd: (req) => {
       if (req.attrs.clear === "1") this.playlist = [];
       this.playlist.push(req.attrs.uri ?? "");
+      if (req.attrs.start === "1") this.feeder = "playlist";
       return this.ok("PlaylistAdd");
     },
     PlaylistClear: () => {
@@ -506,9 +508,8 @@ export class FakeHqp {
     },
     SelectTrack: (req) => {
       const i = Number(req.attrs.index ?? 0);
-      if (i >= 0 && i < this.playlist.length) {
+      if (i >= 0 && i < this.playlist.length && this.feeder === "playlist") {
         this.playlistIndex = i;
-        this.feeder = "playlist";
         this.position = 0;
       }
       return this.ok("SelectTrack");

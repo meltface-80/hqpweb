@@ -48,6 +48,21 @@ decision still to make.
   - mark combinations yellow or red per instance and rate.
 
   The harness must avoid tipping an instance into the overload described in §2.3.
+- **Library and playback (measured 2026-10-02):**
+  - `LibraryGet` works unauthenticated: albums with nested tracks; 2,526 albums
+    and 39,614 tracks in 0.8 s on the Mac.
+  - `LibraryGetHash` is v6-only ("Unknown command" on 5.32).
+  - `LibraryLoad` is only sent by the SDK with a session key, so we don't use it.
+  - `PlaylistAdd` with a plain file path is **accepted without a session**
+    (Desktop 5.35.10). **`start="1"` makes the playlist the active transport.**
+    Without it, `Play` stays on the previous source (Roon's stream) or fails in
+    its stream reader.
+  - `LibraryPicture` replies are a line plus raw bytes. They returned no art on
+    the Mac, whose library pointed at a folder that no longer exists.
+- **Load profile of the Linux instance (CUDA, 8 CPUs), PCM from a 44.1k source:**
+  every filter at 176.4k and 352.8k ran at real time. The heaviest was FFT, at
+  0.25 cores plus 11% GPU. This morning's overload did not reproduce from the filter
+  alone (see §2.3 for the multicore hypothesis).
 - **Built-in benchmark (operator idea: setups differ, and people are competitive).**
   Profile an instance from the app and produce a shareable result: which
   filter × modulator × rate combinations run comfortably, which are marginal, and

@@ -1,8 +1,10 @@
 // HQPlayer's own library (LibraryGet, measured on Desktop 5.32.5): albums
 // (<LibraryDirectory>) with their tracks (<LibraryFile>) nested inside.
 // Browsing is unauthenticated. Loading an album (LibraryLoad) is only sent by the
-// SDK with a session key, so it is expected to be refused; queue tracks with
-// PlaylistAdd instead (untested on a real instance).
+// SDK with a session key; we queue files with PlaylistAdd instead. Measured on
+// Desktop 5.35.10: a plain-path PlaylistAdd is accepted without a session, but
+// only start="1" makes the playlist the active transport (otherwise Play keeps
+// using the previous source, e.g. Roon's stream).
 import { connect } from "node:net";
 import { element, PROLOG, type Element } from "./xml.ts";
 
@@ -79,9 +81,12 @@ export function parseLibrary(el: Element): LibraryAlbum[] {
 export const libraryCmd = {
   get: () => element("LibraryGet", { pictures: 0 }),
   pictureByHash: (hash: string) => element("LibraryPicture", { hash }),
-  /** SDK: queue a URI (file path on the HQPlayer machine, or URL). Plain form = no session key. */
-  playlistAdd: (uri: string, opts: { queued?: boolean; clear?: boolean } = {}) =>
-    element("PlaylistAdd", { uri, queued: opts.queued ?? false, clear: opts.clear ?? false, start: 0, freewheel: 0 }),
+  /**
+   * Queue a URI: a plain file path on the HQPlayer machine works (measured), or a URL.
+   * start: make the playlist the active transport (needed for the first item).
+   */
+  playlistAdd: (uri: string, opts: { queued?: boolean; clear?: boolean; start?: boolean } = {}) =>
+    element("PlaylistAdd", { uri, queued: opts.queued ?? false, clear: opts.clear ?? false, start: opts.start ?? false, freewheel: 0 }),
   playlistClear: () => element("PlaylistClear"),
   selectTrack: (index: number) => element("SelectTrack", { index }),
 };

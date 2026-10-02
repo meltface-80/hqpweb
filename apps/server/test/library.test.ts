@@ -66,6 +66,8 @@ describe("library", () => {
     ]);
     expect(fake.playlistIndex).toBe(1);
     expect(r.status).toMatchObject({ state: 2, source: { song: "02 - Middle.flac" } });
+    // start=1 on the first item is what switches HQPlayer off Roon (measured).
+    expect(fake.received.filter((x) => x.includes("PlaylistAdd")).map((x) => /start="(\d)"/.exec(x)![1])).toEqual(["1", "0", "0"]);
   });
 
   it("validates play requests", async () => {

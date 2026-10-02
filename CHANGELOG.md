@@ -32,8 +32,9 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 ### Added
 
 - **Library:** browse HQPlayer's own library (search, albums, tracks) and play an
-  album or track. Playing queues the files with `PlaylistAdd`; that path is not yet
-  tested on a real instance.
+  album or track. Playing queues the files with `PlaylistAdd` and switches HQPlayer
+  to its playlist (verified on Desktop 5.35). The library itself is scanned in
+  HQPlayer (File → Library…); the control API can't add folders.
 - **Transport:** previous, play/pause and next, disabled while Roon is the source
   (measured: a pause sent to HQPlayer reaches Roon, but play and next don't).
 
