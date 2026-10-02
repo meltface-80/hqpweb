@@ -10,9 +10,18 @@ to reach the session that did the groundwork.
 
 ## Hard rules
 
-1. **This repo will be PUBLIC.**
-   - Never commit real hostnames, IP addresses, domain names, personal names or email
-     addresses.
+1. **This repo will be PUBLIC. No personal or location data, ever** (operator's firm
+   requirement, 2026-10-02).
+   - Never put real names, email addresses, **place names (the operator's homes or
+     sites)**, hostnames, domain names, IP addresses, or anything from the operator's
+     music library (paths, collection names, artists, albums) into **any** git
+     content: files, **commit messages**, tags, branch names. Use invented examples
+     (`192.0.2.x`, "Example Artist").
+   - The hooks in `tools/hooks/` enforce this (`git config core.hooksPath tools/hooks`):
+     `commit-msg` checks messages, and `pre-push` checks every outgoing commit's files and
+     messages. Private terms live in the git-ignored `pii-denylist.local`. **Never bypass
+     them (`--no-verify`)**; fix the text. Add new private terms to the denylist as they
+     come up.
    - Anything about the operator's own network goes in `*.local.md`, which is
      git-ignored.
    - Before any push that could become public, run the operator's preflight scanner

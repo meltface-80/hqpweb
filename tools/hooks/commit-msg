@@ -1,0 +1,3 @@
+#!/bin/sh
+# Block personal/location data in commit messages (see tools/hooks/pii_check.py).
+exec python3 "$(git rev-parse --show-toplevel)/tools/hooks/pii_check.py" message "$1"
