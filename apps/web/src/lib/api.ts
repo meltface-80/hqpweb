@@ -35,7 +35,7 @@ export type Status = {
   activeFilter: string;
   activeShaper: string;
   volume: number;
-  source: { sampleRate: number; bits: number; channels: number } | null;
+  source: { sampleRate: number; bits: number; channels: number; song: string } | null;
 };
 export type Snapshot = { status: Status; state: State; health?: { latencyMs: number; speed: number | null } };
 export type Failure = {

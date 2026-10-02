@@ -253,6 +253,13 @@
   };
 
   let tbusy = $state(false);
+  /**
+   * Measured 2026-10-02: a Pause sent to HQPlayer pauses the Roon zone, but Play and
+   * Next don't reach Roon, so after a pause only Roon can resume. With Roon as the
+   * source, leave transport to Roon.
+   */
+  const fromRoon = $derived(snap?.status.source?.song === "Roon");
+  const ROON_NOTE = "Playing from Roon: use Roon to control playback";
   async function transport(action: "play" | "pause" | "previous" | "next") {
     if (!selected) return;
     tbusy = true;
@@ -339,13 +346,14 @@
         </span>
       </div>
       <div class="transport">
-        <button class="tbtn" onclick={() => transport("previous")} disabled={tbusy} aria-label="Previous track">
+        <button class="tbtn" onclick={() => transport("previous")} disabled={tbusy || fromRoon} title={fromRoon ? ROON_NOTE : "Previous"} aria-label="Previous track">
           <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 5h2v14H6zM20 5v14L9 12z" /></svg>
         </button>
         <button
           class="tbtn main"
           onclick={() => transport(snap!.status.state === 2 ? "pause" : "play")}
-          disabled={tbusy}
+          disabled={tbusy || fromRoon}
+          title={fromRoon ? ROON_NOTE : snap.status.state === 2 ? "Pause" : "Play"}
           aria-label={snap.status.state === 2 ? "Pause" : "Play"}
         >
           {#if snap.status.state === 2}
@@ -354,7 +362,7 @@
             <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M8 5v14l11-7z" /></svg>
           {/if}
         </button>
-        <button class="tbtn" onclick={() => transport("next")} disabled={tbusy} aria-label="Next track">
+        <button class="tbtn" onclick={() => transport("next")} disabled={tbusy || fromRoon} title={fromRoon ? ROON_NOTE : "Next"} aria-label="Next track">
           <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 5h2v14h-2zM4 5l11 7-11 7z" /></svg>
         </button>
       </div>

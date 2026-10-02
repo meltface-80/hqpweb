@@ -64,8 +64,17 @@ decision still to make.
   - **It's audible.** Run when nobody is listening, at low volume, ideally on a
     quiet test signal that HQPlayer plays itself (no Roon needed).
   - CPU time needs fine resolution: `/proc/<pid>/stat` ticks on Linux, not `ps`.
-- **HQPlayer transport (built 2026-10-02):** previous, play/pause, next. Whether
-  Roon follows a pause or skip sent to HQPlayer underneath it is not yet measured.
+- **HQPlayer transport (built 2026-10-02).** Previous, play/pause and next.
+  **Measured with Roon as the source** (living-room zone, Home Assistant watching
+  the Roon zone):
+  - a `Pause` sent to HQPlayer **pauses the Roon zone**;
+  - `Play` does **not** reach Roon: HQPlayer played about 28 s from its buffer,
+    then stopped;
+  - `Next` returns `Error`, since HQPlayer has no playlist of its own;
+  - after an HQPlayer-side pause, **only Roon can resume**.
+
+  So the app disables transport when `Status` metadata says `song="Roon"`. Real
+  Roon control would need Roon's own API (see now-playing above).
 - **Longer-term watch after a change.** Overload can build over minutes (§2.3), so
   the app should keep watching quietly after a risky change and offer a one-tap
   revert if the instance starts falling behind.

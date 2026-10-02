@@ -107,7 +107,8 @@ export function parseState(el: Element): State {
 function sourceOf(el: Element): Status["source"] {
   const m = el.children.find((c) => c.name === "metadata");
   if (!m || m.attrs.samplerate === undefined) return null;
-  return { sampleRate: num(m, "samplerate"), bits: Number(m.attrs.bits ?? 0), channels: Number(m.attrs.channels ?? 0) };
+  // song is "Roon" when Roon feeds HQPlayer its raw stream (measured on both instances).
+  return { sampleRate: num(m, "samplerate"), bits: Number(m.attrs.bits ?? 0), channels: Number(m.attrs.channels ?? 0), song: m.attrs.song ?? "" };
 }
 
 /** Live values, by name. */
@@ -123,7 +124,7 @@ export interface Status {
   track: number;
   tracksTotal: number;
   /** From the <metadata> child, present while playing (measured). Decides 1x vs Nx filter. */
-  source: { sampleRate: number; bits: number; channels: number } | null;
+  source: { sampleRate: number; bits: number; channels: number; song: string } | null;
 }
 
 export function parseStatus(el: Element): Status {
