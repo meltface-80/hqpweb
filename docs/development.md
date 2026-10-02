@@ -99,6 +99,8 @@ Every behaviour is labelled in the code, in `packages/fake-hqp/src/fake.ts`.
   - volume is clamped to `VolumeRange`;
   - a bad shaper stalls the same way a bad rate does;
   - the stall rule is widened from AHM7EC8B to all AHM…8B modulators below DSD1024.
+- **Reported by HQPTuner (Embedded 6.0.4), unmeasured here:** a mode switch resets
+  the rate to auto.
 
 Not modelled yet: `Status` subscriptions, convolution or matrix profiles, v6-only
 commands (the v5 profiles answer "Unknown command", as real v5 does), and Embedded.

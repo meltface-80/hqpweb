@@ -125,6 +125,17 @@ describe("mode change", () => {
     await c.send(cmd.setMode(byName(modes, "SDM (DSD)")));
     expect(await c.state()).toMatchObject({ filterNx: 51, filter1x: 49, shaper: 35, state: 2 });
   });
+
+  it("resets the rate to auto (reported for Embedded, unmeasured on Desktop)", async () => {
+    const c = await start();
+    const asdm = byName(await c.shapers(), "ASDM7EC");
+    await c.send(cmd.setShaping(asdm));
+    await c.send(cmd.setRate((await c.rates()).find((r) => r.rate === 22579200)!.index));
+    const modes = await c.modes();
+    await c.send(cmd.setMode(byName(modes, "PCM")));
+    await c.send(cmd.setMode(byName(modes, "SDM (DSD)")));
+    expect((await c.state()).rate).toBe(0);
+  });
 });
 
 describe("invalid rate/modulator combination (measured)", () => {

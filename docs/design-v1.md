@@ -147,6 +147,21 @@ then cannot play.
 
 This is why v1 uses app-owned presets (§4.3).
 
+**Embedded uses the same control protocol.** This is *reported*, not measured: we
+have no Embedded instance.
+
+- **Same commands.** HQPTuner drives Embedded (hqplayerd 6.0.4) with the same
+  XML-over-TCP commands on port 4321, with no authentication. Signalyst ships one
+  control SDK for both products.
+- **Reported quirks:**
+  - `Volume` returns an error when volume control is disabled.
+  - `SetRate` is silently ignored in `[source]` mode.
+  - A mode switch clears the rate setting (the fake server models this).
+- **Embedded-only extras:** the web UI on port 8088 (Digest auth) and a metering
+  stream on port 4322. These are not part of the control protocol.
+- **To verify:** run `tools/probe/hqp.py` against an Embedded instance before
+  claiming support.
+
 ### 2.5 HQPlayer 6 versus 5
 
 From the 6.0.1 SDK source and the release notes:

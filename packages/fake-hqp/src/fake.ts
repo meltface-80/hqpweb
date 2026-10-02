@@ -46,8 +46,8 @@ export class FakeHqp {
   readonly opts: Required<Omit<FakeOptions, "log">> & Pick<FakeOptions, "log">;
 
   modeIndex: number;
-  /** Inferred: each mode remembers its own rate index, like it does filters. */
-  rateByMode = new Map<number, number>();
+  /** Index into the current mode's rate list; 0 is auto. */
+  rateIndex = 0;
   remembered = new Map<number, Remembered>();
   volume: number;
   invert: boolean;
@@ -76,7 +76,7 @@ export class FakeHqp {
     const i = profile.initial;
     this.modeIndex = Number(i.mode);
     for (const [mv, r] of Object.entries(profile.remembered)) this.remembered.set(Number(mv), { ...r });
-    this.rateByMode.set(this.modeValue, Number(i.rate));
+    this.rateIndex = Number(i.rate);
     this.volume = Number(i.volume);
     this.invert = i.invert === "1";
     this.filter20k = i.filter_20k === "1";
@@ -104,9 +104,6 @@ export class FakeHqp {
     const l = this.profile.lists[String(this.modeValue)] ?? this.profile.lists["0"];
     if (!l) throw new Error(`profile ${this.profile.id} has no lists for mode ${this.modeValue}`);
     return l;
-  }
-  get rateIndex() {
-    return this.rateByMode.get(this.modeValue) ?? 0;
   }
   get rem(): Remembered {
     let r = this.remembered.get(this.modeValue);
@@ -312,6 +309,9 @@ export class FakeHqp {
       await this.sleep(DELAY.mode);
       this.tick();
       this.modeIndex = i;
+      // Reported by HQPTuner (Embedded 6.0.4): a mode switch clears the rate pin.
+      // Unmeasured on Desktop. Modelled as a reset to auto.
+      this.rateIndex = 0;
       this.checkCombo();
       return this.ok("SetMode");
     },
@@ -319,7 +319,7 @@ export class FakeHqp {
     SetRate: (req) => {
       const i = this.intArg(req);
       if (i !== null && i < this.lists.rates.length) {
-        this.rateByMode.set(this.modeValue, i);
+        this.rateIndex = i;
         this.checkCombo();
       }
       // Measured: OK even when the combination then stops playback.
