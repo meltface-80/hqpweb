@@ -2,6 +2,8 @@
   // Live "Now" card, quick changes, Advanced (mode and rate), undo. Changes that
   // can disturb playback are checked by the server and rolled back if they fail.
   import Picker from "./lib/Picker.svelte";
+  import Settings from "./lib/Settings.svelte";
+  import { prefs } from "./lib/prefs.svelte.ts";
   import {
     api,
     formatRate,
@@ -36,6 +38,7 @@
   let undoAvailable = $state(false);
   let message = $state<{ kind: "ok" | "warn" | "error" | "info"; text: string } | null>(null);
   let volDraft = $state<number | null>(null);
+  let settings: Settings;
 
   $effect(() => {
     api
@@ -210,7 +213,16 @@
       <h1>{instances[0]?.name ?? "…"}</h1>
     {/if}
     <span class="dot {online}" title={online === "unreachable" ? offlineReason : online}></span>
+    <button class="gear" onclick={() => settings.open()} aria-label="Settings">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+    </button>
   </header>
+
+  <Settings
+    bind:this={settings}
+    instance={instances.find((i) => i.id === selected) ?? null}
+    onforgot={() => selected && api.capabilities(selected).then((c) => (caps = c))}
+  />
 
   {#if online === "unreachable"}
     <p class="banner error">HQPlayer unreachable: {offlineReason}</p>
@@ -277,9 +289,9 @@
       <h2>Volume</h2>
       <section class="card volume">
         <div class="vol-row">
-          <button class="round" onclick={() => step(-1)} disabled={busy} aria-label="Down 1 dB">−</button>
+          <button class="round" onclick={() => step(-prefs.volumeStep)} disabled={busy} aria-label="Down {prefs.volumeStep} dB">−</button>
           <output>{vol.toFixed(1)}<small> dB</small></output>
-          <button class="round" onclick={() => step(1)} disabled={busy} aria-label="Up 1 dB">+</button>
+          <button class="round" onclick={() => step(prefs.volumeStep)} disabled={busy} aria-label="Up {prefs.volumeStep} dB">+</button>
         </div>
         <input
           type="range"
@@ -295,7 +307,7 @@
         <div class="range"><span>{caps.volumeRange.min} dB</span><span>{caps.volumeRange.max} dB</span></div>
       </section>
 
-      <details class="advanced">
+      <details class="advanced" open={prefs.advancedOpen}>
         <summary>Advanced: mode and output rate</summary>
         <p class="help">These can stop playback. The app checks that playback recovers and rolls back if it doesn't.</p>
         <section class="card list">
@@ -341,73 +353,62 @@
 </footer>
 
 <style>
-  :global(:root) {
-    --bg: #f4f4f6; --fg: #17171a; --card: #ffffff; --muted: #6b6b76; --line: #e6e6ea; --hover: #f1f1f4;
-    --accent: #4f46e5; --accent-soft: #eef0ff; --ok: #157f3b; --warn: #a15c00; --err: #b3261e;
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    :global(:root) {
-      --bg: #0e0e11; --fg: #ececf1; --card: #1a1a1f; --muted: #9a9aa6; --line: #2a2a31; --hover: #23232a;
-      --accent: #a5a1ff; --accent-soft: #2a2850; --ok: #6fdc8c; --warn: #f1b54a; --err: #ff8a80;
-      color-scheme: dark;
-    }
-  }
-  :global(body) { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.4 system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+  :global(body) { margin: 0; font-size: 16px; line-height: 1.4; -webkit-tap-highlight-color: transparent; }
   main { max-width: 34rem; margin: 0 auto; padding: 16px 16px 140px; padding-top: max(16px, env(safe-area-inset-top)); }
 
   .top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
   .top h1 { font-size: 1.25rem; margin: 0; flex: 1; }
-  .top select { flex: 1; font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: inherit; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .gear { background: none; border: 0; color: var(--text-dim); padding: 8px; margin: -8px -8px -8px 0; cursor: pointer; min-width: 44px; min-height: 44px; display: grid; place-items: center; }
+  .top select { flex: 1; font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elev); color: inherit; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); }
   .dot.live { background: var(--ok); }
-  .dot.unreachable, .dot.lost { background: var(--err); }
+  .dot.unreachable, .dot.lost { background: var(--danger); }
 
   .banner { padding: 10px 14px; border-radius: 10px; margin: 0 0 12px; }
-  .banner.error { background: color-mix(in srgb, var(--err) 14%, transparent); color: var(--err); }
+  .banner.error { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
   .banner.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
 
-  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 22px 4px 8px; font-weight: 600; }
-  .card { background: var(--card); border-radius: 14px; }
+  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 22px 4px 8px; font-weight: 600; }
+  .card { background: var(--bg-elev); border-radius: 14px; }
   .card.list { overflow: hidden; }
-  .help { color: var(--muted); font-size: 0.82rem; margin: 6px 4px 0; }
-  .muted { color: var(--muted); }
+  .help { color: var(--text-dim); font-size: 0.82rem; margin: 6px 4px 0; }
+  .muted { color: var(--text-dim); }
 
   .now { padding: 16px; }
   .headline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .state { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--hover); color: var(--muted); align-self: center; }
+  .state { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--bg-elev-2); color: var(--text-dim); align-self: center; }
   .state.s2 { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
   .state.s3 { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
   .big { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .mode { color: var(--muted); }
+  .mode { color: var(--text-dim); }
   dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
-  dt { color: var(--muted); }
+  dt { color: var(--text-dim); }
   dd { margin: 0; overflow-wrap: anywhere; }
-  .pill { font-size: 0.72rem; padding: 1px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-left: 4px; }
+  .pill { font-size: 0.72rem; padding: 1px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); margin-left: 4px; }
 
   .volume { padding: 16px; }
   .vol-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
   output { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-  output small { font-size: 1rem; font-weight: 500; color: var(--muted); }
-  .round { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: inherit; font-size: 1.5rem; cursor: pointer; }
+  output small { font-size: 1rem; font-weight: 500; color: var(--text-dim); }
+  .round { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); color: inherit; font-size: 1.5rem; cursor: pointer; }
   .round:disabled { opacity: 0.5; }
-  input[type="range"] { width: 100%; accent-color: var(--accent); }
-  .range { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.78rem; }
+  input[type="range"] { width: 100%; accent-color: var(--accent-text); }
+  .range { display: flex; justify-content: space-between; color: var(--text-dim); font-size: 0.78rem; }
 
   .toggle { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; }
-  .toggle:not(:last-child) { border-bottom: 1px solid var(--line); }
-  .toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .toggle:not(:last-child) { border-bottom: 1px solid var(--border); }
+  .toggle input { width: 20px; height: 20px; accent-color: var(--accent-text); }
 
   .advanced { margin-top: 22px; }
-  .advanced summary { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; padding: 0 4px; cursor: pointer; }
+  .advanced summary { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; padding: 0 4px; cursor: pointer; }
   .advanced .help { margin: 8px 4px; }
 
-  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--line); display: none; flex-direction: column; gap: 8px; align-items: center; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: none; flex-direction: column; gap: 8px; align-items: center; }
   footer.show { display: flex; }
   .msg { margin: 0; max-width: 34rem; text-align: center; font-size: 0.9rem; }
   .msg.ok { color: var(--ok); }
   .msg.warn { color: var(--warn); }
-  .msg.error { color: var(--err); }
-  .msg.info { color: var(--muted); }
-  .undo { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--accent); cursor: pointer; }
+  .msg.error { color: var(--danger); }
+  .msg.info { color: var(--text-dim); }
+  .undo { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--accent-text); cursor: pointer; }
 </style>

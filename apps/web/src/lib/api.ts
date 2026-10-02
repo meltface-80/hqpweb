@@ -90,6 +90,8 @@ export const api = {
       body: JSON.stringify(change),
     }),
   undo: (id: string) => call<ApplyResult>(`/api/instances/${id}/undo`, { method: "POST" }),
+  learned: (id: string) => call<(Failure & { engine: string })[]>(`/api/instances/${id}/learned`),
+  forgetLearned: (id: string) => call<{ forgotten: number }>(`/api/instances/${id}/learned`, { method: "DELETE" }),
   events: (id: string) => new EventSource(`/api/instances/${id}/events`),
 };
 

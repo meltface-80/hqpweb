@@ -1,0 +1,98 @@
+/* ------------------------------------------------------------------ */
+/*  Palettes adapted from MusicD Remote (style.css, v1.8.66):           */
+/*  Copyright (c) 2026 Lewis Menzies (Music Duck / MusicD)             */
+/*  Released under the MIT License.                                    */
+/*  https://github.com/meltface-80/MusicD-Remote                       */
+/*                                                                      */
+/*  Same scheme: data-theme = dark | light (the family), data-palette = */
+/*  classic | copper (the colours). --ok and --warn are this app's own. */
+/* ------------------------------------------------------------------ */
+
+:root,
+[data-theme="dark"][data-palette="classic"] {
+  --font-sans: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --bg: #1d2125;
+  --bg-elev: #252a2f;
+  --bg-elev-2: #2c3238;
+  --border: #353b42;
+  --text: #e9eaec;
+  --text-dim: #959aa1;
+  --text-faint: #6d7279;
+  --accent: #4cb7e6;
+  --accent-text: #4cb7e6;
+  --accent-soft: rgba(76, 183, 230, 0.15);
+  --on-accent: #0b1418;
+  --bg-veil: rgba(29, 33, 37, 0.84);
+  --danger: #e06464;
+  --ok: #6fdc8c;
+  --warn: #f1b54a;
+  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.45), 0 10px 24px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f6f5f2;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #fbfaf7;
+  --border: #e3e0d9;
+  --text: #1a1c1f;
+  --text-dim: #5e636a;
+  --text-faint: #8c919a;
+  --accent: #1f8fc1;
+  --accent-text: #1f8fc1;
+  --accent-soft: rgba(31, 143, 193, 0.12);
+  --on-accent: #ffffff;
+  --bg-veil: rgba(246, 245, 242, 0.84);
+  --danger: #c0392b;
+  --ok: #157f3b;
+  --warn: #a15c00;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 16px rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+[data-theme="dark"][data-palette="copper"] {
+  --bg: #2d3134;
+  --bg-elev: #353a3d;
+  --bg-elev-2: #3c4145;
+  --border: #474d52;
+  --text: #e8e6e3;
+  --text-dim: #bdb9b3;
+  --text-faint: #b2aca4;
+  --accent: #c47f4a;
+  --accent-text: #dfa06c;
+  --accent-soft: rgba(196, 127, 74, 0.15);
+  --on-accent: #17120d;
+  --bg-veil: rgba(45, 49, 52, 0.84);
+  --danger: #e8776f;
+  --ok: #8fd19e;
+  --warn: #f0b860;
+  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.5), 0 10px 24px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+[data-theme="light"][data-palette="copper"] {
+  --bg: #f7f4ed;
+  --bg-elev: #fffdf8;
+  --bg-elev-2: #fbf8f1;
+  --border: #e4ded1;
+  --text: #1e1b16;
+  --text-dim: #5c554a;
+  --text-faint: #756c5e;
+  --accent: #8a5a35;
+  --accent-text: #8a5a35;
+  --accent-soft: rgba(138, 90, 53, 0.12);
+  --on-accent: #fffdf8;
+  --bg-veil: rgba(247, 244, 237, 0.84);
+  --danger: #b3271d;
+  --ok: #2f6f3a;
+  --warn: #9a5b00;
+  --shadow-card: 0 1px 2px rgba(58, 44, 26, 0.07), 0 6px 16px rgba(58, 44, 26, 0.1);
+  color-scheme: light;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}

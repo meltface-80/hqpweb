@@ -401,6 +401,18 @@ export class Instance {
     return { results, prev, state: after, volumeSet: volume ?? null, major };
   }
 
+  /** Every failure learned on this instance, across engines and modes. */
+  learnedFailures(): Failure[] {
+    return this.learned.all(this.cfg.id);
+  }
+
+  forgetFailures(): { forgotten: number } {
+    const n = this.learned.all(this.cfg.id).length;
+    this.learned.forget(this.cfg.id);
+    this.caps = null;
+    return { forgotten: n };
+  }
+
   private watch(timing: WatchTiming): Promise<Verdict> {
     return watchPlayback(async () => {
       const s = await this.client.status();

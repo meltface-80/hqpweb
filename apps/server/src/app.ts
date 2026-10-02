@@ -107,6 +107,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     "GET capabilities": (_q, _r, i) => i.capabilities(),
     "POST change": async (q, _r, i) => i.applyChange(parseChange(await readJson(q))),
     "POST undo": (_q, _r, i) => i.undo(),
+    "GET learned": async (_q, _r, i) => i.learnedFailures(),
+    "DELETE learned": async (_q, _r, i) => i.forgetFailures(),
     "GET events": events,
   };
 

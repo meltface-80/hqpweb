@@ -140,6 +140,15 @@ describe("rollback when playback fails", () => {
     expect((await caps()).knownBad[0]).toMatchObject({ filter1x: "poly-sinc-gauss-long" });
   });
 
+  it("lists learned failures and forgets them", async () => {
+    await setup();
+    await change({ rate: 22579200 }); // the measured stall
+    const list = (await req("GET", "/api/instances/mac/learned")).json();
+    expect(list).toHaveLength(1);
+    expect((await req("DELETE", "/api/instances/mac/learned")).json()).toEqual({ forgotten: 1 });
+    expect((await caps()).knownBad).toEqual([]);
+  });
+
   it("keeps a valid combination (ASDM7EC at DSD512)", async () => {
     await setup();
     await change({ shaper: "ASDM7EC" });

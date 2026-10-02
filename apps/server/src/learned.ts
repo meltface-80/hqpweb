@@ -47,6 +47,10 @@ export class LearnedStore {
     return this.failures.filter((f) => f.instance === instance && f.engine === engine && f.mode === mode);
   }
 
+  all(instance: string): Failure[] {
+    return this.failures.filter((f) => f.instance === instance);
+  }
+
   forget(instance: string) {
     this.failures = this.failures.filter((f) => f.instance !== instance);
     this.save();
