@@ -8,6 +8,9 @@
 import {
   HqpClient,
   cmd,
+  fetchPicture,
+  libraryCmd,
+  type LibraryAlbum,
   filterSlot,
   predictedStop,
   type Hint,
@@ -552,6 +555,60 @@ export class Instance {
       // Give the engine a moment, then report what actually happened.
       await new Promise((r) => setTimeout(r, 300));
       return { reply, status: await this.client.status() };
+    });
+  }
+
+  // ---- HQPlayer's own library -------------------------------------------------
+
+  private lib: { at: number; albums: LibraryAlbum[]; byHash: Map<string, LibraryAlbum> } | null = null;
+  private libLoading: Promise<NonNullable<Instance["lib"]>> | null = null;
+  private art = new Map<string, { type: string; data: Buffer } | null>();
+
+  /** The whole library, cached. v5 has no LibraryGetHash (measured), so re-read on age. */
+  async library(refresh = false): Promise<{ albums: LibraryAlbum[]; byHash: Map<string, LibraryAlbum> }> {
+    if (!refresh && this.lib && Date.now() - this.lib.at < 10 * 60_000) return this.lib;
+    this.libLoading ??= this.client
+      .library()
+      .then((albums) => {
+        this.lib = { at: Date.now(), albums, byHash: new Map(albums.map((a) => [a.hash, a])) };
+        this.art.clear();
+        return this.lib;
+      })
+      .finally(() => (this.libLoading = null));
+    return this.libLoading;
+  }
+
+  /** Cover art by album hash; null when HQPlayer has none (common without extracted covers). */
+  async picture(hash: string): Promise<{ type: string; data: Buffer } | null> {
+    if (this.art.has(hash)) return this.art.get(hash)!;
+    const pic = await fetchPicture(this.cfg.host, this.cfg.port, hash);
+    if (this.art.size > 300) this.art.delete(this.art.keys().next().value!);
+    this.art.set(hash, pic);
+    return pic;
+  }
+
+  /**
+   * Play an album (from `track`, 0-based) by queueing its files with PlaylistAdd,
+   * then SelectTrack and Play. UNTESTED on a real instance: whether v5 accepts a
+   * plain (unencrypted) PlaylistAdd, and which URI form it wants for files.
+   */
+  playAlbum(hash: string, track = 0): Promise<{ queued: number; replies: Outcome[]; status: Status }> {
+    return this.exclusive(async () => {
+      const lib = await this.library();
+      const album = lib.byHash.get(hash);
+      if (!album) throw new HttpError(404, "unknown album");
+      if (track < 0 || track >= album.tracks.length) throw new HttpError(400, "no such track");
+      const replies: Outcome[] = [];
+      for (const [i, t] of album.tracks.entries()) {
+        const uri = `${album.path.replace(/\/$/, "")}/${t.name}`;
+        replies.push(await this.client.send(libraryCmd.playlistAdd(uri, { clear: i === 0, queued: i > 0 })));
+      }
+      const failed = replies.find((r) => r.kind === "error");
+      if (failed && failed.kind === "error") throw new HttpError(502, `HQPlayer refused PlaylistAdd: ${failed.message}`);
+      replies.push(await this.client.send(libraryCmd.selectTrack(track)));
+      replies.push(await this.client.send(cmd.play()));
+      await new Promise((r) => setTimeout(r, 500));
+      return { queued: album.tracks.length, replies, status: await this.client.status() };
     });
   }
 

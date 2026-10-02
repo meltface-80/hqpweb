@@ -4,6 +4,7 @@
 import { connect, type Socket } from "node:net";
 import { cmd } from "./commands.ts";
 import * as p from "./parse.ts";
+import { libraryCmd, parseLibrary } from "./library.ts";
 import { PROLOG, parseDocument, type Element } from "./xml.ts";
 
 export const DEFAULT_PORT = 4321;
@@ -173,4 +174,5 @@ export class HqpClient {
   volumeRange = async () => p.parseVolumeRange(await this.request(cmd.volumeRange()));
   configurations = async () => p.parseConfigurationList(await this.request(cmd.configurationList()));
   matrixProfiles = async () => p.parseMatrixProfiles(await this.request(cmd.matrixListProfiles()));
+  library = async () => parseLibrary(await this.request(libraryCmd.get()));
 }

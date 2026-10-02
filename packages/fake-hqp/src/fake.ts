@@ -26,6 +26,8 @@ export interface FakeOptions {
   matrixProfiles?: string[];
   /** Whether convolution impulse responses are configured. Measured: not, on both. */
   convolutionConfigured?: boolean;
+  /** Synthetic library for LibraryGet. Default: a few invented albums. */
+  library?: FakeAlbum[];
   log?: (line: string) => void;
 }
 
@@ -54,6 +56,21 @@ const DELAY = {
 
 type Reply = string;
 
+export interface FakeAlbum {
+  hash: string;
+  path: string;
+  album: string;
+  artist: string;
+  tracks: string[];
+}
+
+/** Invented names only: the repo is public. */
+export const DEFAULT_LIBRARY: FakeAlbum[] = [
+  { hash: "a1", path: "/music/Example Artist/First Album", album: "First Album", artist: "Example Artist", tracks: ["01 - Opening.flac", "02 - Middle.flac", "03 - Closing.flac"] },
+  { hash: "a2", path: "/music/Another Band/Second Album", album: "Second Album", artist: "Another Band", tracks: ["01 - Only Track.flac"] },
+  { hash: "a3", path: "/music/Composer X/Quartets", album: "Quartets", artist: "Ensemble Y", tracks: ["01 - I. Allegro.flac", "02 - II. Adagio.flac"] },
+];
+
 export class FakeHqp {
   readonly profile: Profile;
   readonly opts: Required<Omit<FakeOptions, "log">> & Pick<FakeOptions, "log">;
@@ -72,6 +89,11 @@ export class FakeHqp {
   position = 0;
   convolution = false;
   matrixProfile = "";
+  /** HQPlayer's own playlist (PlaylistAdd), and the selected entry. */
+  playlist: string[] = [];
+  playlistIndex = 0;
+  /** What feeds HQPlayer: "Roon" for a Roon stream (measured metadata), else the playlist. */
+  feeder: "Roon" | "playlist" = "Roon";
   /** Sample rate of the track being played. Set with setSource(). */
   sourceRate = 44_100;
   private prepared = new Set<string>();
@@ -94,6 +116,7 @@ export class FakeHqp {
       speed: opts.speed ?? (() => 1),
       matrixProfiles: opts.matrixProfiles ?? [],
       convolutionConfigured: opts.convolutionConfigured ?? false,
+      library: opts.library ?? DEFAULT_LIBRARY,
       log: opts.log,
     };
     const i = profile.initial;
@@ -278,9 +301,8 @@ export class FakeHqp {
       const pos = this.profile.volumeFormat === "long" ? this.position.toFixed(17) : String(this.position);
       const playing = this.playback !== 0 || this.stalled;
       // Real replies carry a <metadata> child while playing (measured); its stream URI is omitted here.
-      const meta = playing
-        ? element("metadata", { bits: 24, channels: 2, samplerate: this.sourceRate, sdm: 0, song: "Fake track" })
-        : "";
+      const song = this.feeder === "Roon" ? "Roon" : (this.playlist[this.playlistIndex] ?? "").split("/").pop() ?? "";
+      const meta = playing ? element("metadata", { bits: 24, channels: 2, samplerate: this.sourceRate, sdm: 0, song }) : "";
       return this.doc("Status", {
         active_bits: this.modeValue === 1 ? 1 : 32,
         active_channels: 2,
@@ -445,6 +467,43 @@ export class FakeHqp {
     Next: () => {
       this.position = 0;
       return this.ok("Next");
+    },
+    LibraryGet: () =>
+      this.doc(
+        "LibraryGet",
+        {},
+        undefined,
+        this.opts.library
+          .map(
+            (a) =>
+              element("LibraryDirectory", { album: a.album, artist: a.artist, hash: a.hash, path: a.path, rate: 44100, bits: 16, channels: 2 }).replace(/\/>$/, ">") +
+              a.tracks.map((t, i) => element("LibraryFile", { hash: `${a.hash}-${i}`, name: t, song: t.replace(/\.\w+$/, ""), number: i + 1, length: 240 })).join("") +
+              "</LibraryDirectory>",
+          )
+          .join(""),
+      ),
+    // Inferred: no extracted covers (measured: none on the Mac's library).
+    LibraryPicture: () => this.doc("LibraryPicture", { size: 0 }),
+    // SDK: only sent with a session key; we expect refusal like ConfigurationLoad (inferred).
+    LibraryLoad: () => this.doc("LibraryLoad", { result: "Error" }, "missing data or not authorized"),
+    // Inferred: plain PlaylistAdd is accepted (untested on a real instance).
+    PlaylistAdd: (req) => {
+      if (req.attrs.clear === "1") this.playlist = [];
+      this.playlist.push(req.attrs.uri ?? "");
+      return this.ok("PlaylistAdd");
+    },
+    PlaylistClear: () => {
+      this.playlist = [];
+      return this.ok("PlaylistClear");
+    },
+    SelectTrack: (req) => {
+      const i = Number(req.attrs.index ?? 0);
+      if (i >= 0 && i < this.playlist.length) {
+        this.playlistIndex = i;
+        this.feeder = "playlist";
+        this.position = 0;
+      }
+      return this.ok("SelectTrack");
     },
     Stop: () => {
       // Inferred: an explicit Stop clears the auto-resume.

@@ -4,6 +4,7 @@
   import Picker from "./lib/Picker.svelte";
   import Settings from "./lib/Settings.svelte";
   import Presets from "./lib/Presets.svelte";
+  import Library from "./lib/Library.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
   import { RECOMMENDED_MAX_VOLUME_DB, ditherHint, filterSlot, modulatorHint, ratioHint, type Hint } from "@app/protocol/compat";
   import {
@@ -41,6 +42,7 @@
   let message = $state<{ kind: "ok" | "warn" | "error" | "info"; text: string } | null>(null);
   let volDraft = $state<number | null>(null);
   let settings: Settings;
+  let library: Library;
   /** Consecutive status readings with playback below 0.9× real time. */
   let behind = $state(0);
   const slow = $derived((snap?.health?.latencyMs ?? 0) > 1500);
@@ -303,10 +305,15 @@
       class:slow={online === "live" && slow}
       title={online === "unreachable" ? offlineReason : slow ? `slow: HQPlayer took ${snap?.health?.latencyMs} ms to answer` : online}
     ></span>
+    <button class="gear" onclick={() => library.open()} aria-label="Library" title="HQPlayer library">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 4h3v16H4zM9 4h3v16H9zM14.2 4.6l2.9-.8 4.2 15.5-2.9.8z" /></svg>
+    </button>
     <button class="gear" onclick={() => settings.open()} aria-label="Settings">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
     </button>
   </header>
+
+  <Library bind:this={library} instanceId={selected} onplayed={(st) => snap && (snap = { ...snap, status: st })} />
 
   <Settings
     bind:this={settings}

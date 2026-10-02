@@ -6,7 +6,7 @@ import { LearnedStore } from "./learned.ts";
 import { serveStatic } from "./static.ts";
 import { Registry } from "./registry.ts";
 import { PresetStore } from "./presets.ts";
-import type { DiscoverOptions } from "@app/protocol";
+import type { DiscoverOptions, LibraryAlbum } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
 
 export interface AppOptions {
@@ -92,6 +92,25 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   } catch {
     throw new HttpError(400, "invalid JSON");
   }
+}
+
+/** Album summaries (no tracks), filtered by ?q= across the text fields, paged. */
+function searchAlbums(albums: LibraryAlbum[], params: URLSearchParams) {
+  const q = (params.get("q") ?? "").trim().toLowerCase();
+  const words = q ? q.split(/\s+/) : [];
+  const text = (a: LibraryAlbum) =>
+    [a.album, a.artist, a.composer, a.performer, a.genre, a.date].filter(Boolean).join(" ").toLowerCase();
+  const hits = words.length ? albums.filter((a) => words.every((w) => text(a).includes(w))) : albums;
+  const sorted = [...hits].sort(
+    (x, y) => (x.artist ?? "").localeCompare(y.artist ?? "") || x.album.localeCompare(y.album),
+  );
+  const offset = Math.max(0, Number(params.get("offset") ?? 0) || 0);
+  const limit = Math.min(500, Math.max(1, Number(params.get("limit") ?? 100) || 100));
+  return {
+    total: sorted.length,
+    offset,
+    albums: sorted.slice(offset, offset + limit).map(({ tracks, path: _p, ...a }) => ({ ...a, trackCount: tracks.length })),
+  };
 }
 
 function parsePresetBody(
@@ -244,6 +263,36 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         return send(res, 200, list.map((p, i) => ({ ...p, preview: previews[i] })));
       }
       if (ipm[2] && req.method === "POST") return send(res, 200, await inst.applyPreset(presets.get(decodeURIComponent(ipm[2])).settings));
+      throw new HttpError(404, "not found");
+    }
+
+    // ---- HQPlayer library ----
+    const lm = /^\/api\/instances\/([^/]+)\/library(?:\/(albums|art)\/([^/]+)|\/(play))?$/.exec(path);
+    if (lm) {
+      const inst = registry.get(decodeURIComponent(lm[1]!));
+      if (!inst) throw new HttpError(404, "unknown instance");
+      const url = new URL(req.url ?? "/", "http://x");
+      if (req.method === "GET" && !lm[2] && !lm[4]) {
+        const lib = await inst.library(url.searchParams.get("refresh") === "1");
+        return send(res, 200, searchAlbums(lib.albums, url.searchParams));
+      }
+      if (req.method === "GET" && lm[2] === "albums") {
+        const album = (await inst.library()).byHash.get(decodeURIComponent(lm[3]!));
+        if (!album) throw new HttpError(404, "unknown album");
+        return send(res, 200, album);
+      }
+      if (req.method === "GET" && lm[2] === "art") {
+        const pic = await inst.picture(decodeURIComponent(lm[3]!));
+        if (!pic) throw new HttpError(404, "no cover art");
+        res.writeHead(200, { "content-type": pic.type, "cache-control": "max-age=86400" });
+        return res.end(pic.data);
+      }
+      if (req.method === "POST" && lm[4] === "play") {
+        const body = (await readJson(req)) as { album?: unknown; track?: unknown };
+        if (typeof body?.album !== "string") throw new HttpError(400, "album (hash) is required");
+        if (body.track !== undefined && !Number.isInteger(body.track)) throw new HttpError(400, "track must be a whole number");
+        return send(res, 200, await inst.playAlbum(body.album, (body.track as number | undefined) ?? 0));
+      }
       throw new HttpError(404, "not found");
     }
 
