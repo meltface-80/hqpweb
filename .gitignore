@@ -5,3 +5,6 @@
 node_modules/
 dist/
 .DS_Store
+
+# Live-test harness wired to the operator's Home Assistant / instances. Local only.
+tools/probe/local/
