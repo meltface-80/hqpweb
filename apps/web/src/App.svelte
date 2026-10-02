@@ -1,6 +1,7 @@
 <script lang="ts">
   // Live "Now" card, quick changes, Advanced (mode and rate), undo. Changes that
   // can disturb playback are checked by the server and rolled back if they fail.
+  import { untrack } from "svelte";
   import Picker from "./lib/Picker.svelte";
   import Settings from "./lib/Settings.svelte";
   import Presets from "./lib/Presets.svelte";
@@ -269,6 +270,13 @@
   // Roon's zone for this instance, when Roon is on and a zone is mapped.
   let roonZone = $state<RoonZone | null>(null);
   const playing = $derived(roonZone ? roonZone.state === "playing" : snap?.status.state === 2);
+  // Roon playing while this HQPlayer sits stopped usually means the wrong zone is mapped.
+  let mismatchTicks = $state(0);
+  $effect(() => {
+    // Counts HQPlayer status polls (~1.5 s), not Roon's once-a-second seek updates.
+    const m = snap?.status.state === 0 && untrack(() => roonZone?.state === "playing");
+    mismatchTicks = m ? untrack(() => mismatchTicks) + 1 : 0;
+  });
   /**
    * Measured 2026-10-02: a Pause sent to HQPlayer pauses the Roon zone, but Play and
    * Next don't reach Roon, so after a pause only Roon can resume. With Roon as the
@@ -373,6 +381,12 @@
             <small>{[np.artist, np.album].filter(Boolean).join(" · ")}</small>
           </div>
         </div>
+      {/if}
+      {#if mismatchTicks >= 3 && roonZone}
+        <p class="mismatch">
+          Roon is playing in “{roonZone.name}”, but this HQPlayer is stopped. If that zone isn't fed by this HQPlayer, pick
+          another in Settings → Roon.
+        </p>
       {/if}
       <div class="headline">
         <span class="big">{formatRate(snap.status.activeRate, snap.status.activeMode)}</span>
@@ -583,6 +597,7 @@
   .sub { display: flex; align-items: center; gap: 8px; }
   .side { grid-template-columns: auto auto; text-align: right; font-size: 0.9rem; }
   .transport { display: flex; align-items: center; gap: 6px; }
+  .mismatch { flex: 1 1 100%; margin: 0; font-size: 0.85rem; color: var(--warn); }
   .track { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; min-width: 0; }
   .track img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; flex: none; background: var(--bg-elev-2); }
   .track div { display: flex; flex-direction: column; min-width: 0; }
