@@ -86,7 +86,7 @@ export type RoonZone = {
   state: string;
   hqplayer: boolean;
   nowPlaying: { track: string; artist: string; album: string; imageKey?: string; seek?: number; length?: number } | null;
-  allowed: { play: boolean; pause: boolean; next: boolean; previous: boolean };
+  allowed: { play: boolean; pause: boolean; next: boolean; previous: boolean; seek: boolean };
 };
 export type RoonStatus = "off" | "connecting" | "unapproved" | "connected" | "unreachable";
 export type RoonView = {
@@ -182,6 +182,8 @@ export const api = {
   discoverRoon: () => call<FoundCore[]>("/api/roon/discover", { method: "POST" }),
   setRoonZone: (id: string, zone: string | null) =>
     call<RoonView>(`/api/instances/${id}/roonzone`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ zone }) }),
+  roonSeek: (id: string, seconds: number) =>
+    call<RoonZone>(`/api/instances/${id}/roonseek`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seconds }) }),
   roonTransport: (id: string, action: "play" | "pause" | "playpause" | "previous" | "next") =>
     call<RoonZone>(`/api/instances/${id}/roontransport`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action }) }),
 };

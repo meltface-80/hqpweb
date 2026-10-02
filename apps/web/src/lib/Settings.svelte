@@ -76,6 +76,7 @@
 
   let dialog: HTMLDialogElement;
   let roon: RoonSettings;
+  let tab = $state<"general" | "roon">("general");
   let learned = $state<(Failure & { engine: string })[] | null>(null);
   let learnedError = $state("");
 
@@ -111,14 +112,22 @@
   const STEPS: Prefs["volumeStep"][] = [0.5, 1, 2];
 </script>
 
-<dialog bind:this={dialog} onclick={(e) => e.target === dialog && dialog.close()}>
+<dialog bind:this={dialog} onclick={(e) => e.target === dialog && dialog.close()} onclose={() => roon.stop()}>
   <div class="sheet">
     <header>
       <h3>Settings</h3>
       <button class="close" onclick={() => dialog.close()} aria-label="Close">✕</button>
     </header>
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected={tab === "general"} class:on={tab === "general"} onclick={() => (tab = "general")}>General</button>
+      <button role="tab" aria-selected={tab === "roon"} class:on={tab === "roon"} onclick={() => ((tab = "roon"), roon.refresh())}>Roon</button>
+    </nav>
 
-    <div class="body">
+    <div class="body" hidden={tab !== "roon"}>
+      <RoonSettings bind:this={roon} {instances} />
+    </div>
+
+    <div class="body" hidden={tab !== "general"}>
       <h4>Instances</h4>
       <ul class="instances">
         {#each instances as i (i.id)}
@@ -155,8 +164,6 @@
         <button class="small" type="submit">Add</button>
       </form>
       {#if instMsg}<p class={instMsg.kind === "error" ? "err" : "help"}>{instMsg.text}</p>{/if}
-
-      <RoonSettings bind:this={roon} {instances} />
 
       <h4>Theme</h4>
       <div class="themes">
@@ -234,6 +241,10 @@
   h3 { margin: 0; font-size: 1.05rem; }
   .close { background: none; border: 0; color: var(--text-dim); font-size: 1rem; padding: 6px; cursor: pointer; }
   .body { overflow-y: auto; padding: 0 16px 16px; }
+  .body[hidden] { display: none; }
+  .tabs { display: flex; gap: 4px; margin: 6px 16px 4px; padding: 3px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); }
+  .tabs button { flex: 1; padding: 8px; border: 0; border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: 0.9rem; cursor: pointer; min-height: 40px; }
+  .tabs button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
   h4 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 18px 0 8px; }
   .help { color: var(--text-dim); font-size: 0.85rem; margin: 0 0 8px; }
   .err { color: var(--danger); }

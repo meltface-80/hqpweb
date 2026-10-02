@@ -26,7 +26,11 @@
       msg = (e as Error).message;
     }
   }
-  onDestroy(() => clearTimeout(timer));
+  /** The sheet closed: stop checking. */
+  export function stop() {
+    clearTimeout(timer);
+  }
+  onDestroy(stop);
 
   async function configure(body: { enabled?: boolean; host?: string; port?: number }) {
     msg = "";
@@ -109,17 +113,20 @@
   {/if}
 
   {#if view.status === "connected" && instances.length}
-    <p class="help">Which Roon zone feeds each HQPlayer? Roon doesn't say, so pick once. Zones marked HQPlayer output through one.</p>
+    {@const hqZones = view.zones.filter((z) => z.hqplayer)}
+    <p class="help">Which Roon zone feeds each HQPlayer? Roon doesn't say, so pick once.</p>
+    {#if !hqZones.length}
+      <p class="help">This core has no zones that output through HQPlayer.</p>
+    {/if}
     {#each instances as inst (inst.id)}
       {@const current = view.zoneFor[inst.id] ?? ""}
+      {@const currentZone = view.zones.find((z) => z.id === current)}
       <label class="zone">
         <span>{inst.name}</span>
         <select value={current} onchange={(e) => pickZone(inst.id, e.currentTarget.value)}>
           <option value="">None</option>
-          {#if current && !view.zones.some((z) => z.id === current)}<option value={current}>(zone not on this core)</option>{/if}
-          {#each view.zones as z (z.id)}
-            <option value={z.id}>{z.name}{z.hqplayer ? " · HQPlayer" : ""}</option>
-          {/each}
+          {#if current && !hqZones.some((z) => z.id === current)}<option value={current}>{currentZone ? `${currentZone.name} (not via HQPlayer)` : "(zone not on this core)"}</option>{/if}
+          {#each hqZones as z (z.id)}<option value={z.id}>{z.name}</option>{/each}
         </select>
       </label>
     {/each}

@@ -172,6 +172,7 @@ export class FakeRoon {
       is_pause_allowed: z.state === "playing",
       is_next_allowed: true,
       is_previous_allowed: true,
+      is_seek_allowed: !!z.track,
       outputs: [{ output_id: `${z.zone_id}-out`, source_controls: z.hqplayer ? [{ display_name: "HQPlayer" }] : [] }],
       ...(t
         ? { now_playing: { seek_position: t.seek, length: t.length, image_key: t.image_key, three_line: { line1: t.line1, line2: t.line2, line3: t.line3 } } }
@@ -226,6 +227,14 @@ export class FakeRoon {
         else if ((b.control === "next" || b.control === "previous") && z.track) z.track.seek = 0;
         reply("COMPLETE", "Success");
         return this.broadcast({ zones_changed: [this.raw(z)] });
+      }
+      case "com.roonlabs.transport:2/seek": {
+        const b = m.body as { zone_or_output_id: string; how: string; seconds: number };
+        const z = this.zones.find((z) => z.zone_id === b.zone_or_output_id);
+        if (!z?.track) return reply("COMPLETE", "InvalidRequest", { error: "nothing to seek" });
+        z.track.seek = b.how === "relative" ? z.track.seek + b.seconds : b.seconds;
+        reply("COMPLETE", "Success");
+        return this.broadcast({ zones_seek_changed: [{ zone_id: z.zone_id, seek_position: z.track.seek }] });
       }
       default:
         return reply("COMPLETE", "InvalidRequest", { error: `unknown ${m.name}` });

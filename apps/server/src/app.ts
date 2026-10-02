@@ -200,14 +200,25 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       else res.write(`event: unreachable\ndata: ${JSON.stringify({ error: e.error })}\n\n`);
     }, opts.pollMs);
     // Roon now-playing for this instance's zone, only when Roon is switched on.
+    // Roon reports the seek position every second. The page advances it itself, so
+    // send it only with other changes or when it jumps (a seek, a stall).
     let lastRoon = "";
+    let sent: { seek: number; at: number; playing: boolean } | null = null;
     const sendRoon = () => {
-      const v = roon.view();
-      if (!v.enabled && lastRoon === "") return;
-      const data = JSON.stringify({ status: v.status, zone: roon.zoneFor(inst.cfg.id) });
-      if (data === lastRoon) return;
-      lastRoon = data;
-      res.write(`event: roon\ndata: ${data}\n\n`);
+      if (!roon.enabled && lastRoon === "") return;
+      const status = roon.currentStatus;
+      const zone = roon.zoneFor(inst.cfg.id);
+      const seek = zone?.nowPlaying?.seek;
+      if (zone?.nowPlaying) delete zone.nowPlaying.seek;
+      const key = JSON.stringify({ status, zone });
+      const playing = zone?.state === "playing";
+      const expected = sent ? sent.seek + (sent.playing ? (Date.now() - sent.at) / 1000 : 0) : null;
+      const jumped = seek != null && (expected == null || Math.abs(seek - expected) > 2);
+      if (key === lastRoon && !jumped) return;
+      lastRoon = key;
+      sent = seek != null ? { seek, at: Date.now(), playing } : null;
+      if (zone?.nowPlaying && seek != null) zone.nowPlaying.seek = seek;
+      res.write(`event: roon\ndata: ${JSON.stringify({ status, zone })}\n\n`);
     };
     sendRoon();
     const offRoon = roon.onChange(sendRoon);
@@ -237,6 +248,12 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       if (typeof body !== "object" || body === null || !(body.zone === null || (typeof body.zone === "string" && body.zone.length > 0)))
         throw new HttpError(400, "zone must be a Roon zone id or null");
       return roon.setZone(i.cfg.id, body.zone as string | null);
+    },
+    "POST roonseek": async (q, _r, i) => {
+      const body = (await readJson(q)) as { seconds?: unknown };
+      if (typeof body !== "object" || body === null || typeof body.seconds !== "number" || !Number.isFinite(body.seconds) || body.seconds < 0)
+        throw new HttpError(400, "seconds must be a number ≥ 0");
+      return roon.seek(i.cfg.id, body.seconds);
     },
     "POST roontransport": async (q, _r, i) => {
       const body = (await readJson(q)) as { action?: unknown };

@@ -15,6 +15,8 @@ import { HttpError } from "../instance.ts";
 export const ROON_ACTIONS = ["play", "pause", "playpause", "previous", "next"] as const;
 export type RoonAction = (typeof ROON_ACTIONS)[number];
 export const DEFAULT_ROON_PORT = 9330;
+/** Art is requested scaled to ≤ 1000 px; anything far bigger is not art. */
+const MAX_IMAGE = 5 * 1024 * 1024;
 
 export interface RoonSettings {
   /**
@@ -41,7 +43,7 @@ export interface ZoneView {
   /** An output of this zone has a source control named "HQPlayer". */
   hqplayer: boolean;
   nowPlaying: { track: string; artist: string; album: string; imageKey?: string; seek?: number; length?: number } | null;
-  allowed: { play: boolean; pause: boolean; next: boolean; previous: boolean };
+  allowed: { play: boolean; pause: boolean; next: boolean; previous: boolean; seek: boolean };
 }
 
 export interface RoonView {
@@ -65,6 +67,7 @@ interface RawZone {
   is_pause_allowed?: boolean;
   is_next_allowed?: boolean;
   is_previous_allowed?: boolean;
+  is_seek_allowed?: boolean;
   now_playing?: {
     seek_position?: number;
     length?: number;
@@ -109,9 +112,15 @@ export function zoneView(z: RawZone): ZoneView {
       pause: !!z.is_pause_allowed,
       next: !!z.is_next_allowed,
       previous: !!z.is_previous_allowed,
+      seek: !!z.is_seek_allowed,
     },
   };
 }
+
+const stringMap = (v: unknown): Record<string, string> =>
+  typeof v === "object" && v !== null && !Array.isArray(v)
+    ? Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === "string"))
+    : {};
 
 /** A host name or IPv4 address, nothing that could reshape the URL. */
 export const validRoonHost = (h: string) => /^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/.test(h);
@@ -141,21 +150,26 @@ export class RoonLink {
   private aliveTimer: ReturnType<typeof setInterval> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private retryMs: number;
+  private closed = false;
 
   constructor(path: string | null, opts: RoonOptions = {}) {
     this.path = path;
     this.opts = { aliveMs: 30_000, replyMs: 10_000, reconnectMs: 2000, ...opts };
     this.retryMs = this.opts.reconnectMs;
+    let needsSave = false;
     if (path && existsSync(path)) {
       try {
         const s = JSON.parse(readFileSync(path, "utf8")) as Partial<RoonSettings>;
+        const hasId = typeof s.installId === "string" && /^[0-9a-f]{8}$/.test(s.installId);
+        // A newly made install id must survive restarts, or every restart would need re-approval.
+        needsSave = !hasId;
         this.settings = {
-          installId: typeof s.installId === "string" && /^[0-9a-f]{8}$/.test(s.installId) ? s.installId : newInstallId(),
+          installId: hasId ? (s.installId as string) : newInstallId(),
           enabled: s.enabled === true,
           ...(typeof s.host === "string" && validRoonHost(s.host) ? { host: s.host } : {}),
           ...(Number.isInteger(s.port) ? { port: s.port as number } : {}),
-          tokens: typeof s.tokens === "object" && s.tokens ? s.tokens : {},
-          zoneFor: typeof s.zoneFor === "object" && s.zoneFor ? s.zoneFor : {},
+          tokens: stringMap(s.tokens),
+          zoneFor: stringMap(s.zoneFor),
         };
       } catch (e) {
         const aside = `${path}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
@@ -165,12 +179,7 @@ export class RoonLink {
         console.error(`could not read ${path} (${(e as Error).message}); moved it to ${aside}; Roon is off`);
       }
     }
-    // A newly made install id must survive restarts, or every restart would need re-approval.
-    if (path && existsSync(path)) {
-      try {
-        if ((JSON.parse(readFileSync(path, "utf8")) as Partial<RoonSettings>).installId !== this.settings.installId) this.save();
-      } catch {}
-    }
+    if (needsSave) this.save();
     if (this.settings.enabled && this.settings.host) this.connect();
   }
 
@@ -186,6 +195,13 @@ export class RoonLink {
       zones: [...this.zones.values()].map(zoneView).sort((a, b) => Number(b.hqplayer) - Number(a.hqplayer) || a.name.localeCompare(b.name)),
       zoneFor: { ...this.settings.zoneFor },
     };
+  }
+
+  get enabled(): boolean {
+    return this.settings.enabled;
+  }
+  get currentStatus(): RoonStatus {
+    return this.status;
   }
 
   /** The zone mapped to an instance, if Roon is connected and the zone exists. */
@@ -239,18 +255,34 @@ export class RoonLink {
     return this.zoneFor(instanceId) ?? zone;
   }
 
+  async seek(instanceId: string, seconds: number): Promise<ZoneView> {
+    const zone = this.zoneFor(instanceId);
+    if (!zone) throw new HttpError(409, "no Roon zone for this instance (Settings → Roon)");
+    const reply = await this.request(`${TRANSPORT}/seek`, { zone_or_output_id: zone.id, how: "absolute", seconds: Math.round(seconds) });
+    if (reply.name !== "Success") throw new HttpError(502, `Roon refused seek: ${reply.name}`);
+    return this.zoneFor(instanceId) ?? zone;
+  }
+
   /** Album art from the core's plain-HTTP image endpoint (no MOO needed). */
   async image(key: string, size: number): Promise<{ type: string; data: Buffer }> {
     if (this.status !== "connected" || !this.settings.host) throw new HttpError(409, "Roon not connected");
     const port = this.settings.port ?? DEFAULT_ROON_PORT;
     const url = `http://${this.settings.host}:${port}/api/image/${encodeURIComponent(key)}?scale=fit&width=${size}&height=${size}&format=image/jpeg`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(this.opts.replyMs) });
-    if (!r.ok) throw new HttpError(r.status === 404 ? 404 : 502, `Roon image: HTTP ${r.status}`);
-    return { type: r.headers.get("content-type") ?? "", data: Buffer.from(await r.arrayBuffer()) };
+    let r: Response;
+    try {
+      // No redirects: the core is the only host this may fetch from.
+      r = await fetch(url, { signal: AbortSignal.timeout(this.opts.replyMs), redirect: "manual" });
+    } catch (e) {
+      throw new HttpError(502, `Roon image: ${(e as Error).message}`);
+    }
+    if (r.status !== 200) throw new HttpError(r.status === 404 ? 404 : 502, `Roon image: HTTP ${r.status}`);
+    const data = Buffer.from(await r.arrayBuffer());
+    if (data.length > MAX_IMAGE) throw new HttpError(502, "Roon image too large");
+    return { type: r.headers.get("content-type") ?? "", data };
   }
 
   close() {
-    this.settings.enabled = false; // in memory only: stops reconnects
+    this.closed = true;
     this.disconnect();
     this.listeners.clear();
   }
@@ -297,7 +329,14 @@ export class RoonLink {
       const body = info.body as { core_id: string; display_name: string; display_version: string };
       this.core = { id: body.core_id, name: body.display_name, version: body.display_version };
       const token = this.settings.tokens[body.core_id];
-      this.setStatus("unapproved");
+      // Liveness from here on, so a core that vanishes while we wait for approval is noticed.
+      this.aliveTimer = setInterval(() => {
+        this.request("com.roonlabs.registry:1/info").catch(() => {
+          if (gen === this.gen) this.ws?.close();
+        });
+      }, this.opts.aliveMs);
+      // With a token the core answers at once; without one, the user must approve.
+      if (!token) this.setStatus("unapproved");
       // Unapproved, this reply only comes once the user enables the extension in
       // Roon (Settings → Extensions); until then the request stays open.
       const reg = await new Promise<MooMessage>((resolve, reject) =>
@@ -332,11 +371,6 @@ export class RoonLink {
       this.zones.clear();
       this.subscribeZones();
       this.setStatus("connected");
-      this.aliveTimer = setInterval(() => {
-        this.request("com.roonlabs.registry:1/info").catch(() => {
-          if (gen === this.gen) this.ws?.close();
-        });
-      }, this.opts.aliveMs);
     } catch (e) {
       if (gen !== this.gen) return;
       this.ws?.close();
@@ -417,12 +451,12 @@ export class RoonLink {
       const id = String(this.nextId);
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(`Roon didn't answer ${name}`));
+        reject(new HttpError(504, `Roon didn't answer ${name}`));
       }, this.opts.replyMs);
       this.send("REQUEST", name, body, (m) => {
         clearTimeout(timer);
         if (m) resolve(m);
-        else reject(new Error("Roon connection lost"));
+        else reject(new HttpError(502, "Roon connection lost"));
       });
     });
   }
@@ -430,6 +464,7 @@ export class RoonLink {
   private lost(gen: number, why: string) {
     if (gen !== this.gen) return;
     this.teardown();
+    if (this.closed) return;
     if (!this.settings.enabled) return this.setStatus("off");
     this.setStatus("unreachable", why);
     this.retryTimer = setTimeout(() => gen === this.gen && this.connect(), this.retryMs);
@@ -475,7 +510,7 @@ export class RoonLink {
   }
 
   private save() {
-    if (!this.path) return;
+    if (!this.path || this.closed) return;
     mkdirSync(dirname(this.path), { recursive: true });
     const tmp = `${this.path}.tmp`;
     writeFileSync(tmp, JSON.stringify(this.settings, null, 2) + "\n", { mode: 0o600 });

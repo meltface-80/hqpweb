@@ -179,6 +179,23 @@ decision still to make.
 Roon playback had no effect on playback. Every change below was also made while Roon
 was playing; Roon kept the zone throughout.
 
+**Roon's extension API (optional link, measured on a Roon 2.73 core).**
+- Discovery (SOOD, UDP 9003 multicast) found a core on the same segment; its API port
+  was 9330. The connection is a WebSocket at `/api` carrying MOO messages.
+- Approval: registration waits until the user enables the extension in Roon; the
+  reply carries a token, and re-registering with it connects in about 250 ms with no
+  prompt.
+- **One connection per extension id:** when a second connection registers with the
+  same id, the core sends the first an empty frame and closes it. Hence a separate
+  extension id (and approval) per install.
+- HQPlayer zones are recognisable: an output has a source control named "HQPlayer".
+  Roon does not say *which* HQPlayer, so the zone ↔ instance link is chosen by the user.
+- Cover art is served over plain HTTP from the same port.
+- Transport control and absolute seek on an HQPlayer zone worked; the audible effect
+  lags by HQPlayer's buffer.
+- Not measured: what HQPlayer-side `Stop` does to a Roon-fed zone (the UI offers only
+  Stop in that case, since Play and Next sent to HQPlayer don't reach Roon).
+
 ### 2.3 Live change behaviour (measured)
 
 Measured on HQPlayer Desktop 5.32.5 on macOS, in SDM mode at DSD1024, with Roon

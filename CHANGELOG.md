@@ -33,10 +33,14 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 
 ### Added
 
-- **Roon (optional, off by default):** now playing with cover art, and play/pause,
-  previous and next that act on the Roon zone feeding the selected HQPlayer. A small
-  built-in client of Roon's extension API (no new dependencies); approval once in
-  Roon → Settings → Extensions; zone chosen in Settings.
+- **Roon (optional, off by default):** now playing with cover art, a position
+  slider that seeks, and play/pause, previous and next that act on the Roon zone
+  feeding the selected HQPlayer. A small built-in client of Roon's extension API (no
+  new dependencies); approval once in Roon → Settings → Extensions; a zone per
+  HQPlayer chosen in Settings → Roon.
+- **Stop only** when HQPlayer is playing from Roon and the Roon link isn't set up
+  (play and next sent to HQPlayer don't reach Roon).
+- **Settings tabs:** General and Roon.
 - **"Keeping up"** in the Now card: playback speed against real time, green, yellow
   or red.
 

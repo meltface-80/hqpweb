@@ -85,6 +85,7 @@
     message = null;
     online = "connecting";
     roonZone = null;
+    seekBase = null;
     const es = api.events(id);
     es.addEventListener("now", (e) => {
       snap = JSON.parse((e as MessageEvent).data);
@@ -95,6 +96,9 @@
     // Only sent when Roon is switched on in Settings.
     es.addEventListener("roon", (e) => {
       roonZone = JSON.parse((e as MessageEvent).data).zone;
+      // The server sends the position only when it jumps; advance it locally.
+      const seek = roonZone?.nowPlaying?.seek;
+      seekBase = seek != null ? { seek, at: Date.now() } : null;
     });
     es.addEventListener("unreachable", (e) => {
       online = "unreachable";
@@ -269,7 +273,36 @@
   let tbusy = $state(false);
   // Roon's zone for this instance, when Roon is on and a zone is mapped.
   let roonZone = $state<RoonZone | null>(null);
-  const playing = $derived(roonZone ? roonZone.state === "playing" : snap?.status.state === 2);
+  // Roon drives the card only while it's the source (or HQPlayer is idle); when
+  // HQPlayer plays something else, its own playlist say, HQPlayer's controls apply.
+  const viaRoon = $derived(roonZone && (fromRoon || snap?.status.state === 0) ? roonZone : null);
+  const playing = $derived(viaRoon ? viaRoon.state === "playing" : snap?.status.state === 2);
+  let seekBase = $state<{ seek: number; at: number } | null>(null);
+  let clock = $state(Date.now());
+  let seekDraft = $state<number | null>(null);
+  $effect(() => {
+    if (!playing) return;
+    const t = setInterval(() => (clock = Date.now()), 1000);
+    return () => clearInterval(t);
+  });
+  const position = $derived.by(() => {
+    const len = viaRoon?.nowPlaying?.length;
+    if (!seekBase || !len) return null;
+    const p = seekBase.seek + (playing ? Math.max(0, clock - seekBase.at) / 1000 : 0);
+    return Math.min(len, p);
+  });
+  const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  async function seekTo(seconds: number) {
+    if (!selected) return;
+    try {
+      await api.roonSeek(selected, seconds);
+      seekBase = { seek: seconds, at: Date.now() };
+    } catch (e) {
+      message = { kind: "error", text: (e as Error).message };
+    } finally {
+      seekDraft = null;
+    }
+  }
   // Roon playing while this HQPlayer sits stopped usually means the wrong zone is mapped.
   let mismatchTicks = $state(0);
   $effect(() => {
@@ -283,14 +316,15 @@
    * source, leave transport to Roon.
    */
   const fromRoon = $derived(snap?.status.source?.song === "Roon");
-  const ROON_NOTE = "Playing from Roon: control it in Roon, or connect Roon in Settings";
+  const ROON_NOTE = "Playing from Roon: Stop stops HQPlayer; play, skip and resume are in Roon (or connect Roon in Settings → Roon)";
   // With a Roon zone, controls go to Roon (HQPlayer-side play/next don't reach Roon).
-  const allowed = (a: "play" | "pause" | "previous" | "next") => (roonZone ? roonZone.allowed[a] : !fromRoon);
-  async function transport(action: "play" | "pause" | "previous" | "next") {
+  const allowed = (a: "play" | "pause" | "previous" | "next") => (viaRoon ? viaRoon.allowed[a] : !fromRoon);
+  async function transport(action: "play" | "pause" | "stop" | "previous" | "next") {
     if (!selected) return;
     tbusy = true;
     try {
-      if (roonZone) roonZone = await api.roonTransport(selected, action);
+      // The event stream brings the new state; the reply can predate the change.
+      if (viaRoon && action !== "stop") await api.roonTransport(selected, action);
       else {
         const r = await api.transport(selected, action);
         if (snap) snap = { ...snap, status: r.status };
@@ -372,8 +406,8 @@
 
   {#if snap}
     <section class="card now">
-      {#if roonZone?.nowPlaying}
-        {@const np = roonZone.nowPlaying}
+      {#if viaRoon?.nowPlaying}
+        {@const np = viaRoon.nowPlaying}
         <div class="track">
           {#if np.imageKey}<img src={`/api/roon/art/${np.imageKey}?size=192`} alt="" width="64" height="64" />{/if}
           <div>
@@ -381,6 +415,23 @@
             <small>{[np.artist, np.album].filter(Boolean).join(" · ")}</small>
           </div>
         </div>
+        {#if np.length && position != null}
+          <div class="seek">
+            <span>{mmss(seekDraft ?? position)}</span>
+            <input
+              type="range"
+              min="0"
+              max={np.length}
+              step="1"
+              value={seekDraft ?? position}
+              disabled={!viaRoon.allowed.seek}
+              oninput={(e) => (seekDraft = Number(e.currentTarget.value))}
+              onchange={(e) => seekTo(Number(e.currentTarget.value))}
+              aria-label="Position"
+            />
+            <span>{mmss(np.length)}</span>
+          </div>
+        {/if}
       {/if}
       {#if mismatchTicks >= 3 && roonZone}
         <p class="mismatch">
@@ -396,25 +447,34 @@
         </span>
       </div>
       <div class="transport">
-        <button class="tbtn" onclick={() => transport("previous")} disabled={tbusy || !allowed("previous")} title={!roonZone && fromRoon ? ROON_NOTE : "Previous"} aria-label="Previous track">
-          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 5h2v14H6zM20 5v14L9 12z" /></svg>
-        </button>
-        <button
-          class="tbtn main"
-          onclick={() => transport(playing ? "pause" : "play")}
-          disabled={tbusy || !allowed(playing ? "pause" : "play")}
-          title={!roonZone && fromRoon ? ROON_NOTE : playing ? "Pause" : "Play"}
-          aria-label={playing ? "Pause" : "Play"}
-        >
-          {#if playing}
-            <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
-          {:else}
-            <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M8 5v14l11-7z" /></svg>
-          {/if}
-        </button>
-        <button class="tbtn" onclick={() => transport("next")} disabled={tbusy || !allowed("next")} title={!roonZone && fromRoon ? ROON_NOTE : "Next"} aria-label="Next track">
-          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 5h2v14h-2zM4 5l11 7-11 7z" /></svg>
-        </button>
+        {#if fromRoon && !viaRoon}
+          <!-- Roon is the source and the Roon link isn't set up: HQPlayer-side play and
+               next don't reach Roon (measured), so offer only Stop. -->
+          <button class="tbtn stop" onclick={() => transport("stop")} disabled={tbusy || snap.status.state === 0} title={ROON_NOTE} aria-label="Stop">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 6h12v12H6z" /></svg>
+            <span>Stop</span>
+          </button>
+        {:else}
+          <button class="tbtn" onclick={() => transport("previous")} disabled={tbusy || !allowed("previous")} title="Previous" aria-label="Previous track">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 5h2v14H6zM20 5v14L9 12z" /></svg>
+          </button>
+          <button
+            class="tbtn main"
+            onclick={() => transport(playing ? "pause" : "play")}
+            disabled={tbusy || !allowed(playing ? "pause" : "play")}
+            title={playing ? "Pause" : "Play"}
+            aria-label={playing ? "Pause" : "Play"}
+          >
+            {#if playing}
+              <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
+            {:else}
+              <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M8 5v14l11-7z" /></svg>
+            {/if}
+          </button>
+          <button class="tbtn" onclick={() => transport("next")} disabled={tbusy || !allowed("next")} title="Next" aria-label="Next track">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 5h2v14h-2zM4 5l11 7-11 7z" /></svg>
+          </button>
+        {/if}
       </div>
       <dl class="side">
         <dt>Source</dt>
@@ -597,6 +657,8 @@
   .sub { display: flex; align-items: center; gap: 8px; }
   .side { grid-template-columns: auto auto; text-align: right; font-size: 0.9rem; }
   .transport { display: flex; align-items: center; gap: 6px; }
+  .seek { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .seek input { flex: 1; accent-color: var(--accent); }
   .mismatch { flex: 1 1 100%; margin: 0; font-size: 0.85rem; color: var(--warn); }
   .track { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; min-width: 0; }
   .track img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; flex: none; background: var(--bg-elev-2); }
@@ -604,6 +666,7 @@
   .track b, .track small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .track small { color: var(--text-dim); font-size: 0.85rem; }
   .tbtn { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--bg-elev-2); color: var(--text); display: grid; place-items: center; cursor: pointer; }
+  .tbtn.stop { width: auto; padding: 0 16px; border-radius: 999px; gap: 6px; display: flex; font: inherit; font-weight: 600; }
   .tbtn.main { width: 52px; height: 52px; background: var(--accent); color: var(--on-accent); }
   .tbtn:disabled { opacity: 0.5; }
   .side dd { font-variant-numeric: tabular-nums; }

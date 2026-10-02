@@ -75,7 +75,7 @@ describe("Roon link", () => {
     const dir = mkdtempSync(join(tmpdir(), "roon-"));
     const l = link(join(dir, "roon.json"));
     l.configure({ enabled: true, host: "127.0.0.1", port });
-    await until(() => l.view().status === "unapproved");
+    await until(() => l.view().status === "unapproved" && c.waiting().length === 1);
     expect(c.waiting()).toEqual([l.view().extensionName]);
     c.approve();
     await until(() => l.view().status === "connected" && l.view().zones.length === 2);
@@ -86,7 +86,10 @@ describe("Roon link", () => {
     l.close();
     c.approved.clear();
     const again = link(join(dir, "roon.json"));
+    const seen: string[] = [];
+    again.onChange(() => seen.push(again.view().status));
     await until(() => again.view().status === "connected");
+    expect(seen).not.toContain("unapproved"); // no "waiting for approval" flash
     expect(again.view().extensionName).toBe(l.view().extensionName);
   });
 
@@ -94,7 +97,7 @@ describe("Roon link", () => {
     const { c, port } = await core();
     const l = link();
     l.configure({ enabled: true, host: "127.0.0.1", port });
-    await until(() => l.view().status === "unapproved");
+    await until(() => c.waiting().length === 1);
     c.approve();
     await until(() => l.view().zones.length === 2);
     expect(l.view().zones.map((z) => [z.name, z.hqplayer])).toEqual([
@@ -115,7 +118,7 @@ describe("Roon link", () => {
     const { c, port } = await core();
     const l = link();
     l.configure({ enabled: true, host: "127.0.0.1", port });
-    await until(() => l.view().status === "unapproved");
+    await until(() => c.waiting().length === 1);
     c.approve();
     await until(() => l.view().zones.length === 2);
     l.setZone("hqp1", "zone-hqp");
@@ -130,7 +133,7 @@ describe("Roon link", () => {
     const { c, port } = await core();
     const l = link();
     l.configure({ enabled: true, host: "127.0.0.1", port });
-    await until(() => l.view().status === "unapproved");
+    await until(() => c.waiting().length === 1);
     c.approve();
     await until(() => l.view().status === "connected");
     c.ping();
@@ -142,7 +145,7 @@ describe("Roon link", () => {
     const dir = mkdtempSync(join(tmpdir(), "roon-"));
     const a = link(join(dir, "roon.json"));
     a.configure({ enabled: true, host: "127.0.0.1", port });
-    await until(() => a.view().status === "unapproved");
+    await until(() => c.waiting().length === 1);
     c.approve();
     await until(() => a.view().status === "connected");
     const b = link(join(dir, "roon.json")); // same config dir = same install id
@@ -169,7 +172,7 @@ describe("Roon link", () => {
     const port = await c.listen();
     const l = link();
     l.configure({ enabled: true, host: "127.0.0.1", port });
-    await until(() => l.view().status === "unapproved");
+    await until(() => c.waiting().length === 1);
     c.approve();
     await until(() => l.view().status === "connected");
     const approved = new Set(c.approved);
@@ -200,6 +203,7 @@ describe("Roon API routes", () => {
     expect((await req("GET", "/api/roon")).json()).toMatchObject({ enabled: false, status: "off" });
     const r = await req("POST", "/api/instances/hq/roontransport", { body: { action: "next" } });
     expect(r.status).toBe(409);
+    expect((await req("GET", "/api/roon/art/img1")).status).toBe(409);
   });
 
   it("on: configure, map a zone, control it, fetch art", async () => {
@@ -214,7 +218,7 @@ describe("Roon API routes", () => {
     expect((await req("PUT", "/api/roon", { body: { enabled: true, host: "127.0.0.1", port, extra: 1 } })).status).toBe(400);
     const v = (await req("PUT", "/api/roon", { body: { enabled: true, host: "127.0.0.1", port } })).json() as RoonView;
     expect(v.enabled).toBe(true);
-    await until(() => roon.view().status === "unapproved");
+    await until(() => c.waiting().length === 1);
     c.approve();
     await until(() => roon.view().zones.length === 2);
 
@@ -230,6 +234,34 @@ describe("Roon API routes", () => {
     expect(art.headers["content-type"]).toBe("image/png");
     expect(art.headers["content-security-policy"]).toBe("default-src 'none'");
     expect((await req("GET", "/api/roon/art/bad.key")).status).toBe(404);
+
+    // The event stream carries the mapped zone, without the once-a-second seek.
+    const base = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
+    const ctl = new AbortController();
+    const res = await fetch(`${base}/api/instances/hq/events`, { signal: ctl.signal });
+    const reader = res.body!.getReader();
+    let text = "";
+    const roonEvents = () => text.split("event: roon\ndata: ").slice(1).map((x) => JSON.parse(x.split("\n")[0]!));
+    while (!roonEvents().length) text += new TextDecoder().decode((await reader.read()).value);
+    expect(roonEvents()[0]).toMatchObject({ status: "connected", zone: { name: "Listening Room", state: "paused" } });
+    expect(roonEvents()[0].zone.nowPlaying.seek).toBe(12);
+    c.update("zone-hqp", { state: "playing" });
+    while (roonEvents().length < 2) text += new TextDecoder().decode((await reader.read()).value);
+    expect(roonEvents()[1].zone.state).toBe("playing");
+    // A seek is a jump: sent even though nothing else changed.
+    expect((await req("POST", "/api/instances/hq/roonseek", { body: { seconds: -1 } })).status).toBe(400);
+    expect((await req("POST", "/api/instances/hq/roonseek", { body: { seconds: 200 } })).status).toBe(200);
+    while (roonEvents().length < 3) text += new TextDecoder().decode((await reader.read()).value);
+    expect(roonEvents()[2].zone.nowPlaying.seek).toBe(200);
+    ctl.abort();
+
+    // Removing an instance forgets its zone.
+    await req("POST", "/api/instances", { body: { name: "Extra", host: "127.0.0.1", port: 1 } });
+    const extra = ((await req("GET", "/api/instances")).json() as { id: string; name: string }[]).find((i) => i.name === "Extra")!;
+    await req("PUT", `/api/instances/${extra.id}/roonzone`, { body: { zone: "zone-hqp" } });
+    expect(roon.view().zoneFor[extra.id]).toBe("zone-hqp");
+    await req("DELETE", `/api/instances/${extra.id}`);
+    expect(roon.view().zoneFor[extra.id]).toBeUndefined();
 
     // Writes from another site are refused, as for every other write.
     const x = await req("PUT", "/api/roon", { body: { enabled: false }, headers: { origin: "http://evil.example" } });

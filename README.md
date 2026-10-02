@@ -122,8 +122,9 @@ header (most do by default), list that name in `ALLOWED_HOSTS`, and don't buffer
 
 **Roon (optional).** In Settings → Roon, switch it on, then **Find** the core or
 enter its address (port 9330). In Roon, open Settings → Extensions and enable the
-`hqpweb …` entry, then pick which Roon zone feeds this HQPlayer (Roon doesn't say,
-so it's a one-time choice; zones that output through HQPlayer are marked). Find uses
+`hqpweb …` entry, then pick which Roon zone feeds each HQPlayer (Roon doesn't say
+which one, so it's a one-time choice; only zones that output through HQPlayer are
+listed). Find uses
 multicast like Scan, so it needs the same host networking; the address always works.
 The container must reach the core on TCP 9330. Each install of the app has its own
 approval: a Roon Core keeps one connection per extension, so two installs sharing
