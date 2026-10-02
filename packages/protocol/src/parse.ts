@@ -121,6 +121,8 @@ export interface Status {
   volume: number;
   /** Seconds, float. */
   position: number;
+  /** Track length in seconds; 0 when unknown, e.g. a Roon stream (measured). */
+  length: number;
   track: number;
   tracksTotal: number;
   /** From the <metadata> child, present while playing (measured). Decides 1x vs Nx filter. */
@@ -136,6 +138,7 @@ export function parseStatus(el: Element): Status {
     activeShaper: el.attrs.active_shaper ?? "",
     volume: volumeDb(el),
     position: Number(el.attrs.position ?? 0),
+    length: Number(el.attrs.length ?? 0) || 0,
     track: Number(el.attrs.track ?? 0),
     tracksTotal: Number(el.attrs.tracks_total ?? 0),
     source: sourceOf(el),

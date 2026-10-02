@@ -5,7 +5,6 @@
   import Picker from "./lib/Picker.svelte";
   import Settings from "./lib/Settings.svelte";
   import Presets from "./lib/Presets.svelte";
-  import Library from "./lib/Library.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
   import { RECOMMENDED_MAX_VOLUME_DB, ditherHint, filterSlot, modulatorHint, ratioHint, type Hint } from "@app/protocol/compat";
   import {
@@ -44,7 +43,6 @@
   let message = $state<{ kind: "ok" | "warn" | "error" | "info"; text: string } | null>(null);
   let volDraft = $state<number | null>(null);
   let settings: Settings;
-  let library: Library;
   /** Consecutive status readings with playback below 0.9× real time. */
   let behind = $state(0);
   // Local, so a re-render can't snap it shut; Settings only sets the starting state.
@@ -86,6 +84,10 @@
     online = "connecting";
     roonZone = null;
     seekBase = null;
+    hasLibrary = false;
+    // The library button shows only where HQPlayer has a library. Browsing it is
+    // parked (lib/Library.svelte) until people ask for it.
+    api.library(id, "", 0, 1).then((r) => id === selected && (hasLibrary = r.total > 0), () => {});
     const es = api.events(id);
     es.addEventListener("now", (e) => {
       snap = JSON.parse((e as MessageEvent).data);
@@ -271,6 +273,7 @@
   };
 
   let tbusy = $state(false);
+  let hasLibrary = $state(false);
   // Roon's zone for this instance, when Roon is on and a zone is mapped.
   let roonZone = $state<RoonZone | null>(null);
   // Roon drives the card only while it's the source (or HQPlayer is idle); when
@@ -366,15 +369,16 @@
       class:slow={online === "live" && slow}
       title={online === "unreachable" ? offlineReason : slow ? `slow: HQPlayer took ${snap?.health?.latencyMs} ms to answer` : online}
     ></span>
-    <button class="gear" onclick={() => library.open()} aria-label="Library" title="HQPlayer library">
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 4h3v16H4zM9 4h3v16H9zM14.2 4.6l2.9-.8 4.2 15.5-2.9.8z" /></svg>
-    </button>
+    {#if hasLibrary}
+      <button class="gear" onclick={() => (message = { kind: "info", text: "Library features to come." })} aria-label="Library" title="HQPlayer library">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 4h3v16H4zM9 4h3v16H9zM14.2 4.6l2.9-.8 4.2 15.5-2.9.8z" /></svg>
+      </button>
+    {/if}
     <button class="gear" onclick={() => settings.open()} aria-label="Settings">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
     </button>
   </header>
 
-  <Library bind:this={library} instanceId={selected} onplayed={(st) => snap && (snap = { ...snap, status: st })} />
 
   <Settings
     bind:this={settings}
@@ -432,6 +436,16 @@
             <span>{mmss(np.length)}</span>
           </div>
         {/if}
+      {/if}
+      {#if !viaRoon && snap.status.state !== 0 && snap.status.position > 0}
+        <!-- HQPlayer's own position: read-only. Length is 0 for streams such as Roon's. -->
+        <div class="seek">
+          <span>{mmss(snap.status.position)}</span>
+          {#if snap.status.length > 0}
+            <progress max={snap.status.length} value={Math.min(snap.status.position, snap.status.length)} aria-label="Position"></progress>
+            <span>{mmss(snap.status.length)}</span>
+          {/if}
+        </div>
       {/if}
       {#if mismatchTicks >= 3 && roonZone}
         <p class="mismatch">
@@ -658,7 +672,8 @@
   .side { grid-template-columns: auto auto; text-align: right; font-size: 0.9rem; }
   .transport { display: flex; align-items: center; gap: 6px; }
   .seek { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-  .seek input { flex: 1; accent-color: var(--accent); }
+  .seek input, .seek progress { flex: 1; accent-color: var(--accent); }
+  .seek progress { height: 6px; }
   .mismatch { flex: 1 1 100%; margin: 0; font-size: 0.85rem; color: var(--warn); }
   .track { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; min-width: 0; }
   .track img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; flex: none; background: var(--bg-elev-2); }

@@ -315,6 +315,8 @@ export class FakeHqp {
         active_shaper: this.shaperName,
         clips: 0,
         filter_20k: this.filter20k,
+        // Real replies: the track length for files, 0 for a Roon stream (measured).
+        length: playing && this.feeder !== "Roon" ? 300 : 0,
         position: pos,
         state: this.playback,
         track: playing ? 1 : 0,

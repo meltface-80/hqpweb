@@ -43,11 +43,12 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 - **Settings tabs:** General and Roon.
 - **"Keeping up"** in the Now card: playback speed against real time, green, yellow
   or red.
-
-- **Library:** browse HQPlayer's own library (search, albums, tracks) and play an
-  album or track. Playing queues the files with `PlaylistAdd` and switches HQPlayer
-  to its playlist (verified on Desktop 5.35). The library itself is scanned in
-  HQPlayer (File → Library…); the control API can't add folders.
+- **Track position** from HQPlayer itself (read-only), with the length when
+  HQPlayer knows it (files; a Roon stream reports none).
+- **Library (server side only for now):** the API can list HQPlayer's own library
+  and play an album or track (`PlaylistAdd`, then HQPlayer switches to its
+  playlist; verified on Desktop 5.35). The page shows a library button only where
+  a library exists, and browsing is "to come".
 - **Transport:** previous, play/pause and next, disabled while Roon is the source
   (measured: a pause sent to HQPlayer reaches Roon, but play and next don't).
 

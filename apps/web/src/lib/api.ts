@@ -35,6 +35,8 @@ export type Status = {
   activeFilter: string;
   activeShaper: string;
   volume: number;
+  position: number;
+  length: number;
   source: { sampleRate: number; bits: number; channels: number; song: string } | null;
 };
 export type Snapshot = { status: Status; state: State; health?: { latencyMs: number; speed: number | null } };
@@ -152,9 +154,9 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action }),
     }),
-  library: (id: string, q: string, offset: number) =>
+  library: (id: string, q: string, offset: number, limit = 100) =>
     call<{ total: number; offset: number; albums: any[] }>(
-      `/api/instances/${id}/library?q=${encodeURIComponent(q)}&offset=${offset}&limit=100`,
+      `/api/instances/${id}/library?q=${encodeURIComponent(q)}&offset=${offset}&limit=${limit}`,
     ),
   album: (id: string, hash: string) => call<any>(`/api/instances/${id}/library/albums/${encodeURIComponent(hash)}`),
   playAlbum: (id: string, album: string, track: number) =>
