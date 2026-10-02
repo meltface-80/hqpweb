@@ -48,6 +48,24 @@ decision still to make.
   - mark combinations yellow or red per instance and rate.
 
   The harness must avoid tipping an instance into the overload described in §2.3.
+- **Built-in benchmark (operator idea: setups differ, and people are competitive).**
+  Profile an instance from the app and produce a shareable result: which
+  filter × modulator × rate combinations run comfortably, which are marginal, and
+  which fail. Lessons from the first manual runs (2026-10-02):
+  - Measure **playback speed**, not CPU %. The Mac failed at 3.8 of 10 cores
+    (per-thread limit), and later at 9.7 with the control port frozen.
+  - **Stop at the first limit** and confirm recovery on a solid window (≥ 8
+    samples ≥ 0.95×); a lenient check let one run push into a second overload.
+  - **Order light → heavy using the rules.** Single-stage poly-sinc to a 256×
+    ratio is heavy even when "short"; two-stage (`-2s`) variants and
+    polynomial/minring are light.
+  - **Move between rate/modulator regimes through recoverable states** (the AHM
+    stall), never through a known overload.
+  - **It's audible.** Run when nobody is listening, at low volume, ideally on a
+    quiet test signal that HQPlayer plays itself (no Roon needed).
+  - CPU time needs fine resolution: `/proc/<pid>/stat` ticks on Linux, not `ps`.
+- **HQPlayer transport (built 2026-10-02):** previous, play/pause, next. Whether
+  Roon follows a pause or skip sent to HQPlayer underneath it is not yet measured.
 - **Longer-term watch after a change.** Overload can build over minutes (§2.3), so
   the app should keep watching quietly after a risky change and offer a one-tap
   revert if the instance starts falling behind.
