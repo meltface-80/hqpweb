@@ -3,6 +3,23 @@
 Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 **Read the "Upgrade notes" before updating.**
 
+## Unreleased
+
+### Added
+
+- **Presets:** saved from an instance's current settings (volume opt-in), shared
+  across instances, previewed per instance, and applied with read-back and
+  rollback. Settings an instance can't take are skipped and listed.
+- **Convolution on/off and matrix profile selection** (Advanced). Both are
+  switch-only; they're set up in HQPlayer itself.
+- **Live health:** a warning when playback falls behind real time or HQPlayer
+  answers slowly, and polling backs off when it does.
+
+### Data
+
+- `config/presets.json` is new (written by the app). It lives in the same `config/`
+  folder, so the existing volume and ownership cover it.
+
 ## 2026-10-02 · 413f79b
 
 ### Upgrade notes

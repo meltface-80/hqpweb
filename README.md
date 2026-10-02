@@ -19,7 +19,14 @@ whatever else drives HQPlayer, keeps doing that.
 - **Live status.** Output rate, mode, source rate, playback state, engine version.
 - **Quick changes.** Nx and 1x filters, modulator/dither, volume, polarity, 20 kHz
   filter, adaptive volume.
-- **Mode and output rate,** under "Advanced".
+- **Mode and output rate,** under "Advanced", along with convolution on/off and
+  matrix profile selection. Both are switch-only: they're set up in HQPlayer itself.
+- **Presets.** Named one-tap bundles of settings, shared by all instances. Each
+  shows whether applying it is already active, a quick change, or a major one.
+  Settings an instance can't take are skipped and listed.
+- **Warnings before you pick.** Combinations HQPlayer's documented rules say won't
+  play are marked (for example a filter that needs a whole-number ratio), and the
+  app warns when an instance falls behind real time or answers slowly.
 - **Every change is checked.** The app reads HQPlayer's settings back instead of
   trusting its "OK".
 - **Automatic rollback.** If a change made during playback stops playback or leaves

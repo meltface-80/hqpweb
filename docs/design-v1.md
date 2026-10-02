@@ -318,6 +318,12 @@ section.
 
 ### 4.3 App-owned presets
 
+*Implemented 2026-10-02: global presets in `config/presets.json`. "Save current"
+captures every setting by name, with volume opt-in. Previews classify each preset per
+instance (active / quick / major), list what it can't take, and show rule-predicted
+stops. Applying skips what an instance can't take, rather than offering "all or
+nothing".*
+
 - **A preset stores names, never indices:**
   `{mode: "SDM (DSD)", rate: 22579200, filterNx: "poly-sinc-gauss-hires-lp",
   filter1x: "poly-sinc-gauss-xla", shaper: "ASDM7EC", invert?, junk?, adaptive?,
