@@ -5,6 +5,7 @@ import { HttpError, Instance, type Change } from "./instance.ts";
 import { LearnedStore } from "./learned.ts";
 import { serveStatic } from "./static.ts";
 import { Registry } from "./registry.ts";
+import { PresetStore } from "./presets.ts";
 import type { DiscoverOptions } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
 
@@ -24,6 +25,8 @@ export interface AppOptions {
   discovery?: DiscoverOptions | false;
   /** Control port assumed for discovered instances (default 4321). */
   discoveredPort?: number;
+  /** Where presets are kept. Default: in memory only. */
+  presets?: PresetStore;
   /** Where failed combinations are remembered. Default: in memory only. */
   learned?: LearnedStore;
   /** Playback-check timing; tests shorten it. */
@@ -87,6 +90,26 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   }
 }
 
+function parsePresetBody(
+  body: unknown,
+  patch = false,
+): { name?: string; settings?: Change; fromInstance?: string; includeVolume?: boolean } {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
+  const { name, settings, fromInstance, includeVolume, ...rest } = body as Record<string, unknown>;
+  if (Object.keys(rest).length) throw new HttpError(400, `unknown field "${Object.keys(rest)[0]}"`);
+  if (name !== undefined && typeof name !== "string") throw new HttpError(400, "name must be a string");
+  if (!patch && name === undefined) throw new HttpError(400, "name is required");
+  if (fromInstance !== undefined && typeof fromInstance !== "string") throw new HttpError(400, "fromInstance must be an instance id");
+  if (patch && fromInstance !== undefined) throw new HttpError(400, "fromInstance is only for creating");
+  if (includeVolume !== undefined && typeof includeVolume !== "boolean") throw new HttpError(400, "includeVolume must be a boolean");
+  return {
+    ...(name !== undefined ? { name: name as string } : {}),
+    ...(settings !== undefined ? { settings: parseChange(settings) } : {}),
+    ...(fromInstance !== undefined ? { fromInstance: fromInstance as string } : {}),
+    ...(includeVolume !== undefined ? { includeVolume: includeVolume as boolean } : {}),
+  };
+}
+
 function parseNewInstance(body: unknown): { name: string; host: string; port?: number } {
   if (typeof body !== "object" || body === null) throw new HttpError(400, "body must be a JSON object");
   const { name, host, port, ...rest } = body as Record<string, unknown>;
@@ -100,6 +123,7 @@ type Handler = (req: IncomingMessage, res: ServerResponse, inst: Instance) => Pr
 
 export function buildApp(config: AppConfig, opts: AppOptions = {}) {
   const learned = opts.learned ?? new LearnedStore(null);
+  const presets = opts.presets ?? new PresetStore(null);
   const registry = new Registry(config, {
     configDir: opts.configDir ?? null,
     discovery: opts.discovery ?? false,
@@ -157,6 +181,48 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       await registry.scan();
       return send(res, 200, await registry.list());
     }
+    // ---- presets (global) ----
+    if (path === "/api/presets") {
+      if (req.method === "GET") return send(res, 200, presets.list());
+      if (req.method === "POST") {
+        const body = parsePresetBody(await readJson(req));
+        let settings = body.settings;
+        if (body.fromInstance) {
+          const inst = registry.get(body.fromInstance);
+          if (!inst) throw new HttpError(404, "unknown instance");
+          const cur = await inst.currentSettings();
+          settings = { ...cur };
+          if (!body.includeVolume) delete settings.volume;
+        }
+        if (!settings || Object.keys(settings).length === 0) throw new HttpError(400, "a preset needs settings or fromInstance");
+        return send(res, 200, presets.create(body.name ?? "", settings));
+      }
+    }
+    const pm = /^\/api\/presets\/([^/]+)$/.exec(path);
+    if (pm) {
+      const id = decodeURIComponent(pm[1]!);
+      if (req.method === "DELETE") {
+        presets.remove(id);
+        return send(res, 200, { ok: true });
+      }
+      if (req.method === "PATCH") {
+        const body = parsePresetBody(await readJson(req), true);
+        return send(res, 200, presets.update(id, { ...(body.name !== undefined ? { name: body.name } : {}), ...(body.settings ? { settings: body.settings } : {}) }));
+      }
+    }
+    const ipm = /^\/api\/instances\/([^/]+)\/presets(?:\/([^/]+)\/apply)?$/.exec(path);
+    if (ipm) {
+      const inst = registry.get(decodeURIComponent(ipm[1]!));
+      if (!inst) throw new HttpError(404, "unknown instance");
+      if (!ipm[2] && req.method === "GET") {
+        const out = [];
+        for (const p of presets.list()) out.push({ ...p, preview: await inst.previewPreset(p.settings) });
+        return send(res, 200, out);
+      }
+      if (ipm[2] && req.method === "POST") return send(res, 200, await inst.applyPreset(presets.get(decodeURIComponent(ipm[2])).settings));
+      throw new HttpError(404, "not found");
+    }
+
     const one = /^\/api\/instances\/([^/]+)$/.exec(path);
     if (one && req.method === "DELETE") {
       registry.remove(decodeURIComponent(one[1]!));

@@ -102,8 +102,22 @@ export interface ApplyResult {
    * whole-number ratio). Such failures are not learned as this machine's limits.
    */
   incompatible?: Hint;
+  /** Lenient applies (presets): settings this instance couldn't take, and why. */
+  skipped?: { field: Field; reason: string }[];
   state: State;
   undoAvailable: boolean;
+}
+
+export interface PresetPreview {
+  /** active = already in effect; quick/major as in design §4.2. */
+  kind: "active" | "quick" | "major";
+  differs: Field[];
+  /** Settings this instance can't take now; they'd be skipped. */
+  missing: { field: Field; reason: string }[];
+  /** True when the preset switches mode, so names are checked only at apply time. */
+  unchecked: boolean;
+  /** A rule says the resulting combination won't play. */
+  predicted?: Hint;
 }
 
 export interface Snapshot {
@@ -232,6 +246,15 @@ export class Instance {
     return this.exclusive(() => this.applyChangeNow(change, false));
   }
 
+  /**
+   * Apply a preset: like applyChange, but settings this instance can't take
+   * (a name missing in this mode or engine, a rate it doesn't offer, a volume
+   * raise past the guard) are skipped and reported instead of failing it all.
+   */
+  applyPreset(settings: Change): Promise<ApplyResult> {
+    return this.exclusive(() => this.applyChangeNow(settings, false, true));
+  }
+
   undo(): Promise<ApplyResult> {
     return this.exclusive(async () => {
       if (!this.undoChange) throw new HttpError(409, "nothing to undo");
@@ -241,13 +264,14 @@ export class Instance {
     });
   }
 
-  private async applyChangeNow(change: Change, isUndo: boolean): Promise<ApplyResult> {
+  private async applyChangeNow(change: Change, isUndo: boolean, lenient = false): Promise<ApplyResult> {
     const fields = (Object.keys(change) as Field[]).filter((k) => change[k] !== undefined);
     if (fields.length === 0) throw new HttpError(400, "empty change");
 
     const playingBefore = (await this.client.status()).state === 2;
-    const applied = await this.applyFields(change, isUndo);
-    const risky = fields.some((f) => RISKY.includes(f));
+    const applied = await this.applyFields(change, isUndo, lenient);
+    const skipped = applied.skipped.length ? { skipped: applied.skipped } : {};
+    const risky = applied.results.some((r) => RISKY.includes(r.field));
     const timing = applied.major ? this.timing.major : this.timing.quick;
 
     let playback: PlaybackCheck;
@@ -277,10 +301,13 @@ export class Instance {
         state: back.state,
         undoAvailable: false,
         ...(incompatible ? { incompatible } : {}),
+        ...skipped,
       };
     }
 
-    if (!isUndo) {
+    if (applied.results.length === 0) {
+      // Nothing could be applied: leave undo as it was.
+    } else if (!isUndo) {
       this.undoChange = applied.prev;
       this.undoMode = applied.state.mode;
       this.lastSetVolume = applied.volumeSet;
@@ -295,12 +322,14 @@ export class Instance {
       rolledBack: null,
       state: applied.state,
       undoAvailable: this.undoChange !== null,
+      ...skipped,
     };
   }
 
   /** Apply without watching. Returns read-back results and how to undo, by name. */
-  private async applyFields(change: Change, isUndo: boolean) {
-    const fields = (Object.keys(change) as Field[]).filter((k) => change[k] !== undefined);
+  private async applyFields(change: Change, isUndo: boolean, lenient = false) {
+    const requestedFields = (Object.keys(change) as Field[]).filter((k) => change[k] !== undefined);
+    const problems: { field: Field; reason: string }[] = [];
     const caps0 = await this.capabilities(true);
     const before = await this.client.state();
     if (before.mode !== caps0.mode.index) throw new HttpError(409, "mode changed; try again");
@@ -312,10 +341,14 @@ export class Instance {
     let modeSwitched = false;
     if (change.mode !== undefined && change.mode !== was.mode) {
       const m = caps0.modes.find((x) => x.name === change.mode);
-      if (!m) throw new HttpError(422, `mode "${change.mode}" is not available on this instance`);
-      replies.set("mode", await this.client.send(cmd.setMode(m.index)));
-      caps = await this.capabilities(true);
-      modeSwitched = caps.mode.name !== was.mode;
+      if (!m) {
+        if (!lenient) throw new HttpError(422, `mode "${change.mode}" is not available on this instance`);
+        problems.push({ field: "mode", reason: `mode "${change.mode}" is not available on this instance` });
+      } else {
+        replies.set("mode", await this.client.send(cmd.setMode(m.index)));
+        caps = await this.capabilities(true);
+        modeSwitched = caps.mode.name !== was.mode;
+      }
     }
     const undoModeSwitch = async () => {
       if (!modeSwitched) return;
@@ -324,19 +357,19 @@ export class Instance {
     };
 
     // ---- 2. resolve everything else against the lists of the mode we're in --
-    const problems: string[] = [];
     const resolve = <T extends { index: number; name: string }>(list: T[], field: Field, name?: string) => {
       if (name === undefined) return undefined;
       const hit = list.find((x) => x.name === name);
-      if (!hit) problems.push(`${field}: "${name}" is not available in ${caps.mode.name} on engine ${caps.engine}`);
+      if (!hit) problems.push({ field, reason: `"${name}" is not available in ${caps.mode.name} on engine ${caps.engine}` });
       return hit?.index;
     };
     let rateIdx: number | undefined;
     if (change.rate !== undefined) {
       const opt = caps.rates.find((r) => r.rate === change.rate);
-      if (!caps.rateSettable) problems.push(`rate can't be set in ${caps.mode.name} mode`);
-      else if (!opt) problems.push(`rate ${change.rate} Hz is not offered in ${caps.mode.name}`);
-      else if (!opt.allowed) problems.push(`rate ${change.rate} Hz: ${opt.note}`);
+      const p = (reason: string) => problems.push({ field: "rate", reason });
+      if (!caps.rateSettable) p(`rate can't be set in ${caps.mode.name} mode`);
+      else if (!opt) p(`${change.rate} Hz is not offered in ${caps.mode.name}`);
+      else if (!opt.allowed) p(`${change.rate} Hz: ${opt.note}`);
       else rateIdx = opt.index;
     }
     const nx = resolve(caps.filters, "filterNx", change.filterNx);
@@ -348,7 +381,7 @@ export class Instance {
     let volumeNote: string | undefined;
     if (change.volume !== undefined) {
       const vr = caps.volumeRange;
-      if (!vr.enabled) problems.push("volume control is disabled on this instance");
+      if (!vr.enabled) problems.push({ field: "volume", reason: "volume control is disabled on this instance" });
       else {
         volume = Math.max(vr.min, Math.min(vr.max, change.volume));
         if (volume !== change.volume) volumeNote = `clamped to ${volume} dB (range ${vr.min}…${vr.max})`;
@@ -357,7 +390,10 @@ export class Instance {
           // Undo/rollback may return to the level the user was just listening at,
           // but only if nobody has moved the volume since our change.
           const untouched = this.lastSetVolume !== null && Math.abs(before.volume - this.lastSetVolume) <= VOLUME_EPS;
-          if (!isUndo) problems.push(`refusing to raise volume by ${raise.toFixed(1)} dB in one step (max ${MAX_RAISE_DB} dB)`);
+          if (!isUndo) {
+            volume = undefined;
+            problems.push({ field: "volume", reason: `refusing to raise volume by ${raise.toFixed(1)} dB in one step (max ${MAX_RAISE_DB} dB)` });
+          }
           else if (!untouched) {
             volume = undefined;
             volumeNote = `not restored: volume was changed elsewhere, and restoring would raise it by ${raise.toFixed(1)} dB`;
@@ -366,10 +402,12 @@ export class Instance {
       }
     }
 
-    if (problems.length) {
+    if (problems.length && !lenient) {
       await undoModeSwitch();
-      throw new HttpError(422, problems.join("; "));
+      throw new HttpError(422, problems.map((p) => (p.field === "volume" ? p.reason : `${p.field}: ${p.reason}`)).join("; "));
     }
+    const skippedFields = new Set(problems.map((p) => p.field));
+    const fields = requestedFields.filter((f) => !skippedFields.has(f));
 
     // ---- 4. apply in the design's order (§4.3) --------------------------------
     if (rateIdx !== undefined) replies.set("rate", await this.client.send(cmd.setRate(rateIdx)));
@@ -413,7 +451,52 @@ export class Instance {
     if (volume !== undefined) prev.volume = was.volume;
 
     const major = modeSwitched || (rateIdx !== undefined && rateIdx !== before.rate);
-    return { results, prev, state: after, volumeSet: volume ?? null, major };
+    return { results, prev, state: after, volumeSet: volume ?? null, major, skipped: problems };
+  }
+
+  /** Current settings, by name: what "save current as preset" captures. */
+  async currentSettings(): Promise<Required<Change>> {
+    const [caps, state] = await Promise.all([this.capabilities(true), this.client.state()]);
+    return settingsOf(caps, state);
+  }
+
+  /**
+   * How a preset relates to this instance right now. Names can only be checked
+   * against the current mode's lists; a preset for another mode is checked when
+   * applied.
+   */
+  async previewPreset(p: Change): Promise<PresetPreview> {
+    const [caps, state, status] = await Promise.all([this.capabilities(), this.client.state(), this.client.status()]);
+    const cur = settingsOf(caps, state);
+    const fields = (Object.keys(p) as Field[]).filter((k) => p[k] !== undefined);
+    const differs = fields.filter((f) => (f === "volume" ? Math.abs(cur.volume - p.volume!) > VOLUME_EPS : cur[f] !== p[f]));
+    const switchesMode = p.mode !== undefined && p.mode !== cur.mode;
+    const kind: PresetPreview["kind"] =
+      differs.length === 0 ? "active" : switchesMode || (p.rate !== undefined && p.rate !== cur.rate) ? "major" : "quick";
+    if (switchesMode) {
+      const ok = caps.modes.some((m) => m.name === p.mode);
+      return { kind, differs, missing: ok ? [] : [{ field: "mode", reason: `mode "${p.mode}" is not available here` }], unchecked: ok };
+    }
+    const missing: { field: Field; reason: string }[] = [];
+    const has = (list: { name: string }[], n?: string) => n === undefined || list.some((x) => x.name === n);
+    if (!has(caps.filters, p.filterNx)) missing.push({ field: "filterNx", reason: `"${p.filterNx}" isn't available here` });
+    if (!has(caps.filters, p.filter1x)) missing.push({ field: "filter1x", reason: `"${p.filter1x}" isn't available here` });
+    if (!has(caps.shapers, p.shaper)) missing.push({ field: "shaper", reason: `"${p.shaper}" isn't available here` });
+    if (p.rate !== undefined) {
+      const opt = caps.rates.find((r) => r.rate === p.rate);
+      if (!opt) missing.push({ field: "rate", reason: `${p.rate} Hz isn't offered here` });
+      else if (!opt.allowed) missing.push({ field: "rate", reason: opt.note ?? "above this instance's limit" });
+    }
+    // Would the resulting combination play? Only knowable with a source and a fixed rate.
+    const source = status.source?.sampleRate;
+    const rate = p.rate ?? cur.rate;
+    let predicted: Hint | undefined;
+    if (source && rate) {
+      const slot = filterSlot(source);
+      const filter = slot === "1x" ? (p.filter1x ?? cur.filter1x) : (p.filterNx ?? cur.filterNx);
+      predicted = predictedStop({ mode: cur.mode, filter, shaper: p.shaper ?? cur.shaper, sourceRate: source, outputRate: rate });
+    }
+    return { kind, differs, missing, unchecked: false, ...(predicted ? { predicted } : {}) };
   }
 
   /** Every failure learned on this instance, across engines and modes. */

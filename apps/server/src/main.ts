@@ -3,6 +3,7 @@ import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "./config.ts";
 import { LearnedStore } from "./learned.ts";
+import { PresetStore } from "./presets.ts";
 
 // Loopback by default, because the app has no login (design §7). In a container,
 // set HOST=0.0.0.0 and let network placement be the gate. An authenticating
@@ -29,7 +30,8 @@ const staticDir = process.env.STATIC_DIR || undefined;
 const target = process.env.DISCOVERY_TARGET?.match(/^(.+):(\d+)$/);
 const discovery =
   process.env.DISCOVERY === "off" ? (false as const) : target ? { target: { address: target[1]!, port: Number(target[2]) } } : {};
-const app = buildApp(config, { allowedHosts, learned, configDir, discovery, ...(staticDir ? { staticDir } : {}) });
+const presets = new PresetStore(join(configDir, "presets.json"));
+const app = buildApp(config, { allowedHosts, learned, presets, configDir, discovery, ...(staticDir ? { staticDir } : {}) });
 const url = await app.listen(port, host);
 console.error(`api on ${url} — instances: ${config.instances.map((i) => `${i.id}=${i.host}:${i.port}`).join(", ")}`);
 if (allowedHosts.length) console.error(`also answering to: ${allowedHosts.join(", ")}`);

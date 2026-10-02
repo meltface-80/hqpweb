@@ -363,6 +363,8 @@ export class FakeHqp {
       this.prepared.add(key);
       this.rem.filterNx = nx!;
       if (valid(x1)) this.rem.filter1x = x1!;
+      // Filters have ratio rules too (manual §4.6), so a filter change can stall.
+      this.checkCombo();
       return this.ok("SetFilter");
     },
 
