@@ -5,7 +5,28 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 
 ## Unreleased
 
+### Upgrade notes
+
+- **Settings now live in a Docker volume, not the `./config` folder.** That
+  removes the `chown` step from installing. If you configured instances in
+  `config/instances.json`, copy them into the volume once after updating:
+
+  ```sh
+  docker compose cp config/. controller:/config
+  docker compose restart
+  ```
+
+  (If you'd rather keep a folder you edit by hand, mount it yourself in a
+  `docker-compose.override.yml`. It must be writable by uid 1000.)
+- **`ALLOWED_HOSTS` is no longer needed for IP addresses,** only for hostnames.
+
 ### Added
+
+- **Library:** browse HQPlayer's own library (search, albums, tracks) and play an
+  album or track. Playing queues the files with `PlaylistAdd`; that path is not yet
+  tested on a real instance.
+- **Transport:** previous, play/pause and next, disabled while Roon is the source
+  (measured: a pause sent to HQPlayer reaches Roon, but play and next don't).
 
 - **Presets:** saved from an instance's current settings (volume opt-in), shared
   across instances, previewed per instance, and applied with read-back and

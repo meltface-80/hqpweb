@@ -1,4 +1,5 @@
-# Setup: see README (config/instances.json, and ALLOWED_HOSTS in a .env file).
+# Quick start: `docker compose up -d --build`, then open http://<this-machine's-IP>:4380
+# Optional settings go in a .env file next to this one (see README → Options).
 services:
   controller:
     build: .
@@ -6,15 +7,15 @@ services:
     container_name: web-controller
     restart: unless-stopped
     ports:
-      # One setting for both sides, so it also works with host networking.
-      # BIND_ADDRESS (in .env) limits which host interface publishes it, e.g. 127.0.0.1.
+      # BIND_ADDRESS limits which interface publishes it (e.g. 127.0.0.1 behind a local proxy).
       - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-4380}:${PORT:-4380}"
     environment:
-      # Set in .env (not here, so updates don't conflict): the hostname(s) you open
-      # the app at, comma-separated. Other names are refused; localhost always works.
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-}
       PORT: ${PORT:-4380}
+      # Only needed when you open the app by a hostname (IP addresses always work).
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-}
     volumes:
-      # instances.json (you write it) and learned.json (the app writes it).
-      # Must be writable by uid 1000 inside the container.
-      - ./config:/config
+      # Instances, presets and learned failures. Docker manages it; it survives updates.
+      - config:/config
+
+volumes:
+  config:

@@ -65,10 +65,34 @@ describe("request hardening", () => {
     try {
       expect((await r2("GET", "/api/health", { headers: { host: "192.0.2.50:4380" } })).status).toBe(200);
       expect((await r2("GET", "/api/health", { headers: { host: "[2001:db8::5]:4380" } })).status).toBe(200);
-      expect((await r2("GET", "/api/health", { headers: { host: "192.0.2.51:4380" } })).status).toBe(403);
+      // Any IP literal is accepted now (rebinding needs a hostname); names still must be listed.
+      expect((await r2("GET", "/api/health", { headers: { host: "192.0.2.51:4380" } })).status).toBe(200);
+      expect((await r2("GET", "/api/health", { headers: { host: "other.example:4380" } })).status).toBe(403);
     } finally {
       await s2.close();
     }
+  });
+
+  it("accepts any IP literal as Host without configuration (rebinding needs a hostname)", async () => {
+    expect((await req("GET", "/api/health", { headers: { host: "192.0.2.77:4380" } })).status).toBe(200);
+    expect((await req("GET", "/api/health", { headers: { host: "[2001:db8::7]:4380" } })).status).toBe(200);
+    expect((await req("GET", "/api/health", { headers: { host: "unlisted.example" } })).status).toBe(403);
+  });
+
+  it("allows writes from the same origin as the Host, even by IP", async () => {
+    const r = await req("POST", "/api/instances/fake/change", {
+      body: { invert: false },
+      headers: { host: "192.0.2.77:4380", origin: "http://192.0.2.77:4380" },
+    });
+    expect(r.status).toBe(200);
+  });
+
+  it("refuses writes from a page on another IP (no blanket IP trust for Origin)", async () => {
+    const r = await req("POST", "/api/instances/fake/change", {
+      body: { invert: true },
+      headers: { host: "192.0.2.77:4380", origin: "http://198.51.100.9" },
+    });
+    expect(r.status).toBe(403);
   });
 
   it("refuses cross-origin writes", async () => {

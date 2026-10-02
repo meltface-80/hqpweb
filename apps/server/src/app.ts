@@ -1,5 +1,6 @@
 // HTTP API on node:http, no framework.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { isIP } from "node:net";
 import type { AppConfig } from "./config.ts";
 import { HttpError, Instance, TRANSPORT_ACTIONS, type Change, type TransportAction } from "./instance.ts";
 import { LearnedStore } from "./learned.ts";
@@ -72,6 +73,13 @@ export function parseChange(body: unknown): Change {
 }
 
 const hostnameOf = (hostHeader: string) => hostHeader.replace(/:\d+$/, "").toLowerCase();
+
+/**
+ * IP literals are always allowed as Host: DNS rebinding needs an attacker-chosen
+ * hostname, so a request addressed to a bare IP can't be a rebinding attack.
+ * Hostnames must be listed in ALLOWED_HOSTS.
+ */
+const isIpLiteral = (h: string) => isIP(h.replace(/^\[|\]$/g, "")) !== 0;
 
 function send(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
@@ -205,14 +213,19 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const host = hostnameOf(req.headers.host ?? "");
-    if (!allowed.has(host)) throw new HttpError(403, `host "${host}" not allowed; add it to ALLOWED_HOSTS`);
-    // Writes must come from our own pages: a cross-site Origin is refused.
+    if (!allowed.has(host) && !isIpLiteral(host))
+      throw new HttpError(403, `host "${host}" not allowed; add it to ALLOWED_HOSTS`);
+    // Writes must come from our own pages: the Origin must be the very host the
+    // request was sent to (or a listed name). A page served from any other
+    // address, IP or not, is refused.
     if (req.method !== "GET" && req.headers.origin) {
       let originHost = "";
       try {
-        originHost = new URL(req.headers.origin).hostname.toLowerCase();
+        originHost = new URL(req.headers.origin).host.toLowerCase();
       } catch {}
-      if (!allowed.has(originHost) && !allowed.has(`[${originHost}]`)) throw new HttpError(403, "cross-origin request refused");
+      const sameOrigin = originHost !== "" && originHost === (req.headers.host ?? "").toLowerCase();
+      const listed = allowed.has(hostnameOf(originHost));
+      if (!sameOrigin && !listed) throw new HttpError(403, "cross-origin request refused");
     }
 
     const path = new URL(req.url ?? "/", "http://x").pathname;

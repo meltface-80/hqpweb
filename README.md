@@ -41,113 +41,71 @@ whatever else drives HQPlayer, keeps doing that.
 
 ## Install (Docker)
 
-You need:
+You need **git** and **Docker** (with Compose), on a machine that can reach your
+HQPlayer on TCP port 4321.
 
-- a machine that can reach each HQPlayer instance on **TCP port 4321**;
-- **git**, **Docker** and **Docker Compose**;
-- a user that can run `docker` (root, `sudo`, or membership of the `docker` group).
+```sh
+git clone https://github.com/statelycurmudgeon/hqplayer-web-controller.git
+cd hqplayer-web-controller
+docker compose up -d --build
+```
 
-1. Get the code:
+Open `http://<this machine's IP>:4380` and go to **Settings → Instances**: press
+**Scan now**, or add your HQPlayer by its address. That's it.
 
-   ```sh
-   git clone https://github.com/statelycurmudgeon/hqplayer-web-controller.git web-controller
-   cd web-controller
-   ```
-
-2. Tell it about your HQPlayer instances. You can skip this step and add them later
-   in the app's Settings instead:
-
-   ```sh
-   cp config/instances.example.json config/instances.json
-   ```
-
-   Edit `config/instances.json`, replacing the example addresses:
-
-   ```json
-   {
-     "instances": [
-       { "id": "living-room", "name": "Living room", "host": "192.0.2.10", "port": 4321 },
-       { "id": "office", "name": "Office", "host": "192.0.2.20", "port": 4321,
-         "limits": { "maxPcmRate": 384000 } }
-     ]
-   }
-   ```
-
-   - `id`: lowercase letters, digits and dashes.
-   - `name`: what the app shows.
-   - `host`: the instance's IP address or hostname, as reachable from the Docker host.
-   - `limits` (optional): `maxPcmRate` and/or `maxDsdRate` in Hz. Rates above them
-     are never offered. Use this if your DAC accepts less than HQPlayer offers.
-
-   The app also writes into this folder (`learned.json`, and instances you add in
-   Settings), so it must be writable by the container's user, uid 1000. If `id -u`
-   prints anything other than 1000, run:
-
-   ```sh
-   sudo chown -R 1000:1000 config
-   ```
-
-3. Set the name you'll open it at, in a `.env` file next to `docker-compose.yml`:
-
-   ```sh
-   echo 'ALLOWED_HOSTS=controller.home.arpa' > .env
-   ```
-
-   Use exactly what you'll type in the browser's address bar: a hostname or an IP
-   address (put IPv6 addresses in brackets, e.g. `[2001:db8::5]`). Separate several
-   with commas. The app refuses requests addressed to any other name, which protects
-   it from malicious web pages on your network. `localhost` and `127.0.0.1` always
-   work. To use a port other than the default 4380, add `PORT=…` to `.env`.
-
-4. Start it:
-
-   ```sh
-   docker compose up -d --build
-   ```
-
-   Open `http://<that name>:4380/`. Behind a reverse proxy, it's just the proxy's URL,
-   e.g. `https://<that name>/`. `docker compose ps` shows `healthy` within a minute.
-
-5. On a phone, use "Add to Home Screen" to get a full-screen app.
+On a phone, "Add to Home Screen" gives you a full-screen app.
 
 ### Updating
 
-Check [CHANGELOG.md](CHANGELOG.md) for upgrade notes first. Some updates change
-defaults, such as the port. Then:
+Read [CHANGELOG.md](CHANGELOG.md) for upgrade notes first, then:
 
 ```sh
 git pull
 docker compose up -d --build
 ```
 
-Your `config/` folder is kept.
+Your instances, presets and learned failures are kept (in a Docker volume).
 
-### Networking notes
+### Options
 
-- **Reachability.** The container must reach every instance on TCP 4321. Across
-  VLANs or subnets you may need a firewall rule.
-- **Discovery** finds HQPlayer instances on the same network segment, using UDP
-  multicast. Multicast doesn't cross VLANs or routers, so add other instances by hand
-  in Settings, or in `instances.json`. In Docker, discovery needs **host
-  networking** (Linux only). Create `docker-compose.override.yml` next to
-  `docker-compose.yml`:
+Put these in a `.env` file next to `docker-compose.yml` (create it if needed), then
+run `docker compose up -d`.
 
-  ```yaml
-  services:
-    controller:
-      network_mode: host
-      ports: !reset []
-  ```
+- **Opening it by a name instead of an IP**, e.g. `http://controller.home.arpa:4380`
+  or through a reverse proxy: `ALLOWED_HOSTS=controller.home.arpa` (several names
+  comma-separated). IP addresses always work. Names must be listed, which protects
+  the app from malicious web pages on your network (DNS rebinding).
+- **A different port:** `PORT=8080`.
+- **Publishing on one interface only**, e.g. when a reverse proxy runs on the same
+  machine: `BIND_ADDRESS=127.0.0.1`.
 
-  Then run `docker compose up -d`. The app is then on port 4380 (or your `PORT`) of the host itself.
-  Without host networking everything else works: you add instances by hand.
-- **Instances added in Settings** are saved to `config/instances.json`. Stop the
-  container before editing that file by hand.
-- **Behind a reverse proxy** (Caddy, nginx, Traefik):
-  - forward the original `Host` header, which most do by default, and list that
-    name in `ALLOWED_HOSTS`;
-  - don't buffer `/api/instances/*/events`: it's a server-sent event stream. The
-    app already sends `X-Accel-Buffering: no`.
+**Discovery.** Scan now finds HQPlayer on the same network segment using UDP
+multicast, which needs Docker's **host networking** (Linux only). Without it, add
+instances by address; everything else works. To turn it on, create
+`docker-compose.override.yml`:
+
+```yaml
+services:
+  controller:
+    network_mode: host
+    ports: !reset []
+```
+
+Multicast never crosses VLANs or routers, so instances elsewhere are always added by
+address. The container must reach each instance on TCP 4321; across VLANs that may
+need a firewall rule.
+
+**Behind a reverse proxy** (Caddy, nginx, Traefik): forward the original `Host`
+header (most do by default), list that name in `ALLOWED_HOSTS`, and don't buffer
+`/api/instances/*/events` (a server-sent event stream; the app sends
+`X-Accel-Buffering: no`).
+
+**Config by file** (optional): the app keeps `instances.json`, `presets.json` and
+`learned.json` in its volume. To copy them out or in:
+`docker compose cp controller:/config ./config-backup` /
+`docker compose cp ./config-backup/. controller:/config`. Hand-edit
+`instances.json` only while the container is stopped; the format is in
+[config/instances.example.json](config/instances.example.json).
 
 ### Security
 
@@ -155,10 +113,9 @@ The app has **no login**. Anyone who can reach it can change your HQPlayer setti
 just as anyone who can reach HQPlayer's port 4321 already can. Run it on a network
 you trust, or put an authenticating proxy in front. Never expose it to the internet.
 
-By default Docker publishes the port on every interface of the host. If a reverse
-proxy on the same machine is the only client, publish it on loopback only by adding
-`BIND_ADDRESS=127.0.0.1` to `.env`. (With host networking that setting doesn't
-apply; set `HOST=127.0.0.1` in the override file's `environment` instead.)
+By default Docker publishes the port on every interface of the host; see
+`BIND_ADDRESS` under Options to narrow that. With host networking, set
+`HOST=127.0.0.1` in the override file's `environment` instead.
 
 ## Development
 
