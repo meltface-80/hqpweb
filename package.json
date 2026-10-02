@@ -1,0 +1,19 @@
+{
+  "name": "web-controller",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "fake": "node packages/fake-hqp/src/cli.ts",
+    "dev:server": "node --watch apps/server/src/main.ts",
+    "dev:web": "npm run dev -w apps/web",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

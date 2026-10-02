@@ -1,0 +1,6 @@
+{
+  "instances": [
+    { "id": "fake", "name": "Fake (dev)", "host": "127.0.0.1", "port": 14321 },
+    { "id": "living-room", "name": "Living room", "host": "192.0.2.10", "port": 4321 }
+  ]
+}

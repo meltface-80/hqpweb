@@ -1,0 +1,8 @@
+{
+  "name": "@app/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "fast-xml-parser": "^5.11.2" }
+}

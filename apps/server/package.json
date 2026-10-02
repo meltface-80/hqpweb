@@ -1,0 +1,13 @@
+{
+  "name": "@app/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@app/protocol": "*",
+    "fastify": "^5.12.5"
+  },
+  "devDependencies": {
+    "@app/fake-hqp": "*"
+  }
+}

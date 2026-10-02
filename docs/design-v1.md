@@ -81,6 +81,29 @@ decision still to make.
 - **Socket:** an idle socket is closed after about 156 s. One connection per request
   is simple and was used for every measurement below.
 
+**Measured later on 2026-10-02 (read-only, both instances):**
+
+- **Volume formatting differs by platform:** macOS prints `-22`, Linux prints
+  `-28.00000000000000000`.
+- **`VolumeRange.max` differs too:** −3 on the Mac, 0 on Linux. Read it; never
+  assume it.
+- **`State.mode` is an index into `GetModes`.** `State.active_mode` is the mode's
+  *value* (−1 source, 0 PCM, 1 SDM).
+- **The same filter name has different indices across modes and instances:**
+  `poly-sinc-gauss-hires-lp` is 51 in SDM on the Mac and 40 in PCM on Linux.
+- **The `arg` attribute on `FiltersItem` is not a 1x/Nx flag.** The Mac's active 1x
+  and Nx filters both have `arg="1"`. Its meaning is unknown.
+- **The filter in use follows the source rate:** a 44.1 kHz source uses the 1x
+  filter, a 96 kHz source the Nx filter. `Status` carries the source rate in a
+  `<metadata samplerate=…>` child, alongside the stream URI.
+- **The PCM rate list depends on the instance:** 13 entries up to 1.536 MHz on the
+  Mac, 9 up to 384 kHz on Linux. It probably depends on the output device.
+- **`ConfigurationList` with no saved configurations** returns
+  `result="Error">path doesn't exist`.
+- **v5 answers `GetJunkFilters` with `Unknown command`,** as expected (§2.5).
+- **Discovery reply:** `<discover name="…" result="OK" version="Signalyst HQPlayer
+  Desktop 5">hqplayer</discover>`, sent from the instance's own address.
+
 ### 2.2 Coexistence with Roon (or another controller)
 
 **Measured:** read-only queries (`GetInfo`, `Status`, `State`, list enumeration) during
@@ -170,8 +193,9 @@ From the 6.0.1 SDK source and the release notes:
   so polling is simpler and covers idle too.
 - **Storage:** presets, static instances and learned compatibility live in one JSON
   file on a volume. No database in v1.
-- **Stack:** a decision still to make. The default proposal is **TypeScript end to end**:
-  a Node backend (Fastify or similar) and a small Svelte or React PWA, in one
+- **Stack:** **TypeScript end to end** (decided 2026-10-02; details in
+  [development.md](development.md)):
+  a Node 24 backend (Fastify) and a small Svelte 5 PWA, in one
   container, matching the shape of other self-hosted Roon-adjacent tools. The
   protocol layer is a self-contained module with no web dependencies, so it can later
   back a CLI or a Home Assistant integration.
@@ -185,7 +209,7 @@ From the 6.0.1 SDK source and the release notes:
 - **Instance:** name, host, port, source (discovered or static), and last `GetInfo`
   (product, platform, version, engine).
 - **Capabilities:** for each mode, the lists of filters, shapers and rates. Filters
-  carry their 1x/Nx applicability flag (`arg`).
+  carry an `arg` attribute whose meaning is unknown; it is *not* a 1x/Nx flag (§2.1).
   - Re-enumerate when `engine` changes or after a mode change.
   - **Version drift:** when the engine changes, diff the old and new lists and show
     "new filters/modulators available".
@@ -320,7 +344,7 @@ these combinations, not hard-code them.
 
 ## 9. Open decisions
 
-1. **Stack:** TypeScript end to end (proposed), or Python (FastAPI) plus a JS frontend.
+1. ~~**Stack**~~ — decided: TypeScript end to end (Node 24, Fastify, Svelte 5 PWA).
 2. **Presets:** keep them per instance, or global and resolved by name per instance
    (proposed: global, with per-instance resolution warnings).
 3. **Embedded profile adapter** (port 8088): v1.x or later.

@@ -8,3 +8,8 @@ dist/
 
 # Live-test harness wired to the operator's Home Assistant / instances. Local only.
 tools/probe/local/
+.tsbuild/
+
+# Real instance config (hosts, addresses). Copy config/instances.example.json.
+config/instances.json
+__pycache__/
