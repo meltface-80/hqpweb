@@ -105,6 +105,9 @@ You need:
 
 ### Updating
 
+Check [CHANGELOG.md](CHANGELOG.md) for upgrade notes first. Some updates change
+defaults, such as the port. Then:
+
 ```sh
 git pull
 docker compose up -d --build
