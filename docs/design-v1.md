@@ -38,6 +38,18 @@ decision still to make.
 - Convolution / matrix profile selection, where the instance has them configured.
 - Learned compatibility hints (§4.4) shared across instances.
 - HQPlayer Embedded profile switching via its own web interface (§2.4).
+- **Per-instance limits:** a profile of what this machine can sustain. Some filter,
+  modulator and rate combinations overload a given CPU or GPU, so they could be
+  marked off-limits per instance and rate. This must not be prescriptive, and
+  should ideally be learned. `Status` exposes `process_speed`, `output_fill` and
+  `input_fill` (measured: present in replies), which may show when an instance
+  can't keep up. That's inference, not yet tested.
+- **Now-playing (track, artist, album art).** HQPlayer can't supply it when Roon
+  drives it: Roon sends a raw stream, and `Status` metadata says only `song="Roon"`
+  with sample rate and bit depth (measured on both instances). It would need the
+  Roon extension API, mapping a Roon zone to an HQPlayer instance. That's an
+  optional adapter, kept outside the protocol layer. When HQPlayer plays its own
+  library, its metadata may carry tags (unverified).
 
 ---
 
@@ -210,7 +222,7 @@ From the 6.0.1 SDK source and the release notes:
   file on a volume. No database in v1.
 - **Stack:** **TypeScript end to end** (decided 2026-10-02; details in
   [development.md](development.md)):
-  a Node 24 backend (Fastify) and a small Svelte 5 PWA, in one
+  a Node 24 backend (`node:http`, no framework) and a small Svelte 5 PWA, in one
   container, matching the shape of other self-hosted Roon-adjacent tools. The
   protocol layer is a self-contained module with no web dependencies, so it can later
   back a CLI or a Home Assistant integration.
@@ -359,7 +371,7 @@ these combinations, not hard-code them.
 
 ## 9. Open decisions
 
-1. ~~**Stack**~~ — decided: TypeScript end to end (Node 24, Fastify, Svelte 5 PWA).
+1. ~~**Stack**~~ — decided: TypeScript end to end (Node 24, `node:http`, Svelte 5 PWA).
 2. **Presets:** keep them per instance, or global and resolved by name per instance
    (proposed: global, with per-instance resolution warnings).
 3. **Embedded profile adapter** (port 8088): v1.x or later.

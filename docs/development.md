@@ -7,7 +7,7 @@ TypeScript end to end (design §9, decision 1).
 | Part | Choice | Why |
 |---|---|---|
 | Runtime | Node 24 LTS | Runs `.ts` directly (type stripping), so no build step for the backend. `tsc` only type-checks. |
-| Backend | Fastify 5 | Small; has `inject()` for in-process API tests. |
+| Backend | `node:http`, no framework | Six routes don't need one. Runtime third-party packages: only the XML parser and its dependencies. |
 | Frontend | Svelte 5 + Vite, as a PWA | Small bundles for phones; no framework runtime to speak of. |
 | Tests | Vitest | One runner for every package. |
 | XML | fast-xml-parser | Replies are small; attribute values stay strings, so numbers are converted on purpose. |
@@ -53,20 +53,27 @@ delays), `--source-rate 96000` (switches the in-use filter from 1x to Nx), and
 
 ## Remote access (Tailscale)
 
-The app has no login (design §7). In development, every server binds to `127.0.0.1`;
+The app has no login (design §7). Set `ALLOWED_HOSTS` to the name clients use (for example the
+internal DNS name).
+
+**Request hardening:** the API refuses any `Host` it doesn't know, which blocks DNS
+rebinding. It refuses writes that carry a cross-site `Origin`, and it accepts only
+`application/json` bodies, up to 16 KB. Together these stop a web page elsewhere
+on the network from driving it. In development, every server binds to `127.0.0.1`;
 don't bind dev servers wider. To reach the dev UI from elsewhere, publish it to your
 tailnet with `tailscale serve`:
 
 ```sh
 tailscale serve --bg 5173                 # https://<machine>.<tailnet>.ts.net → 127.0.0.1:5173
-DEV_ALLOWED_HOSTS=<machine>.<tailnet>.ts.net npm run dev:web
+export ALLOWED_HOSTS=<machine>.<tailnet>.ts.net
+npm run dev:server & npm run dev:web
 ```
 
 - **Who can reach it:** only your tailnet. Tailscale ACLs/grants decide which devices,
   and nothing listens on the LAN.
 - **HTTPS comes free.** A PWA needs it off `localhost` for its service worker.
 - **Vite rejects unknown `Host` headers,** so the tailnet name goes in
-  `DEV_ALLOWED_HOSTS`. Don't commit it.
+  `ALLOWED_HOSTS`. Don't commit it. The API server checks the same list (next section).
 - **Identity headers.** `tailscale serve` also adds `Tailscale-User-Login` headers. A
   later version could use them as a lightweight identity, without its own login.
 
@@ -78,7 +85,13 @@ The app is fully usable with nothing in front of it. In the container, set
 `HOST=0.0.0.0` (the API's bind address), mount `config/`, and put it on a network
 that only trusted clients can reach. Internal-only HTTPS through a reverse proxy is
 the expected shape. Adding auth at the proxy is optional and up to the operator
-(design §7).
+(design §7). Set `ALLOWED_HOSTS` to the name clients use (for example the
+internal DNS name).
+
+**Request hardening:** the API refuses any `Host` it doesn't know, which blocks DNS
+rebinding. It refuses writes that carry a cross-site `Origin`, and it accepts only
+`application/json` bodies, up to 16 KB. Together these stop a web page elsewhere
+on the network from driving it.
 
 ## The fake server's fidelity
 

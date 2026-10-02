@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@app/protocol": "*",
-    "fastify": "^5.12.5"
+    "@app/protocol": "*"
   },
   "devDependencies": {
     "@app/fake-hqp": "*"

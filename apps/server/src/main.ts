@@ -6,8 +6,12 @@ import { loadConfig } from "./config.ts";
 // proxy in front is optional, not required.
 const host = process.env.HOST ?? "127.0.0.1";
 const port = Number(process.env.PORT ?? 8787);
+// Names the app is reached by, besides loopback (e.g. its internal DNS name or
+// tailnet name). Requests under any other Host are refused.
+const allowedHosts = (process.env.ALLOWED_HOSTS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
 const config = loadConfig();
-const app = buildApp(config);
-await app.listen({ host, port });
-console.error(`api on http://${host}:${port} — instances: ${config.instances.map((i) => `${i.id}=${i.host}:${i.port}`).join(", ")}`);
+const app = buildApp(config, { allowedHosts });
+const url = await app.listen(port, host);
+console.error(`api on ${url} — instances: ${config.instances.map((i) => `${i.id}=${i.host}:${i.port}`).join(", ")}`);
+if (allowedHosts.length) console.error(`also answering to: ${allowedHosts.join(", ")}`);

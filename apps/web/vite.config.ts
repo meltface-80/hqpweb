@@ -3,8 +3,9 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 // Remote dev goes through `tailscale serve`, which forwards to this loopback-only
 // dev server with the tailnet hostname in Host. List such names in
-// DEV_ALLOWED_HOSTS (comma-separated) rather than committing them.
-const allowedHosts = (process.env.DEV_ALLOWED_HOSTS ?? "").split(",").filter(Boolean);
+// ALLOWED_HOSTS (comma-separated; the API server reads the same variable)
+// rather than committing them.
+const allowedHosts = (process.env.ALLOWED_HOSTS ?? "").split(",").filter(Boolean);
 
 export default defineConfig({
   plugins: [svelte()],
