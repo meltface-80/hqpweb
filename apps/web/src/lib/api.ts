@@ -156,17 +156,6 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action }),
     }),
-  library: (id: string, q: string, offset: number, limit = 100) =>
-    call<{ total: number; offset: number; albums: any[] }>(
-      `/api/instances/${id}/library?q=${encodeURIComponent(q)}&offset=${offset}&limit=${limit}`,
-    ),
-  album: (id: string, hash: string) => call<any>(`/api/instances/${id}/library/albums/${encodeURIComponent(hash)}`),
-  playAlbum: (id: string, album: string, track: number) =>
-    call<{ queued: number; status: Status }>(`/api/instances/${id}/library/play`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ album, track }),
-    }),
   undo: (id: string) => call<ApplyResult>(`/api/instances/${id}/undo`, { method: "POST" }),
   presets: (id: string) => call<PresetView[]>(`/api/instances/${id}/presets`),
   savePreset: (body: { name: string; fromInstance: string; includeVolume: boolean }) =>

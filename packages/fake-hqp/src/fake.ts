@@ -26,10 +26,6 @@ export interface FakeOptions {
   matrixProfiles?: string[];
   /** Whether convolution impulse responses are configured. Measured: not, on both. */
   convolutionConfigured?: boolean;
-  /** Synthetic library for LibraryGet. Default: a few invented albums. */
-  library?: FakeAlbum[];
-  /** Cover art by album hash (type as HQPlayer would report it). Default: none. */
-  pictures?: Record<string, { type: string; data: Buffer }>;
   log?: (line: string) => void;
 }
 
@@ -57,21 +53,6 @@ const DELAY = {
 };
 
 type Reply = string;
-
-export interface FakeAlbum {
-  hash: string;
-  path: string;
-  album: string;
-  artist: string;
-  tracks: string[];
-}
-
-/** Invented names only: the repo is public. */
-export const DEFAULT_LIBRARY: FakeAlbum[] = [
-  { hash: "a1", path: "/music/Example Artist/First Album", album: "First Album", artist: "Example Artist", tracks: ["01 - Opening.flac", "02 - Middle.flac", "03 - Closing.flac"] },
-  { hash: "a2", path: "/music/Another Band/Second Album", album: "Second Album", artist: "Another Band", tracks: ["01 - Only Track.flac"] },
-  { hash: "a3", path: "/music/Composer X/Quartets", album: "Quartets", artist: "Ensemble Y", tracks: ["01 - I. Allegro.flac", "02 - II. Adagio.flac"] },
-];
 
 export class FakeHqp {
   readonly profile: Profile;
@@ -118,8 +99,6 @@ export class FakeHqp {
       speed: opts.speed ?? (() => 1),
       matrixProfiles: opts.matrixProfiles ?? [],
       convolutionConfigured: opts.convolutionConfigured ?? false,
-      library: opts.library ?? DEFAULT_LIBRARY,
-      pictures: opts.pictures ?? {},
       log: opts.log,
     };
     const i = profile.initial;
@@ -476,29 +455,6 @@ export class FakeHqp {
       this.position = 0;
       return this.ok("Next");
     },
-    LibraryGet: () =>
-      this.doc(
-        "LibraryGet",
-        {},
-        undefined,
-        this.opts.library
-          .map(
-            (a) =>
-              element("LibraryDirectory", { album: a.album, artist: a.artist, hash: a.hash, path: a.path, rate: 44100, bits: 16, channels: 2 }).replace(/\/>$/, ">") +
-              a.tracks.map((t, i) => element("LibraryFile", { hash: `${a.hash}-${i}`, name: t, song: t.replace(/\.\w+$/, ""), number: i + 1, length: 240 })).join("") +
-              "</LibraryDirectory>",
-          )
-          .join(""),
-      ),
-    // Inferred: no extracted covers (measured: none on the Mac's library).
-    LibraryPicture: (req) => {
-      const pic = this.opts.pictures?.[req.attrs.hash ?? ""];
-      if (!pic) return this.doc("LibraryPicture", { size: 0 });
-      // Real replies: the XML line, then `size` raw bytes (SDK source).
-      return this.doc("LibraryPicture", { size: pic.data.length, type: pic.type }) + "\n" + pic.data.toString("latin1");
-    },
-    // SDK: only sent with a session key; we expect refusal like ConfigurationLoad (inferred).
-    LibraryLoad: () => this.doc("LibraryLoad", { result: "Error" }, "missing data or not authorized"),
     // Measured (5.35.10): plain PlaylistAdd is accepted; start="1" makes the playlist
     // the active transport, without it Play stays on the previous source (Roon).
     PlaylistAdd: (req) => {

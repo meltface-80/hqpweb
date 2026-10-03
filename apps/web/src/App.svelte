@@ -122,10 +122,6 @@
     online = "connecting";
     roonZone = null;
     seekBase = null;
-    hasLibrary = false;
-    // The library button shows only where HQPlayer has a library. Browsing it is
-    // parked (lib/Library.svelte) until people ask for it.
-    api.library(id, "", 0, 1).then((r) => id === selected && (hasLibrary = r.total > 0), () => {});
     const es = api.events(id);
     es.addEventListener("now", (e) => {
       snap = JSON.parse((e as MessageEvent).data);
@@ -311,7 +307,6 @@
   };
 
   let tbusy = $state(false);
-  let hasLibrary = $state(false);
   // Roon's zone for this instance, when Roon is on and a zone is mapped.
   let roonZone = $state<RoonZone | null>(null);
   // Roon drives the card only while it's the source (or HQPlayer is idle); when
@@ -407,11 +402,6 @@
         <h1>{instances[0] ? optionLabel(instances[0]) : "No instances"}</h1>
       {/if}
     </div>
-    {#if hasLibrary}
-      <button class="gear" onclick={() => (message = { kind: "info", text: "Library features to come." })} aria-label="Library" title="HQPlayer library">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 4h3v16H4zM9 4h3v16H9zM14.2 4.6l2.9-.8 4.2 15.5-2.9.8z" /></svg>
-      </button>
-    {/if}
     <button class="gear" onclick={() => settings.open()} aria-label="Settings">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
     </button>
