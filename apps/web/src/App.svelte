@@ -41,6 +41,17 @@
   let busy = $state(false);
   let undoAvailable = $state(false);
   let message = $state<{ kind: "ok" | "warn" | "error" | "info"; text: string } | null>(null);
+  // The footer (result + Undo) fades 30 s after the last change; it stays while a
+  // change is running or HQPlayer is falling behind (the banner points at Undo).
+  let footerOpen = $state(false);
+  $effect(() => {
+    void message;
+    void undoAvailable;
+    footerOpen = !!(message || undoAvailable);
+    if (!footerOpen || busy) return;
+    const t = setTimeout(() => (footerOpen = false), 30_000);
+    return () => clearTimeout(t);
+  });
   let volDraft = $state<number | null>(null);
   let settings: Settings;
   /** Consecutive status readings with playback below 0.9× real time. */
@@ -520,7 +531,7 @@
       <dl class="side">
         <dt>Source</dt>
         <dd>{snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}</dd>
-        <dt title={speedTitle}>Keeping up</dt>
+        <dt title={speedTitle}>HQP status</dt>
         <dd class="speed {speedClass}" title={speedTitle}>{speed == null ? "—" : SPEED_LABEL[speedClass]}</dd>
       </dl>
       {#if caps}
@@ -549,7 +560,7 @@
     </section>
 
     {#if caps}
-      <!-- Most frequent jobs, kept above the fold: 1x | Nx, then dither/modulator, then presets. -->
+      <!-- Most frequent jobs, kept above the fold: filters, then dither/modulator, then presets. -->
       <section class="card list quick" title="1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.">
         <Picker
             label="1x filter"
@@ -569,6 +580,8 @@
             disabled={busy}
             onpick={(i) => apply({ filterNx: i.name })}
           />
+      </section>
+      <section class="card list quick">
         <Picker
           label={isSdm ? "Modulator" : "Dither"}
           active={snap.status.state === 2 ? snap.status.activeShaper === nameAt(caps.shapers, snap.state.shaper) : null}
@@ -577,15 +590,17 @@
           disabled={busy}
           onpick={(i) => apply({ shaper: i.name })}
         />
-        {#if selected}
+      </section>
+      {#if selected}
+        <section class="card list quick">
           <Presets
             instanceId={selected}
             stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}`}
             {busy}
             {run}
           />
-        {/if}
-      </section>
+        </section>
+      {/if}
 
       <details class="advanced" bind:open={advancedOpen}>
         <summary>Advanced</summary>
@@ -656,7 +671,7 @@
   {/if}
 </main>
 
-<footer class:show={message || undoAvailable}>
+<footer class:show={footerOpen || (speedClass === "bad" && undoAvailable)}>
   {#if message}<p class="msg {message.kind}">{message.text}</p>{/if}
   {#if undoAvailable}<button class="undo" onclick={undo} disabled={busy}>Undo last change</button>{/if}
 </footer>
@@ -673,9 +688,7 @@
   .brand { display: flex; align-items: center; gap: 6px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-dim); font-size: 0.95rem; flex: none; }
   .brand img { border-radius: 6px; }
   .inst { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
-  .quick { margin-top: 12px; }
-  .quick > :global(.row), .quick > :global(.trigger) { border-bottom: 1px solid var(--border); }
-  .quick > :global(.trigger:last-child) { border-bottom: 0; }
+  .quick { margin-top: 10px; }
   .vol { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; }
   .vol input { flex: 1; min-width: 0; accent-color: var(--accent); }
   .vol output { font-size: 1.05rem; font-variant-numeric: tabular-nums; font-weight: 600; min-width: 4.8rem; text-align: right; }
@@ -741,8 +754,8 @@
   .advanced .help { margin: 8px 4px; }
   .sub-h { margin-top: 14px; }
 
-  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: none; flex-direction: column; gap: 8px; align-items: center; }
-  footer.show { display: flex; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; align-items: center; opacity: 0; transform: translateY(100%); pointer-events: none; transition: opacity 0.4s, transform 0.4s; }
+  footer.show { opacity: 1; transform: none; pointer-events: auto; }
   .msg { margin: 0; max-width: 34rem; text-align: center; font-size: 0.9rem; }
   .msg.ok { color: var(--ok); }
   .msg.warn { color: var(--warn); }
