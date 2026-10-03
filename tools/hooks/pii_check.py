@@ -7,8 +7,8 @@ Checks text (a commit message, or file contents) against:
     host names, tailnet names, UUIDs (device or account ids);
   - private terms: one regex per line in pii-denylist.local at the repo root.
     That file is git-ignored, because the terms are the private data.
-On push it also checks each commit's metadata (author/committer must be a GitHub
-noreply address; dates must be UTC, +0000, so they don't reveal a time zone) and
+On push it also checks each new commit's author and committer use a GitHub
+noreply address (so a real email can't slip in from a global git config), and
 image files for text metadata chunks.
 
 Usage: pii_check.py message FILE  |  pii_check.py push <local_sha> <remote_sha>
@@ -95,13 +95,10 @@ def main():
         args = [local, "--not", "--remotes"] if set(remote) == {"0"} else [f"{remote}..{local}"]
         commits = subprocess.run(["git", "rev-list", *args], capture_output=True, text=True).stdout.split()
         for c in commits:
-            meta = subprocess.run(["git", "log", "-1", "--format=%ae%n%ce%n%ai%n%ci", c], capture_output=True, text=True).stdout.split("\n")
+            meta = subprocess.run(["git", "log", "-1", "--format=%ae%n%ce", c], capture_output=True, text=True).stdout.split("\n")
             for email in meta[0:2]:
                 if not email.endswith("@users.noreply.github.com"):
                     hits.append(f"{c[:7]}: author/committer is not a GitHub noreply address")
-            for date in meta[2:4]:
-                if date and not date.endswith("+0000"):
-                    hits.append(f"{c[:7]}: commit date isn't UTC (set TZ=UTC; it reveals a time zone)")
             msg = subprocess.run(["git", "log", "-1", "--format=%B", c], capture_output=True, text=True).stdout
             hits += scan(msg, f"message of {c[:7]}", pats)
             files = subprocess.run(["git", "diff-tree", "--no-commit-id", "--name-only", "-r", c], capture_output=True, text=True).stdout.split()

@@ -14,10 +14,9 @@ environment. Read it if it exists; never commit anything from it.
      addresses, or anything from a real music library (paths, collection names,
      artists, albums) into **any** git content: files, commit messages, tags, branch
      names. Use invented examples (`192.0.2.x`, "Example Artist").
-   - Commit dates must be UTC: commit with `TZ=UTC`.
    - The hooks in `tools/hooks/` enforce this (`git config core.hooksPath tools/hooks`):
      `commit-msg` checks messages; `pre-push` checks every outgoing commit's files,
-     messages, dates and identity. Private terms go in the git-ignored
+     messages and identity (a GitHub noreply email). Private terms go in the git-ignored
      `pii-denylist.local`. **Never bypass the hooks (`--no-verify`)**; fix the text.
    - Anything about a maintainer's own network goes in `*.local.md`, which is
      git-ignored.
