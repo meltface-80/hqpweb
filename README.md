@@ -5,10 +5,12 @@
 **A web controller for HQPlayer.** Change filters, dither/modulator, volume, mode and
 rate from any phone or browser, and see whether HQPlayer is keeping up.
 
-**Status: pre-alpha.** Works with HQPlayer Desktop 5; Embedded and v6 are untested.
+**Status: alpha (0.1.0-alpha.1).** Works with HQPlayer Desktop 5; Embedded and v6
+are untested.
 
-> Not affiliated with, endorsed by, or supported by Signalyst. HQPlayer is a
-> trademark of its owner, used here only to identify compatible software.
+> Not affiliated with, endorsed by, or supported by Signalyst or Roon Labs.
+> HQPlayer is a trademark of Signalyst and Roon is a trademark of Roon Labs LLC,
+> used here only to identify compatible software.
 
 ## How it fits
 
@@ -96,16 +98,19 @@ approval in Roon.
 
 There's **no login**: anyone who can reach the app can change HQPlayer, just as anyone
 who can reach port 4321 already can. Keep it on a network you trust, or put an
-authenticating proxy in front. Never expose it to the internet.
+authenticating proxy in front. Never expose it to the internet. To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## Tested with
 
 | HQPlayer | Platform | Status |
 | --- | --- | --- |
-| Desktop 5.17.2 | Linux (container, CUDA) | works (PCM) |
-| Desktop 5.17.2 | Linux (VM) | reads and Roon verified; changes not yet |
-| Desktop 5.17.2 | macOS (Apple Silicon) | reads verified; changes tested on 5.15 (SDM, DSD1024) |
+| Desktop 5.17.2 (engine 5.35.10) | Linux (container, CUDA) | works (PCM) |
+| Desktop 5.17.2 (engine 5.35.10) | Linux (VM) | reads and Roon verified; changes not yet |
+| Desktop 5.17.2 (engine 5.35.10) | macOS (Apple Silicon) | reads verified; changes tested on 5.15 (engine 5.32.5), SDM up to DSD1024 |
 | Desktop 6, Embedded, Windows | — | **untested**: reports welcome ([TESTING.md](TESTING.md)) |
+
+hqpweb shows the *engine* version (Settings → General); HQPlayer's own Help → About
+shows the product version.
 
 ## Why can't I switch profiles or endpoints?
 

@@ -1,12 +1,18 @@
-# HQPlayer Web Controller — v1 design
+# hqpweb — design notes (v1)
 
 A small, modern web controller for Signalyst HQPlayer: pick an instance, see what
 it is doing, change the settings that matter, and apply your own presets — from a
 phone, tablet or desktop browser.
 
-Status: design, pre-code. Everything under "Measured" was observed against real
-HQPlayer instances on 2026-10-02; everything else is labelled as inference or as a
-decision still to make.
+> **Read this first.** These notes were written while building the first version
+> (October 2026). §2, the measured fact base, is kept current; the rest records
+> design decisions and may lag the code. The [README](../README.md) describes what
+> the app does today. "Measured" means observed on real HQPlayer Desktop 5
+> instances (macOS and Linux); anything else is labelled as inference.
+>
+> Versions: HQPlayer's product version (e.g. 5.17.2) and the `engine` it reports
+> (e.g. 5.35.10) are different numbers. Where only the engine is known, it's named
+> as such.
 
 ---
 
@@ -25,17 +31,17 @@ decision still to make.
 
 **Non-goals for v1**
 
-- Playback, library and playlist control. Roon, or whatever else is driving the
-  instance, owns transport.
-- Loading HQPlayer's built-in configurations (blocked, see §2.4).
-- Convolution and matrix editing. Toggling is cheap to add later; editing is not v1.
+- Being a music player: no library browsing or playlists. Roon (optional, for
+  now-playing and transport) or HQPlayer's own Client does that.
+- Loading HQPlayer's built-in configurations, or switching the output device
+  (not in the control protocol, see §2.4).
+- Convolution and matrix editing (on/off and profile selection only).
 - Any login of its own. v1 assumes a trusted network (see §7).
 
 **Later (v2+)**
 
 - **Filter audition:** step through a list of filters every N seconds during
   playback, and stop on the one you like.
-- Convolution / matrix profile selection, where the instance has them configured.
 - Learned compatibility hints (§4.4) shared across instances.
 - HQPlayer Embedded profile switching via its own web interface (§2.4).
 - **Per-instance load profile (yellow/red hints, never hard limits).** A profiling
@@ -48,27 +54,16 @@ decision still to make.
   - mark combinations yellow or red per instance and rate.
 
   The harness must avoid tipping an instance into the overload described in §2.3.
-- **Library and playback (measured 2026-10-02):**
-  - `LibraryGet` works unauthenticated: albums with nested tracks; 2,526 albums
-    and 39,614 tracks in 0.8 s on the Mac.
-  - `LibraryGetHash` is v6-only ("Unknown command" on 5.32).
-  - `LibraryLoad` is only sent by the SDK with a session key, so we don't use it.
-  - `PlaylistAdd` with a plain file path is **accepted without a session**
-    (Desktop 5.35.10). **`start="1"` makes the playlist the active transport.**
-    Without it, `Play` stays on the previous source (Roon's stream) or fails in
-    its stream reader.
-  - `LibraryPicture` replies are a line plus raw bytes. They returned no art on
-    the Mac, whose library pointed at a folder that no longer exists.
-- **Load profile of the Linux instance (CUDA, 8 CPUs), PCM from a 44.1k source:**
-  every filter at 176.4k and 352.8k ran at real time. The heaviest was FFT, at
-  0.25 cores plus 11% GPU. This morning's overload did not reproduce from the filter
-  alone (see §2.3 for the multicore hypothesis).
-- **Built-in benchmark (operator idea: setups differ, and people are competitive).**
+- **HQPlayer's own library (measured, not used by the app).** `LibraryGet` works
+  without authentication; `LibraryLoad` needs a session key; a plain-path
+  `PlaylistAdd` is accepted, and `start="1"` makes the playlist the active
+  transport. A browse-and-play prototype lives on the `library` branch.
+- **Built-in benchmark (setups differ, and people are competitive).**
   Profile an instance from the app and produce a shareable result: which
   filter × modulator × rate combinations run comfortably, which are marginal, and
-  which fail. Lessons from the first manual runs (2026-10-02):
-  - Measure **playback speed**, not CPU %. The Mac failed at 3.8 of 10 cores
-    (per-thread limit), and later at 9.7 with the control port frozen.
+  which fail. Lessons from manual runs:
+  - Measure **playback speed**, not CPU %. One machine failed well below its core
+    count (a per-thread limit), and another froze its control port.
   - **Stop at the first limit** and confirm recovery on a solid window (≥ 8
     samples ≥ 0.95×); a lenient check let one run push into a second overload.
   - **Order light → heavy using the rules.** Single-stage poly-sinc to a 256×
@@ -79,17 +74,6 @@ decision still to make.
   - **It's audible.** Run when nobody is listening, at low volume, ideally on a
     quiet test signal that HQPlayer plays itself (no Roon needed).
   - CPU time needs fine resolution: `/proc/<pid>/stat` ticks on Linux, not `ps`.
-- **HQPlayer transport (built 2026-10-02).** Previous, play/pause and next.
-  **Measured with Roon as the source** (living-room zone, Home Assistant watching
-  the Roon zone):
-  - a `Pause` sent to HQPlayer **pauses the Roon zone**;
-  - `Play` does **not** reach Roon: HQPlayer played about 28 s from its buffer,
-    then stopped;
-  - `Next` returns `Error`, since HQPlayer has no playlist of its own;
-  - after an HQPlayer-side pause, **only Roon can resume**.
-
-  So the app disables transport when `Status` metadata says `song="Roon"`. Real
-  Roon control would need Roon's own API (see now-playing above).
 - **Longer-term watch after a change.** Overload can build over minutes (§2.3), so
   the app should keep watching quietly after a risky change and offer a one-tap
   revert if the instance starts falling behind.
@@ -97,13 +81,6 @@ decision still to make.
   no longer answers. Embedded can restart through its web UI (port 8088). Desktop has
   no restart command in the control protocol that we know of, so it would need a
   host-side helper.
-- **Now-playing (track, artist, album art).** HQPlayer can't supply it when Roon
-  drives it: Roon sends a raw stream, and `Status` metadata says only `song="Roon"`
-  with sample rate and bit depth (measured on both instances). It would need the
-  Roon extension API, mapping a Roon zone to an HQPlayer instance. That's an
-  optional adapter, kept outside the protocol layer. When HQPlayer plays its own
-  library, its metadata may carry tags (unverified).
-
 ---
 
 ## 2. Fact base
@@ -179,6 +156,16 @@ decision still to make.
 Roon playback had no effect on playback. Every change below was also made while Roon
 was playing; Roon kept the zone throughout.
 
+**HQPlayer-side transport with Roon as the source (measured):**
+- a `Pause` sent to HQPlayer **pauses the Roon zone**;
+- `Play` does **not** reach Roon: HQPlayer played about 28 s from its buffer, then
+  stopped;
+- `Next` returns `Error`, since HQPlayer has no playlist of its own;
+- after an HQPlayer-side pause, **only Roon can resume**.
+
+So without the Roon link the app offers only Stop when `Status` metadata says
+`song="Roon"`; with it, transport goes through Roon's own API.
+
 **Roon's extension API (optional link, measured on a Roon 2.73 core).**
 - Discovery (SOOD, UDP 9003 multicast) found a core on the same segment; its API port
   was 9330. The connection is a WebSocket at `/api` carrying MOO messages.
@@ -198,8 +185,8 @@ was playing; Roon kept the zone throughout.
 
 ### 2.3 Live change behaviour (measured)
 
-Measured on HQPlayer Desktop 5.32.5 on macOS, in SDM mode at DSD1024, with Roon
-playing. Every change was restored afterwards and diffed against a snapshot.
+Measured on HQPlayer Desktop 5.15 (engine 5.32.5) on macOS, in SDM mode at DSD1024,
+with Roon playing. Every change was restored afterwards and diffed against a snapshot.
 
 | Change | Result during playback |
 |---|---|
@@ -217,8 +204,8 @@ playing. Every change was restored afterwards and diffed against a snapshot.
 change needs is **verification and automatic rollback**, because some combinations
 are accepted and then cannot play. Overload, below, is the exception.
 
-**Overload (measured 2026-10-02, the Linux instance: 8 allocated CPUs on a 64-core
-host, CUDA GPU present).** PCM output at 384 kHz with the 1x filter
+**Overload (measured, a Linux container with 8 CPUs on a larger host, CUDA GPU
+present).** PCM output at 384 kHz with the 1x filter
 `poly-sinc-long-lp` and NS4:
 
 - **Onset was gradual.** CPU rose from ~5% to 30% in about 2 minutes, and to 100% of
@@ -232,15 +219,16 @@ host, CUDA GPU present).** PCM output at 384 kHz with the 1x filter
 - **A pause from Roon did not register.** Only an HQPlayer restart recovered it; the
   process exited cleanly on SIGTERM.
 - **The GPU was idle (P8, 0%), with CUDA enabled.** This filter's work ran on the CPU.
-- **Hypothesis, unverified:** with `multicore=auto`, HQPlayer ran 64 runnable threads
-  on 8 CPUs, which matches the host's physical core count rather than the
+- **Hypothesis, unverified:** with `multicore=auto`, HQPlayer ran far more runnable
+  threads than the container's CPUs, matching the host's core count rather than the
   container's allocation.
-**Overload (measured 2026-10-02, the Mac: Desktop 5.32.5, 10-core Apple Silicon).**
+
+**Overload (measured, macOS on Apple Silicon, Desktop 5.15 / engine 5.32.5).**
 SDM, DSD1024, 44.1 kHz source, 1x `poly-sinc-gauss-xla`:
 
 - **AHM7EC8B plays normally:** about 3.1 cores, GPU near 0%, 1.0× real time.
 - **ASDM7EC overloads:** playback ran at **0.53× real time within 10 s**, while the
-  process used only about **3.8 of 10 cores**. That was audible as stuttering. The
+  process used well under half the machine's cores. That was audible as stuttering. The
   limit is per-thread, not total CPU, so CPU percentage is a poor overload signal;
   playback speed (Status position against wall clock) is the reliable one.
 - **Recovery was immediate on reverting the modulator,** twice.
@@ -248,10 +236,10 @@ SDM, DSD1024, 44.1 kHz source, 1x `poly-sinc-gauss-xla`:
   pass through the AHM stall (recovers instantly once valid), never through ASDM7EC
   at DSD1024.
 
-- **Settings after the restart (inferred from one restart):** HQPlayer came back with
-  older settings, including a louder volume (−15 dB versus −19.5 dB). Changes made
-  over the control API may not persist across a restart. Re-read everything after a
-  reconnect, and never assume a volume.
+- **Settings after a restart (measured, three times on two instances):** HQPlayer
+  comes back on its *saved* settings, not the ones set over the control API, and
+  that can mean a louder volume (seen: −3 dB after running at −20 dB). Re-read
+  everything after a reconnect, and never assume a volume.
 
 ### 2.4 Built-in configurations (HQPlayer's own presets)
 
@@ -259,7 +247,7 @@ SDM, DSD1024, 44.1 kHz source, 1x `poly-sinc-gauss-xla`:
 - `ConfigurationLoad` requires a `SessionAuthentication` handshake (ECDH P-256 plus
   ChaCha20-Poly1305). The client key it accepts ships only in Signalyst's closed
   Client.
-- The handshake was refused on Desktop 5.32.5 (measured) and on Embedded 6.0.4
+- The handshake was refused on Desktop 5.15 (measured) and on Embedded 6.0.4
   (reported by HQPTuner).
 - **We do not try to work around this.** Extracting keys from the closed Client would
   breach its EULA and isn't worth it.
@@ -377,7 +365,7 @@ section.
 
 ### 4.3 App-owned presets
 
-*Implemented 2026-10-02: global presets in `config/presets.json`. "Save current"
+*Implemented: global presets in `presets.json` in the config volume. "Save current"
 captures every setting by name, with volume opt-in. Previews classify each preset per
 instance (active / quick / major), list what it can't take, and show rule-predicted
 stops. Applying skips what an instance can't take, rather than offering "all or
@@ -502,8 +490,7 @@ these combinations, not hard-code them.
 ## 9. Open decisions
 
 1. ~~**Stack**~~ — decided: TypeScript end to end (Node 24, `node:http`, Svelte 5 PWA).
-2. **Presets:** keep them per instance, or global and resolved by name per instance
-   (proposed: global, with per-instance resolution warnings).
+2. ~~**Presets**~~ — decided: global, resolved by name per instance, with warnings.
 3. **Embedded profile adapter** (port 8088): v1.x or later.
 4. **Filter audition:** v2, but the change engine should expose
    "apply quick change N times" cleanly so it can be added without rework.

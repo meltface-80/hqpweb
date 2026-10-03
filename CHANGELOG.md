@@ -1,93 +1,49 @@
 # Changelog
 
-Pre-alpha: no version numbers yet, so entries are dated and name the commit.
-**Read the "Upgrade notes" before updating.**
+Versions follow [semantic versioning](https://semver.org). Before 1.0, any release
+may change behaviour; upgrade notes say what you need to do.
 
-## Unreleased
+## 0.1.0-alpha.1 — first public release
 
-### Upgrade notes
+**Install:** see the README. **Update:** `git pull && docker compose up -d --build`.
 
-- **Renamed to hqpweb.** The container is now `hqpweb`, in a compose project of the
-  same name. **Before** pulling this update, stop the old one, or the new container
-  can't take the port:
+### What's in it
 
-  ```sh
-  docker compose down
-  git pull
-  docker compose up -d --build
-  ```
+- **Instances:** discovery on the local network segment (with host networking), or
+  add by address; rename; the name defaults to the one HQPlayer reports.
+- **Now card:** output rate, mode, source format, playback state, track position,
+  and **Processing** (whether HQPlayer keeps up with real time: Real-time ✓,
+  Straining or Falling behind, from a 30 s fit of its position), plus volume.
+- **Quick changes:** 1x and Nx filters, dither or modulator, volume, with hints
+  from HQPlayer's documented rules on combinations that won't play.
+- **Advanced:** mode, output rate, convolution on/off, matrix profile, polarity,
+  20 kHz filter, adaptive volume.
+- **Checked and reversible:** every change is read back; a change that stops
+  playback or leaves HQPlayer unable to keep up is rolled back, remembered, and
+  warned about next time. Undo for the last change. Volume is never raised more than
+  6 dB at once, and undo and rollback never raise it.
+- **Presets:** named sets of settings shared across instances, previewed per
+  instance (active, quick or major change), saved with or without volume.
+- **Transport:** previous, play/pause and next. With Roon as the source and no Roon
+  link, only Stop (play and next sent to HQPlayer don't reach Roon).
+- **Roon (optional, off by default):** now playing with cover art, a seek slider and
+  working transport for the Roon zone that feeds each HQPlayer.
+- **Install:** one Docker container, settings in a Docker volume, no login (see
+  Security in the README).
 
-  The old image can then be removed: `docker image rm web-controller:local`.
-- **Settings now live in a Docker volume, not the `./config` folder.** That
-  removes the `chown` step from installing. If you configured instances in
-  `config/instances.json`, copy them into the volume once after updating:
+### Known limits
 
-  ```sh
-  docker compose cp config/instances.json controller:/config/
-  docker compose restart
-  ```
+- Tested on HQPlayer Desktop 5 (macOS and Linux). Embedded, HQPlayer 6 and Windows
+  are untested.
+- HQPlayer's saved configurations and its output device can't be switched: the
+  control protocol doesn't allow it (README: "Why can't I switch profiles or
+  endpoints?").
+- Discovery doesn't cross VLANs or routed subnets; add instances by address.
 
-  (If you'd rather keep a folder you edit by hand, mount it yourself in a
-  `docker-compose.override.yml`. It must be writable by uid 1000.)
-- **`ALLOWED_HOSTS` is no longer needed for IP addresses,** only for hostnames.
+### For the two pre-release installs
 
-### Added
-
-- **Roon (optional, off by default):** now playing with cover art, a position
-  slider that seeks, and play/pause, previous and next that act on the Roon zone
-  feeding the selected HQPlayer. A small built-in client of Roon's extension API (no
-  new dependencies); approval once in Roon → Settings → Extensions; a zone per
-  HQPlayer chosen in Settings → Roon.
-- **Stop only** when HQPlayer is playing from Roon and the Roon link isn't set up
-  (play and next sent to HQPlayer don't reach Roon).
-- **Settings tabs:** General and Roon.
-- **"Processing"** in the Now card: "Real-time ✓", "Straining" (below 0.97× for
-  15 s) or "Falling behind" (below 0.90×), from a 30 s least-squares fit of
-  HQPlayer's position; the exact figure is in the tooltip. (Measured: a two-point
-  8 s difference swung 0.91–1.07 during normal playback; the fit stayed 0.99–1.00.)
-- **Layout:** wordmark and status dot beside the instance name (tooltip: response
-  time, or since when it's been unreachable); volume on the Now card; then 1x
-  filter, Nx filter, dither/modulator and presets in one card, above the fold on a
-  phone. Presets are one row that opens a sheet (apply, save, edit).
-- **Track position** from HQPlayer itself (read-only), with the length when
-  HQPlayer knows it (files; a Roon stream reports none).
-- **Library (server side only for now):** the API can list HQPlayer's own library
-  and play an album or track (`PlaylistAdd`, then HQPlayer switches to its
-  playlist; verified on Desktop 5.35). The page shows a library button only where
-  a library exists, and browsing is "to come".
-- **Transport:** previous, play/pause and next, disabled while Roon is the source
-  (measured: a pause sent to HQPlayer reaches Roon, but play and next don't).
-
-- **Presets:** saved from an instance's current settings (volume opt-in), shared
-  across instances, previewed per instance, and applied with read-back and
-  rollback. Settings an instance can't take are skipped and listed. "Update" re-saves
-  a preset from the current settings.
-- **Convolution on/off and matrix profile selection** (Advanced). Both are
-  switch-only; they're set up in HQPlayer itself.
-- **Live health:** a warning when playback falls behind real time or HQPlayer
-  answers slowly, and polling backs off when it does.
-
-## 2026-10-02 · 413f79b
-
-### Upgrade notes
-
-- **The default port changed from 8787 to 4380.** Bookmarks and reverse proxies that
-  point at 8787 stop working after the update. Either update them, or keep the old
-  port by adding `PORT=8787` to `.env`.
-
-### Added
-
-- Compatibility hints from HQPlayer's documented rules: filter ratio limits,
-  modulator rate floors and dither guidance. Picker entries that won't play are
-  marked, and rule-explained rollbacks aren't recorded as this machine's failures.
-- `BIND_ADDRESS` in `.env` publishes the port on one interface only.
-
-### Fixed
-
-- `PORT` now works with host networking.
-- `config/instances.example.json` no longer contains a development-only instance.
-
-## 2026-10-02 · e29b27d
-
-First pushed version: live status, quick changes, mode and rate with automatic
-rollback, discovery, instance management, themes, and Docker install.
+If you ran a build from before this release: the container is now `hqpweb` (run
+`docker compose down` before pulling); settings moved from `./config` to a Docker
+volume (`docker compose cp config/instances.json controller:/config/` once, then
+`docker compose restart`); the default port is 4380 (was 8787); and the parked
+library browser now lives on the `library` branch.
