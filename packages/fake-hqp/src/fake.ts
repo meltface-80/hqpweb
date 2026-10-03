@@ -301,7 +301,10 @@ export class FakeHqp {
 
     Status: () => {
       const f = this.lists.filters.find((x) => x.index === this.filterInUse);
-      const pos = this.profile.volumeFormat === "long" ? this.position.toFixed(17) : String(this.position);
+      // Real HQPlayer moves position in ~1 s steps (measured); report it that way
+      // unless time runs faster than real (time-scale tests).
+      const p = this.opts.timeScale >= 1 ? Math.floor(this.position) : this.position;
+      const pos = this.profile.volumeFormat === "long" ? p.toFixed(17) : String(p);
       const playing = this.playback !== 0 || this.stalled;
       // Real replies carry a <metadata> child while playing (measured); its stream URI is omitted here.
       const song = this.feeder === "Roon" ? "Roon" : (this.playlist[this.playlistIndex] ?? "").split("/").pop() ?? "";

@@ -18,6 +18,12 @@ export const MAX_REPLY = 4 * 1024 * 1024;
 /** Commands that change something relative to the current state: never resent. */
 const NOT_IDEMPOTENT = new Set(["Next", "Previous", "Forward", "Backward", "VolumeUp", "VolumeDown", "VolumeMute", "PlaylistAdd", "PlaylistRemove", "PlaylistMoveUp", "PlaylistMoveDown"]);
 
+/** Anything that went wrong talking to HQPlayer: network, timeout, or a reply we couldn't read. */
+export class PeerError extends Error {
+  override name = "PeerError";
+}
+const asPeerError = (e: unknown) => (e instanceof PeerError ? e : new PeerError((e as Error).message, { cause: e }));
+
 export interface ClientOptions {
   port?: number;
   /** The first SetFilter blocked ~5 s while the filter was prepared (measured). */
@@ -78,7 +84,19 @@ export class HqpClient {
   request(body: string): Promise<Element> {
     const run = this.queue.then(() => this.exchange(body));
     this.queue = run.catch(() => undefined);
-    return run.then(parseDocument);
+    return run.then(parseDocument).catch((e) => {
+      throw asPeerError(e);
+    });
+  }
+
+  /** Request and parse; a reply that doesn't parse is HQPlayer's problem, not ours. */
+  private async ask<T>(body: string, parse: (el: Element) => T): Promise<T> {
+    const el = await this.request(body);
+    try {
+      return parse(el);
+    } catch (e) {
+      throw asPeerError(e);
+    }
   }
 
   private async exchange(body: string): Promise<string> {
@@ -180,19 +198,19 @@ export class HqpClient {
   }
 
   /** Send a command and report its outcome. An OK is NOT proof of effect: read State back. */
-  async send(body: string): Promise<p.Outcome> {
-    return p.outcome(await this.request(body));
+  send(body: string): Promise<p.Outcome> {
+    return this.ask(body, p.outcome);
   }
 
-  info = async () => p.parseInfo(await this.request(cmd.getInfo()));
-  state = async () => p.parseState(await this.request(cmd.state()));
-  status = async () => p.parseStatus(await this.request(cmd.status()));
-  modes = async () => p.parseModes(await this.request(cmd.getModes()));
-  filters = async () => p.parseFilters(await this.request(cmd.getFilters()));
-  shapers = async () => p.parseShapers(await this.request(cmd.getShapers()));
-  rates = async () => p.parseRates(await this.request(cmd.getRates()));
-  volumeRange = async () => p.parseVolumeRange(await this.request(cmd.volumeRange()));
-  configurations = async () => p.parseConfigurationList(await this.request(cmd.configurationList()));
-  matrixProfiles = async () => p.parseMatrixProfiles(await this.request(cmd.matrixListProfiles()));
-  library = async () => parseLibrary(await this.request(libraryCmd.get()));
+  info = () => this.ask(cmd.getInfo(), p.parseInfo);
+  state = () => this.ask(cmd.state(), p.parseState);
+  status = () => this.ask(cmd.status(), p.parseStatus);
+  modes = () => this.ask(cmd.getModes(), p.parseModes);
+  filters = () => this.ask(cmd.getFilters(), p.parseFilters);
+  shapers = () => this.ask(cmd.getShapers(), p.parseShapers);
+  rates = () => this.ask(cmd.getRates(), p.parseRates);
+  volumeRange = () => this.ask(cmd.volumeRange(), p.parseVolumeRange);
+  configurations = () => this.ask(cmd.configurationList(), p.parseConfigurationList);
+  matrixProfiles = () => this.ask(cmd.matrixListProfiles(), p.parseMatrixProfiles);
+  library = () => this.ask(libraryCmd.get(), parseLibrary);
 }

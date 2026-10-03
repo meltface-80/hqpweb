@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { judge, type Sample, type WatchTiming } from "../src/watch.ts";
+import { DEFAULT_TIMING, judge, type Sample, type WatchTiming } from "../src/watch.ts";
 
 const T: WatchTiming = { graceMs: 1000, healthyMs: 1000, maxMs: 4000, sampleMs: 250, minSpeed: 0.85 };
 
@@ -52,5 +52,31 @@ describe("judge", () => {
 
   it("is inconclusive if someone pauses", () => {
     expect(judge(run(2000, (t) => (t > 1200 ? 1 : 2), (t) => t / 1000), T, false).kind).toBe("inconclusive");
+  });
+});
+
+describe("judge with HQPlayer's ~1 s position steps", () => {
+  // Position as HQPlayer reports it: whole seconds, at any phase.
+  const stepped = (speed: number, phase: number, ms = DEFAULT_TIMING.maxMs) => {
+    const out: Sample[] = [];
+    for (let t = 0; t <= ms; t += DEFAULT_TIMING.sampleMs) out.push({ t, state: 2, position: Math.floor((t / 1000) * speed + phase) });
+    return out;
+  };
+  const phases = Array.from({ length: 20 }, (_, i) => i / 20);
+
+  it("never calls healthy playback struggling, whatever the phase", () => {
+    for (const ph of phases) {
+      // Every prefix, as the live watch would see it, then the final verdict.
+      const all = stepped(1, ph);
+      for (let n = 2; n <= all.length; n++) {
+        const v = judge(all.slice(0, n), DEFAULT_TIMING, n === all.length);
+        expect(["playing", "pending"]).toContain(v.kind);
+      }
+    }
+  });
+
+  it("still catches a real overload (0.6× and 0.75×)", () => {
+    for (const speed of [0.6, 0.75])
+      for (const ph of phases) expect(judge(stepped(speed, ph), DEFAULT_TIMING, true).kind).toBe("struggling");
   });
 });

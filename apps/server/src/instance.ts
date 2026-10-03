@@ -355,11 +355,22 @@ export class Instance {
           console.error(`could not record failed combination: ${e.message}`),
         );
       // Roll back. Volume follows the undo rule: restored only if nobody moved it.
+      // Lenient: restore what can be restored even if a name has vanished (e.g.
+      // HQPlayer restarted on its saved settings). Undo is cleared whatever
+      // happens, so it can never point at the wrong change.
       this.lastSetVolume = applied.volumeSet;
-      const back = await this.applyFields(applied.prev, true);
-      const recovered = await this.watch(this.timing.major);
       this.undoChange = null;
-      this.lastSetVolume = null;
+      let back: { results: FieldResult[]; state: State };
+      let recovered: PlaybackCheck;
+      try {
+        back = await this.applyFields(applied.prev, true, true);
+        recovered = await this.watch(this.timing.major);
+      } catch (e) {
+        back = { results: [], state: await this.client.state() };
+        recovered = { kind: "inconclusive", detail: `couldn't roll back: ${(e as Error).message}` };
+      } finally {
+        this.lastSetVolume = null;
+      }
       return {
         class: applied.major ? "major" : "quick",
         results: applied.results,
@@ -698,7 +709,14 @@ export class Instance {
           next = Math.min(10_000, intervalMs * 4);
         }
         if (gen !== this.pollGen) return; // stopped (or restarted) while this tick was in flight
-        for (const l of this.listeners) l(event);
+        // One broken listener (e.g. a closed response) mustn't stop polling for everyone.
+        for (const l of this.listeners) {
+          try {
+            l(event);
+          } catch (e) {
+            console.error(`status listener failed: ${(e as Error).message}`);
+          }
+        }
         if (this.listeners.size) this.timer = setTimeout(tick, next);
       };
       this.timer = setTimeout(tick, 0);

@@ -66,12 +66,31 @@ export function judge(samples: Sample[], timing: WatchTiming, final: boolean): V
   return judgeSpeed(run, timing, final);
 }
 
+/**
+ * Speed as the least-squares slope of position over time. HQPlayer reports
+ * position in ~1 s steps (measured), so two samples 3 s apart can read 2 s of
+ * progress while playback is fine (0.67×); a fit over every sample doesn't
+ * swing like that.
+ */
+export function fittedSpeed(run: Sample[]): number | null {
+  if (run.length < 2) return null;
+  const n = run.length;
+  const mt = run.reduce((acc, s) => acc + s.t / 1000, 0) / n;
+  const mp = run.reduce((acc, s) => acc + s.position, 0) / n;
+  let num = 0;
+  let den = 0;
+  for (const s of run) {
+    num += (s.t / 1000 - mt) * (s.position - mp);
+    den += (s.t / 1000 - mt) ** 2;
+  }
+  return den > 0 ? num / den : null;
+}
+
 function judgeSpeed(run: Sample[], timing: WatchTiming, final: boolean): Verdict {
   const a = run[0]!;
   const b = run[run.length - 1]!;
-  const wall = (b.t - a.t) / 1000;
-  if (wall <= 0) return final ? { kind: "inconclusive", detail: "too few samples" } : { kind: "pending" };
-  const speed = (b.position - a.position) / wall;
+  const speed = fittedSpeed(run);
+  if (speed === null || b.t <= a.t) return final ? { kind: "inconclusive", detail: "too few samples" } : { kind: "pending" };
   if (speed >= timing.minSpeed) return { kind: "playing" };
   // Consistently slow for twice the healthy window: don't wait for the deadline.
   if (!final && b.t - a.t < 2 * timing.healthyMs) return { kind: "pending" };

@@ -8,7 +8,7 @@ import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
 import { Registry } from "./registry.ts";
 import { PresetStore } from "./presets.ts";
-import type { DiscoverOptions, LibraryAlbum } from "@app/protocol";
+import { PeerError, type DiscoverOptions, type LibraryAlbum } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
 import { ROON_ACTIONS, RoonLink, type RoonAction } from "./roon/roon.ts";
 import { discoverCores } from "./roon/sood.ts";
@@ -212,15 +212,14 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       const status = roon.currentStatus;
       const zone = roon.zoneFor(inst.cfg.id);
       const seek = zone?.nowPlaying?.seek;
-      if (zone?.nowPlaying) delete zone.nowPlaying.seek;
-      const key = JSON.stringify({ status, zone });
+      const { seek: _s, ...rest } = zone?.nowPlaying ?? {};
+      const key = JSON.stringify({ status, zone: zone && { ...zone, nowPlaying: zone.nowPlaying && rest } });
       const playing = zone?.state === "playing";
       const expected = sent ? sent.seek + (sent.playing ? (Date.now() - sent.at) / 1000 : 0) : null;
       const jumped = seek != null && (expected == null || Math.abs(seek - expected) > 2);
       if (key === lastRoon && !jumped) return;
       lastRoon = key;
       sent = seek != null ? { seek, at: Date.now(), playing } : null;
-      if (zone?.nowPlaying && seek != null) zone.nowPlaying.seek = seek;
       res.write(`event: roon\ndata: ${JSON.stringify({ status, zone })}\n\n`);
     };
     sendRoon();
@@ -437,8 +436,14 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     handle(req, res).catch((err: Error) => {
       if (res.headersSent) return res.destroy();
       if (err instanceof HttpError) send(res, err.status, { error: err.message });
-      // Anything else is a failure talking to the instance.
-      else send(res, 502, { error: `instance error: ${err.message}` });
+      else if (err instanceof URIError) send(res, 400, { error: "malformed URL" });
+      // Failures talking to HQPlayer (network, timeouts, odd replies) are 502;
+      // anything else is our bug, so say so and log it.
+      else if (err instanceof PeerError) send(res, 502, { error: `instance error: ${err.message}` });
+      else {
+        console.error(err);
+        send(res, 500, { error: "internal error" });
+      }
     });
   });
 
