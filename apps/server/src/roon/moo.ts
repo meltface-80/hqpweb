@@ -42,7 +42,10 @@ export function encode(verb: Verb, name: string, requestId: number | string, bod
 
 /** Parses one message; throws on anything malformed (the caller drops the connection). */
 export function decode(input: ArrayBuffer | Uint8Array | string): MooMessage {
-  const buf = typeof input === "string" ? Buffer.from(input, "utf8") : Buffer.from(input instanceof ArrayBuffer ? new Uint8Array(input) : input);
+  const buf =
+    typeof input === "string"
+      ? Buffer.from(input, "utf8")
+      : Buffer.from(input instanceof ArrayBuffer ? new Uint8Array(input) : input);
   const end = buf.indexOf("\n\n");
   if (end < 0) throw new Error("MOO: no end of headers");
   const lines = buf.toString("utf8", 0, end).split("\n");
@@ -67,7 +70,8 @@ export function decode(input: ArrayBuffer | Uint8Array | string): MooMessage {
   if (requestId === undefined) throw new Error("MOO: missing Request-Id");
   const contentType = headers["Content-Type"];
   const lengthHeader = headers["Content-Length"];
-  if ((contentType === undefined) !== (lengthHeader === undefined)) throw new Error("MOO: Content-Type and Content-Length go together");
+  if ((contentType === undefined) !== (lengthHeader === undefined))
+    throw new Error("MOO: Content-Type and Content-Length go together");
   const msg: MooMessage = { verb, name, requestId, headers, ...(service ? { service } : {}) };
   if (lengthHeader !== undefined && contentType !== undefined) {
     const length = Number(lengthHeader);

@@ -12,46 +12,114 @@ const run = (until: number, state: (t: number) => number, pos: (t: number) => nu
 
 describe("judge", () => {
   it("passes steady playback after the grace period", () => {
-    expect(judge(run(2000, () => 2, (t) => 100 + t / 1000), T, false)).toEqual({ kind: "playing" });
+    expect(
+      judge(
+        run(
+          2000,
+          () => 2,
+          (t) => 100 + t / 1000,
+        ),
+        T,
+        false,
+      ),
+    ).toEqual({ kind: "playing" });
   });
 
   it("ignores a brief pause inside the grace period", () => {
     const pos = (t: number) => (t < 800 ? 100 : 100 + (t - 800) / 1000);
-    expect(judge(run(2250, () => 2, pos), T, false)).toEqual({ kind: "playing" });
+    expect(
+      judge(
+        run(2250, () => 2, pos),
+        T,
+        false,
+      ),
+    ).toEqual({ kind: "playing" });
   });
 
   it("waits for more evidence before the healthy window is complete", () => {
-    expect(judge(run(1250, () => 2, (t) => t / 1000), T, false)).toEqual({ kind: "pending" });
+    expect(
+      judge(
+        run(
+          1250,
+          () => 2,
+          (t) => t / 1000,
+        ),
+        T,
+        false,
+      ),
+    ).toEqual({ kind: "pending" });
   });
 
   it("fails fast on the measured stall: state 3 then 0", () => {
-    const v = judge(run(2250, (t) => (t < 500 ? 2 : t < 1000 ? 3 : 0), () => 50), T, false);
+    const v = judge(
+      run(
+        2250,
+        (t) => (t < 500 ? 2 : t < 1000 ? 3 : 0),
+        () => 50,
+      ),
+      T,
+      false,
+    );
     expect(v.kind).toBe("stopped");
   });
 
   it("calls slow progress struggling, at the end of the window", () => {
-    const samples = run(4000, () => 2, (t) => 100 + (t / 1000) * 0.5);
+    const samples = run(
+      4000,
+      () => 2,
+      (t) => 100 + (t / 1000) * 0.5,
+    );
     expect(judge(samples.slice(0, 9), T, false)).toEqual({ kind: "pending" });
     expect(judge(samples, T, true)).toMatchObject({ kind: "struggling", detail: "playing at 50% of real time" });
   });
 
   it("calls it early once slow progress lasts twice the healthy window", () => {
     // grace 1000 + 2 × 1000 → judged at 3000 ms, before maxMs (4000)
-    const samples = run(3000, () => 2, (t) => 100 + (t / 1000) * 0.5);
+    const samples = run(
+      3000,
+      () => 2,
+      (t) => 100 + (t / 1000) * 0.5,
+    );
     expect(judge(samples, T, false).kind).toBe("struggling");
   });
 
   it("treats a frozen position with state 2 as stopped", () => {
-    expect(judge(run(4000, () => 2, () => 42), T, true).kind).toBe("stopped");
+    expect(
+      judge(
+        run(
+          4000,
+          () => 2,
+          () => 42,
+        ),
+        T,
+        true,
+      ).kind,
+    ).toBe("stopped");
   });
 
   it("survives a track change (position jumps back)", () => {
     const pos = (t: number) => (t < 1500 ? 200 + t / 1000 : (t - 1500) / 1000);
-    expect(judge(run(3000, () => 2, pos), T, false)).toEqual({ kind: "playing" });
+    expect(
+      judge(
+        run(3000, () => 2, pos),
+        T,
+        false,
+      ),
+    ).toEqual({ kind: "playing" });
   });
 
   it("is inconclusive if someone pauses", () => {
-    expect(judge(run(2000, (t) => (t > 1200 ? 1 : 2), (t) => t / 1000), T, false).kind).toBe("inconclusive");
+    expect(
+      judge(
+        run(
+          2000,
+          (t) => (t > 1200 ? 1 : 2),
+          (t) => t / 1000,
+        ),
+        T,
+        false,
+      ).kind,
+    ).toBe("inconclusive");
   });
 });
 
@@ -59,7 +127,8 @@ describe("judge with HQPlayer's ~1 s position steps", () => {
   // Position as HQPlayer reports it: whole seconds, at any phase.
   const stepped = (speed: number, phase: number, ms = DEFAULT_TIMING.maxMs) => {
     const out: Sample[] = [];
-    for (let t = 0; t <= ms; t += DEFAULT_TIMING.sampleMs) out.push({ t, state: 2, position: Math.floor((t / 1000) * speed + phase) });
+    for (let t = 0; t <= ms; t += DEFAULT_TIMING.sampleMs)
+      out.push({ t, state: 2, position: Math.floor((t / 1000) * speed + phase) });
     return out;
   };
   const phases = Array.from({ length: 20 }, (_, i) => i / 20);

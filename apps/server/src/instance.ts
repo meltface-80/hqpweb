@@ -420,7 +420,8 @@ export class Instance {
         if (!lenient) throw new HttpError(422, `mode "${change.mode}" is not available on this instance`);
         problems.push({ field: "mode", reason: `mode "${change.mode}" is not available on this instance` });
         // Rate, filters and modulator/dither were chosen for that mode: don't apply them to this one.
-        for (const f of MODE_BOUND) if (change[f] !== undefined) problems.push({ field: f, reason: `belongs to mode "${change.mode}"` });
+        for (const f of MODE_BOUND)
+          if (change[f] !== undefined) problems.push({ field: f, reason: `belongs to mode "${change.mode}"` });
       } else {
         replies.set("mode", await this.client.send(cmd.setMode(m.index)));
         caps = await this.capabilities(true);
@@ -480,9 +481,11 @@ export class Instance {
           const untouched = this.lastSetVolume !== null && Math.abs(before.volume - this.lastSetVolume) <= VOLUME_EPS;
           if (!isUndo) {
             volume = undefined;
-            problems.push({ field: "volume", reason: `refusing to raise volume by ${raise.toFixed(1)} dB in one step (max ${MAX_RAISE_DB} dB)` });
-          }
-          else if (!untouched) {
+            problems.push({
+              field: "volume",
+              reason: `refusing to raise volume by ${raise.toFixed(1)} dB in one step (max ${MAX_RAISE_DB} dB)`,
+            });
+          } else if (!untouched) {
             volume = undefined;
             volumeNote = `not restored: volume was changed elsewhere, and restoring would raise it by ${raise.toFixed(1)} dB`;
           }
@@ -615,7 +618,13 @@ export class Instance {
   private async recordFailure(reason: string) {
     const [caps, state, status] = await Promise.all([this.capabilities(true), this.client.state(), this.client.status()]);
     const s = settingsOf(caps, state);
-    const combo: Combo = { mode: s.mode, rateHz: status.activeRate, filterNx: s.filterNx, filter1x: s.filter1x, shaper: s.shaper };
+    const combo: Combo = {
+      mode: s.mode,
+      rateHz: status.activeRate,
+      filterNx: s.filterNx,
+      filter1x: s.filter1x,
+      shaper: s.shaper,
+    };
     this.learned.record({ ...combo, instance: this.cfg.id, engine: caps.engine, reason, at: new Date().toISOString() });
   }
 

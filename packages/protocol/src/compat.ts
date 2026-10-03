@@ -96,7 +96,10 @@ export function ratioHint(filter: string, sourceRate: number, outputRate: number
   if (!cls || !sourceRate || !outputRate) return undefined;
   const r = outputRate / sourceRate;
   const ratio = Number.isInteger(r) ? `${r}×` : `${r.toFixed(2)}×`;
-  const why = (need: string) => ({ level: "hard" as const, text: `${filter} needs ${need}; ${khz(sourceRate)} → ${khz(outputRate)} is ${ratio}` });
+  const why = (need: string) => ({
+    level: "hard" as const,
+    text: `${filter} needs ${need}; ${khz(sourceRate)} → ${khz(outputRate)} is ${ratio}`,
+  });
   switch (cls) {
     case "any":
       return undefined;
@@ -159,7 +162,13 @@ export function ditherHint(dither: string, outputRate: number): Hint | undefined
 export const RECOMMENDED_MAX_VOLUME_DB = -3;
 
 /** Would this combination be expected to stop? Used to avoid "learning" rule-explained failures. */
-export function predictedStop(c: { mode: string; filter: string; shaper: string; sourceRate: number; outputRate: number }): Hint | undefined {
+export function predictedStop(c: {
+  mode: string;
+  filter: string;
+  shaper: string;
+  sourceRate: number;
+  outputRate: number;
+}): Hint | undefined {
   const sdm = c.mode.startsWith("SDM");
   const r = ratioHint(c.filter, c.sourceRate, c.outputRate, sdm);
   if (r?.level === "hard") return r;

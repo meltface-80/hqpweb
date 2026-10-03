@@ -93,7 +93,10 @@ describe("registry", () => {
 
     // Rename keeps the id; a blank name is refused.
     expect((await req("PATCH", "/api/instances/office-hqp", { body: { name: "  " } })).status).toBe(400);
-    expect((await req("PATCH", "/api/instances/office-hqp", { body: { name: "Den" } })).json()).toMatchObject({ id: "office-hqp", name: "Den" });
+    expect((await req("PATCH", "/api/instances/office-hqp", { body: { name: "Den" } })).json()).toMatchObject({
+      id: "office-hqp",
+      name: "Den",
+    });
     expect(JSON.parse(readFileSync(join(dir, "instances.json"), "utf8")).instances[0].name).toBe("Den");
     expect((await req("PATCH", "/api/instances/nope", { body: { name: "X" } })).status).toBe(404);
 
@@ -101,15 +104,19 @@ describe("registry", () => {
     expect(JSON.parse(readFileSync(join(dir, "instances.json"), "utf8")).instances).toHaveLength(0);
 
     // A blank name becomes HQPlayer's own name, or the host when it doesn't answer.
-    const hqpName = (await (async () => {
+    const hqpName = await (async () => {
       await req("POST", "/api/instances", { body: { name: "Tmp", host: "127.0.0.1", port: f.port } });
       const n = (await req("GET", "/api/instances/tmp/now")).json().info.name as string;
       await req("DELETE", "/api/instances/tmp");
       return n;
-    })());
+    })();
     expect(hqpName).toBeTruthy();
-    expect((await req("POST", "/api/instances", { body: { name: "", host: "127.0.0.1", port: f.port } })).json().name).toBe(hqpName);
-    expect((await req("POST", "/api/instances", { body: { name: "", host: "127.0.0.1", port: 1 } })).json().name).toBe("127.0.0.1");
+    expect((await req("POST", "/api/instances", { body: { name: "", host: "127.0.0.1", port: f.port } })).json().name).toBe(
+      hqpName,
+    );
+    expect((await req("POST", "/api/instances", { body: { name: "", host: "127.0.0.1", port: 1 } })).json().name).toBe(
+      "127.0.0.1",
+    );
     expect((await req("DELETE", "/api/instances/office-hqp")).status).toBe(404);
   });
 

@@ -112,7 +112,7 @@ describe("previews", () => {
     const [lr, mod] = await previews("linux"); // PCM-only box
     expect(lr.preview.missing.map((m: { field: string }) => m.field)).toEqual(["mode", "rate", "filterNx", "filter1x", "shaper"]);
     expect(lr.preview.missing[0]).toEqual({ field: "mode", reason: 'mode "SDM (DSD)" is not available here' });
-    expect(mod.preview.missing).toEqual([{ field: "shaper", reason: "\"AHM7EC8B\" isn't available here" }]);
+    expect(mod.preview.missing).toEqual([{ field: "shaper", reason: '"AHM7EC8B" isn\'t available here' }]);
   });
 
   it("predicts a rule-explained stop before applying", async () => {
@@ -136,7 +136,9 @@ describe("applying", () => {
 
   it("applies what it can on another instance and reports the rest", async () => {
     await setup();
-    const p = (await save({ name: "Mixed", settings: { filter1x: "poly-sinc-gauss-long", shaper: "AHM7EC8B", invert: true } })).json();
+    const p = (
+      await save({ name: "Mixed", settings: { filter1x: "poly-sinc-gauss-long", shaper: "AHM7EC8B", invert: true } })
+    ).json();
     const r = (await apply("linux", p.id)).json();
     expect(r.results.map((x: { field: string }) => x.field)).toEqual(["filter1x", "invert"]);
     expect(r.skipped).toEqual([{ field: "shaper", reason: expect.stringMatching(/AHM7EC8B.*not available in PCM/) }]);
@@ -144,7 +146,9 @@ describe("applying", () => {
 
   it("switches mode first and resolves names against the new mode", async () => {
     await setup();
-    const p = (await save({ name: "PCM 384", settings: { mode: "PCM", rate: 384000, shaper: "NS5", filter1x: "poly-sinc-gauss-long" } })).json();
+    const p = (
+      await save({ name: "PCM 384", settings: { mode: "PCM", rate: 384000, shaper: "NS5", filter1x: "poly-sinc-gauss-long" } })
+    ).json();
     const r = (await apply("mac", p.id)).json();
     expect(r.class).toBe("major");
     expect(r.results.every((x: { applied: boolean }) => x.applied)).toBe(true);
@@ -194,7 +198,12 @@ describe("store robustness", () => {
     const dir = mkdtempSync(join(tmpdir(), "presets-"));
     writeFileSync(
       join(dir, "presets.json"),
-      JSON.stringify({ presets: [{ id: "a", name: "Good", settings: { invert: true } }, { id: "b", name: "Bad", settings: { volume: "loud" } }] }),
+      JSON.stringify({
+        presets: [
+          { id: "a", name: "Good", settings: { invert: true } },
+          { id: "b", name: "Bad", settings: { volume: "loud" } },
+        ],
+      }),
     );
     expect(new PresetStore(join(dir, "presets.json"), parseChange).list().map((p) => p.name)).toEqual(["Good"]);
   });
@@ -203,7 +212,12 @@ describe("store robustness", () => {
 describe("mode-bound settings", () => {
   it("skips a missing mode's rate/filters/modulator, and the preview says so", async () => {
     await setup();
-    const p = (await save({ name: "LR", settings: { mode: "SDM (DSD)", rate: 22579200, filter1x: "poly-sinc-gauss-xla", shaper: "ASDM7EC", invert: true } })).json();
+    const p = (
+      await save({
+        name: "LR",
+        settings: { mode: "SDM (DSD)", rate: 22579200, filter1x: "poly-sinc-gauss-xla", shaper: "ASDM7EC", invert: true },
+      })
+    ).json();
     const [pv] = await previews("linux");
     expect(pv.preview.missing.map((m: { field: string }) => m.field)).toEqual(["mode", "rate", "filter1x", "shaper"]);
     const r = (await apply("linux", p.id)).json();

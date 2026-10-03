@@ -36,7 +36,10 @@ const DEFAULT_ZONES: FakeZone[] = [
 ];
 
 // A 1×1 PNG.
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==", "base64");
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 interface Conn {
   socket: Socket;
@@ -49,7 +52,19 @@ interface Conn {
 
 function frame(payload: Buffer, opcode = 2): Buffer {
   const len = payload.length;
-  const head = len < 126 ? Buffer.from([0x80 | opcode, len]) : len < 65536 ? Buffer.from([0x80 | opcode, 126, len >> 8, len & 0xff]) : Buffer.concat([Buffer.from([0x80 | opcode, 127]), (() => { const b = Buffer.alloc(8); b.writeBigUInt64BE(BigInt(len)); return b; })()]);
+  const head =
+    len < 126
+      ? Buffer.from([0x80 | opcode, len])
+      : len < 65536
+        ? Buffer.from([0x80 | opcode, 126, len >> 8, len & 0xff])
+        : Buffer.concat([
+            Buffer.from([0x80 | opcode, 127]),
+            (() => {
+              const b = Buffer.alloc(8);
+              b.writeBigUInt64BE(BigInt(len));
+              return b;
+            })(),
+          ]);
   return Buffer.concat([head, payload]);
 }
 
@@ -92,8 +107,12 @@ export class FakeRoon {
     });
     this.server.on("upgrade", (req, socket: Socket) => {
       if (req.url !== "/api") return socket.destroy();
-      const accept = createHash("sha1").update(`${req.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
-      socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+      const accept = createHash("sha1")
+        .update(`${req.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
+        .digest("base64");
+      socket.write(
+        `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+      );
       const conn: Conn = { socket, zoneSubs: [], nextId: 1000, pingReplies: 0 };
       this.conns.add(conn);
       let buf = Buffer.alloc(0);
@@ -104,8 +123,8 @@ export class FakeRoon {
           const opcode = buf[0]! & 0x0f;
           let len = buf[1]! & 0x7f;
           let off = 2;
-          if (len === 126) (len = buf.readUInt16BE(2)), (off = 4);
-          else if (len === 127) (len = Number(buf.readBigUInt64BE(2))), (off = 10);
+          if (len === 126) ((len = buf.readUInt16BE(2)), (off = 4));
+          else if (len === 127) ((len = Number(buf.readBigUInt64BE(2))), (off = 10));
           const masked = (buf[1]! & 0x80) !== 0;
           const need = off + (masked ? 4 : 0) + len;
           if (buf.length < need) return;
@@ -175,7 +194,14 @@ export class FakeRoon {
       is_seek_allowed: !!z.track,
       outputs: [{ output_id: `${z.zone_id}-out`, source_controls: z.hqplayer ? [{ display_name: "HQPlayer" }] : [] }],
       ...(t
-        ? { now_playing: { seek_position: t.seek, length: t.length, image_key: t.image_key, three_line: { line1: t.line1, line2: t.line2, line3: t.line3 } } }
+        ? {
+            now_playing: {
+              seek_position: t.seek,
+              length: t.length,
+              image_key: t.image_key,
+              three_line: { line1: t.line1, line2: t.line2, line3: t.line3 },
+            },
+          }
         : {}),
     };
   }
@@ -187,7 +213,11 @@ export class FakeRoon {
   private registered(c: Conn, id: string) {
     const token = this.tokens.get(c.extensionId!) ?? randomUUID();
     this.tokens.set(c.extensionId!, token);
-    c.socket.write(frame(moo("COMPLETE", "Registered", id, { core_id: this.coreId, display_name: "Fake Core", display_version: "0.0", token })));
+    c.socket.write(
+      frame(
+        moo("COMPLETE", "Registered", id, { core_id: this.coreId, display_name: "Fake Core", display_version: "0.0", token }),
+      ),
+    );
   }
 
   private onMessage(c: Conn, data: Buffer) {

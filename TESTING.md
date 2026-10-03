@@ -10,7 +10,7 @@ Thanks for trying hqpweb. It's an alpha: it works on the setups in the README's
 - **Heavy filter and modulator choices can overload a machine.** The app warns, and
   rolls back when playback falls behind, but an overloaded HQPlayer can stop
   answering and need a restart. That's HQPlayer's limit, not a fault in your setup.
-- **Restarting HQPlayer** brings back its *saved* settings, which may be louder than
+- **Restarting HQPlayer** brings back its _saved_ settings, which may be louder than
   what you set from the app. Check the volume after any restart.
 - **With Roon as the source**, HQPlayer can't control Roon (only Stop is offered),
   unless you connect Roon in Settings → Roon.

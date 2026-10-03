@@ -68,11 +68,19 @@ export function parseChange(body: unknown): Change {
     const kind = FIELDS[k as keyof Change];
     if (!kind) throw new HttpError(400, `unknown field "${k}"`);
     const ok =
-      kind === "name" ? typeof v === "string" && v.length > 0
-      : kind === "number" ? typeof v === "number" && Number.isFinite(v)
-      : kind === "rate" ? Number.isInteger(v) && (v as number) >= 0
-      : typeof v === "boolean";
-    const want = { name: "a non-empty string", number: "a number", rate: "a whole number of Hz (0 = auto)", boolean: "a boolean" }[kind];
+      kind === "name"
+        ? typeof v === "string" && v.length > 0
+        : kind === "number"
+          ? typeof v === "number" && Number.isFinite(v)
+          : kind === "rate"
+            ? Number.isInteger(v) && (v as number) >= 0
+            : typeof v === "boolean";
+    const want = {
+      name: "a non-empty string",
+      number: "a number",
+      rate: "a whole number of Hz (0 = auto)",
+      boolean: "a boolean",
+    }[kind];
     if (!ok) throw new HttpError(400, `"${k}" must be ${want}`);
   }
   return body as Change;
@@ -117,8 +125,10 @@ function parsePresetBody(
   if (Object.keys(rest).length) throw new HttpError(400, `unknown field "${Object.keys(rest)[0]}"`);
   if (name !== undefined && typeof name !== "string") throw new HttpError(400, "name must be a string");
   if (!patch && name === undefined) throw new HttpError(400, "name is required");
-  if (fromInstance !== undefined && typeof fromInstance !== "string") throw new HttpError(400, "fromInstance must be an instance id");
-  if (includeVolume !== undefined && typeof includeVolume !== "boolean") throw new HttpError(400, "includeVolume must be a boolean");
+  if (fromInstance !== undefined && typeof fromInstance !== "string")
+    throw new HttpError(400, "fromInstance must be an instance id");
+  if (includeVolume !== undefined && typeof includeVolume !== "boolean")
+    throw new HttpError(400, "includeVolume must be a boolean");
   return {
     ...(name !== undefined ? { name: name as string } : {}),
     ...(settings !== undefined ? { settings: parseChange(settings) } : {}),
@@ -229,13 +239,23 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     "GET events": events,
     "PUT roonzone": async (q, _r, i) => {
       const body = (await readJson(q)) as { zone?: unknown };
-      if (typeof body !== "object" || body === null || !(body.zone === null || (typeof body.zone === "string" && body.zone.length > 0)))
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !(body.zone === null || (typeof body.zone === "string" && body.zone.length > 0))
+      )
         throw new HttpError(400, "zone must be a Roon zone id or null");
       return roon.setZone(i.cfg.id, body.zone as string | null);
     },
     "POST roonseek": async (q, _r, i) => {
       const body = (await readJson(q)) as { seconds?: unknown };
-      if (typeof body !== "object" || body === null || typeof body.seconds !== "number" || !Number.isFinite(body.seconds) || body.seconds < 0)
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        typeof body.seconds !== "number" ||
+        !Number.isFinite(body.seconds) ||
+        body.seconds < 0
+      )
         throw new HttpError(400, "seconds must be a number ≥ 0");
       return roon.seek(i.cfg.id, body.seconds);
     },
@@ -260,8 +280,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const host = hostnameOf(req.headers.host ?? "");
-    if (!allowed.has(host) && !isIpLiteral(host))
-      throw new HttpError(403, `host "${host}" not allowed; add it to ALLOWED_HOSTS`);
+    if (!allowed.has(host) && !isIpLiteral(host)) throw new HttpError(403, `host "${host}" not allowed; add it to ALLOWED_HOSTS`);
     // Writes must come from our own pages: the Origin must be the very host and
     // port the request was sent to, or a listed name on its default port (a
     // reverse proxy). Anything else, including another app on a different port
@@ -303,7 +322,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         "cache-control": "max-age=86400",
         "x-content-type-options": "nosniff",
         "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
-          "x-frame-options": "DENY",
+        "x-frame-options": "DENY",
       });
       return res.end(img.data);
     }
@@ -333,7 +352,11 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
           // "Update from current": replace the settings with the instance's current ones.
           settings = await captureFrom(body.fromInstance, body.includeVolume ?? presets.get(id).settings.volume !== undefined);
         }
-        return send(res, 200, presets.update(id, { ...(body.name !== undefined ? { name: body.name } : {}), ...(settings ? { settings } : {}) }));
+        return send(
+          res,
+          200,
+          presets.update(id, { ...(body.name !== undefined ? { name: body.name } : {}), ...(settings ? { settings } : {}) }),
+        );
       }
     }
     const ipm = /^\/api\/instances\/([^/]+)\/presets(?:\/([^/]+)\/apply)?$/.exec(path);
@@ -343,9 +366,14 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       if (!ipm[2] && req.method === "GET") {
         const list = presets.list();
         const previews = await inst.previewPresets(list.map((p) => p.settings));
-        return send(res, 200, list.map((p, i) => ({ ...p, preview: previews[i] })));
+        return send(
+          res,
+          200,
+          list.map((p, i) => ({ ...p, preview: previews[i] })),
+        );
       }
-      if (ipm[2] && req.method === "POST") return send(res, 200, await inst.applyPreset(presets.get(decodeURIComponent(ipm[2])).settings));
+      if (ipm[2] && req.method === "POST")
+        return send(res, 200, await inst.applyPreset(presets.get(decodeURIComponent(ipm[2])).settings));
       throw new HttpError(404, "not found");
     }
 
@@ -364,7 +392,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
 
     const m = /^\/api\/instances\/([^/]+)\/([a-z]+)$/.exec(path);
     if (!m) {
-      if (req.method === "GET" && opts.staticDir && !path.startsWith("/api/") && (await serveStatic(opts.staticDir, path, res))) return;
+      if (req.method === "GET" && opts.staticDir && !path.startsWith("/api/") && (await serveStatic(opts.staticDir, path, res)))
+        return;
       throw new HttpError(404, "not found");
     }
     const inst = registry.get(decodeURIComponent(m[1]!));

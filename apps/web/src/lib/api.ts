@@ -140,7 +140,11 @@ export const api = {
       body: JSON.stringify(body),
     }),
   renameInstance: (id: string, name: string) =>
-    call<{ id: string; name: string }>(`/api/instances/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) }),
+    call<{ id: string; name: string }>(`/api/instances/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    }),
   removeInstance: (id: string) => call<{ ok: true }>(`/api/instances/${id}`, { method: "DELETE" }),
   discover: () => call<Inst[]>("/api/discover", { method: "POST" }),
   capabilities: (id: string) => call<Capabilities>(`/api/instances/${id}/capabilities`),
@@ -161,9 +165,17 @@ export const api = {
   savePreset: (body: { name: string; fromInstance: string; includeVolume: boolean }) =>
     call<Preset>("/api/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
   renamePreset: (pid: string, name: string) =>
-    call<Preset>(`/api/presets/${pid}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) }),
+    call<Preset>(`/api/presets/${pid}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    }),
   updatePresetFromCurrent: (pid: string, fromInstance: string) =>
-    call<Preset>(`/api/presets/${pid}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ fromInstance }) }),
+    call<Preset>(`/api/presets/${pid}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ fromInstance }),
+    }),
   deletePreset: (pid: string) => call<{ ok: true }>(`/api/presets/${pid}`, { method: "DELETE" }),
   applyPreset: (id: string, pid: string) => call<ApplyResult>(`/api/instances/${id}/presets/${pid}/apply`, { method: "POST" }),
   learned: (id: string) => call<(Failure & { engine: string })[]>(`/api/instances/${id}/learned`),
@@ -174,11 +186,23 @@ export const api = {
     call<RoonView>("/api/roon", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
   discoverRoon: () => call<FoundCore[]>("/api/roon/discover", { method: "POST" }),
   setRoonZone: (id: string, zone: string | null) =>
-    call<RoonView>(`/api/instances/${id}/roonzone`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ zone }) }),
+    call<RoonView>(`/api/instances/${id}/roonzone`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ zone }),
+    }),
   roonSeek: (id: string, seconds: number) =>
-    call<RoonZone>(`/api/instances/${id}/roonseek`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seconds }) }),
+    call<RoonZone>(`/api/instances/${id}/roonseek`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ seconds }),
+    }),
   roonTransport: (id: string, action: "play" | "pause" | "playpause" | "previous" | "next") =>
-    call<RoonZone>(`/api/instances/${id}/roontransport`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action }) }),
+    call<RoonZone>(`/api/instances/${id}/roontransport`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action }),
+    }),
 };
 
 export const PLAYBACK = ["Stopped", "Paused", "Playing", "Stopping"];

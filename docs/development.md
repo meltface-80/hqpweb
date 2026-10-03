@@ -2,13 +2,13 @@
 
 ## Stack
 
-| Part | Choice | Why |
-| --- | --- | --- |
-| Runtime | Node 24 | Runs `.ts` directly (type stripping), so no build step for the backend. `tsc` only type-checks. |
-| Backend | `node:http`, no framework | About thirty routes; the only runtime dependency is the XML parser. |
-| Frontend | Svelte 5 + Vite, as a PWA | Small bundles for phones (about 33 KB gzipped). |
-| Tests | Vitest | One runner for every package. |
-| XML | fast-xml-parser | Replies are small; attribute values stay strings, so numbers are converted on purpose. |
+| Part     | Choice                    | Why                                                                                             |
+| -------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
+| Runtime  | Node 24                   | Runs `.ts` directly (type stripping), so no build step for the backend. `tsc` only type-checks. |
+| Backend  | `node:http`, no framework | About thirty routes; the only runtime dependency is the XML parser.                             |
+| Frontend | Svelte 5 + Vite, as a PWA | Small bundles for phones (about 33 KB gzipped).                                                 |
+| Tests    | Vitest                    | One runner for every package.                                                                   |
+| XML      | fast-xml-parser           | Replies are small; attribute values stay strings, so numbers are converted on purpose.          |
 
 Because of type stripping, source uses only erasable TypeScript: no `enum`, no
 `namespace`, no constructor parameter properties. `tsconfig.base.json` enforces this.
@@ -83,7 +83,7 @@ is labelled in `packages/fake-hqp/src/fake.ts`.
   stall (OK, then state 3, then 0; `Play` ignored; resumes by itself once valid);
   timings (first `SetFilter` ~5 s, then ~0.3 s; `SetMode` ~2.9 s); volume formatting
   per platform; 1x vs Nx filter chosen by source rate; position in ~1 s steps.
-- **Inferred**, chosen to be *unhelpful* so client code can't lean on it:
+- **Inferred**, chosen to be _unhelpful_ so client code can't lean on it:
   - an out-of-range index replies OK and changes nothing;
   - volume is clamped to `VolumeRange`;
   - a bad shaper stalls the same way a bad rate does;

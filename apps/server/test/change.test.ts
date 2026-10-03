@@ -132,7 +132,11 @@ describe("rollback when playback fails", () => {
 
   it("learns an unexplained failure (overload) and persists it", async () => {
     const learnedPath = join(mkdtempSync(join(tmpdir(), "learned-")), "learned.json");
-    await setup({ speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) }, {}, new LearnedStore(learnedPath));
+    await setup(
+      { speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) },
+      {},
+      new LearnedStore(learnedPath),
+    );
     const body = (await change({ filter1x: "poly-sinc-gauss-long" })).json();
     expect(body.incompatible).toBeUndefined();
     expect((await caps()).knownBad).toEqual([expect.objectContaining({ filter1x: "poly-sinc-gauss-long", rateHz: 45158400 })]);
@@ -367,7 +371,10 @@ describe("live health in the status stream", () => {
   it("reports latency and real-time speed while playing", async () => {
     fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
     await fake.listen();
-    app = buildApp({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] }, { pollMs: 50, speedWindowMs: 400 });
+    app = buildApp(
+      { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] },
+      { pollMs: 50, speedWindowMs: 400 },
+    );
     base = await app.listen(0, "127.0.0.1");
     const d = await events(40, (x) => x.health?.speed != null);
     expect(d.health.latencyMs).toBeLessThan(1000);
@@ -377,7 +384,10 @@ describe("live health in the status stream", () => {
   it("shows an instance falling behind (simulated overload)", async () => {
     fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, speed: () => 0.5 });
     await fake.listen();
-    app = buildApp({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] }, { pollMs: 50, speedWindowMs: 400 });
+    app = buildApp(
+      { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] },
+      { pollMs: 50, speedWindowMs: 400 },
+    );
     base = await app.listen(0, "127.0.0.1");
     const d = await events(40, (x) => x.health?.speed != null);
     expect(d.health.speed).toBeLessThan(0.7);

@@ -47,7 +47,11 @@ export interface RegistryOptions {
 const DISCOVERED_TTL_MS = 180_000;
 /** A LAN has a handful of HQPlayers; spoofed replies mustn't grow this without bound. */
 const MAX_DISCOVERED = 32;
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "instance";
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "instance";
 const discoveredId = (address: string) => `d-${address.replace(/[^a-z0-9]+/gi, "-")}`;
 
 export class Registry {
@@ -85,7 +89,8 @@ export class Registry {
     this.scanning ??= discover(this.opts.discovery)
       .then((found) => {
         const now = Date.now();
-        for (const d of found) if (this.seen.has(d.address) || this.seen.size < MAX_DISCOVERED) this.seen.set(d.address, { d, at: now });
+        for (const d of found)
+          if (this.seen.has(d.address) || this.seen.size < MAX_DISCOVERED) this.seen.set(d.address, { d, at: now });
         for (const [a, s] of this.seen) {
           if (now - s.at <= DISCOVERED_TTL_MS) continue;
           this.seen.delete(a);
@@ -129,7 +134,12 @@ export class Registry {
   private discoveredOnly(): InstanceConfig[] {
     return [...this.seen.values()]
       .filter(({ d }) => !this.duplicateOf(d))
-      .map(({ d }) => ({ id: discoveredId(d.address), name: d.name || d.address, host: d.address, port: this.opts.discoveredPort }));
+      .map(({ d }) => ({
+        id: discoveredId(d.address),
+        name: d.name || d.address,
+        host: d.address,
+        port: this.opts.discoveredPort,
+      }));
   }
 
   // ---- lookup -----------------------------------------------------------------
@@ -168,11 +178,15 @@ export class Registry {
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("no answer")), this.opts.healthTimeoutMs).unref(),
       );
-      p = (inst ? Promise.race([inst.client.info(), timeout]).catch((e: Error) => {
-            // Don't leave a silent peer's connection reading in the background.
-            if (e.message === "no answer") inst.client.close();
-            throw e;
-          }) : Promise.reject(new Error("unknown")))
+      p = (
+        inst
+          ? Promise.race([inst.client.info(), timeout]).catch((e: Error) => {
+              // Don't leave a silent peer's connection reading in the background.
+              if (e.message === "no answer") inst.client.close();
+              throw e;
+            })
+          : Promise.reject(new Error("unknown"))
+      )
         .then(
           (info): Health => ({ at: Date.now(), reachable: true, product: info.product, engine: info.engine, hqpName: info.name }),
           (e: Error): Health => ({ at: Date.now(), reachable: false, error: e.message }),

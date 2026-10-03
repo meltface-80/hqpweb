@@ -1,8 +1,4 @@
 {
   "files": [],
-  "references": [
-    { "path": "packages/protocol" },
-    { "path": "packages/fake-hqp" },
-    { "path": "apps/server" }
-  ]
+  "references": [{ "path": "packages/protocol" }, { "path": "packages/fake-hqp" }, { "path": "apps/server" }]
 }

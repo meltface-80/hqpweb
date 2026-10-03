@@ -29,13 +29,18 @@ export interface FakeOptions {
   log?: (line: string) => void;
 }
 
-
 /**
  * Default: what the manual's rules predict (integer-ratio filters, the AHM
  * modulator floor; see @app/protocol compat.ts). The AHM floor is also measured.
  */
 export const defaultIncompatible: NonNullable<FakeOptions["incompatible"]> = (c) =>
-  predictedStop({ mode: c.modeName, filter: c.filterName, shaper: c.shaperName, sourceRate: c.sourceRate, outputRate: c.rateHz }) !== undefined;
+  predictedStop({
+    mode: c.modeName,
+    filter: c.filterName,
+    shaper: c.shaperName,
+    sourceRate: c.sourceRate,
+    outputRate: c.rateHz,
+  }) !== undefined;
 
 const DELAY = {
   /** First SetFilter for a filter: ~5 s (measured). */
@@ -178,7 +183,12 @@ export class FakeHqp {
     const now = Date.now();
     if (this.playback === 2) {
       const f = this.lists.filters.find((x) => x.index === this.filterInUse)?.name ?? "";
-      const speed = this.opts.speed({ modeName: this.mode.name, rateHz: this.activeRateHz, filterName: f, shaperName: this.shaperName });
+      const speed = this.opts.speed({
+        modeName: this.mode.name,
+        rateHz: this.activeRateHz,
+        filterName: f,
+        shaperName: this.shaperName,
+      });
       this.position += ((now - this.lastTick) / 1000) * speed;
     }
     this.lastTick = now;
@@ -232,7 +242,9 @@ export class FakeHqp {
     if (this.ignore.has(req.name)) return this.ok(req.name);
     const h = this.handlers[req.name];
     const out = h ? await h(req) : this.doc(req.name, { result: "Error" }, "Unknown command");
-    this.opts.log?.(`${requestXml.replace(/^<\?xml[^>]*\?>/, "")} -> ${out.length > 160 ? out.slice(0, 160) + "…" : out.replace(/^<\?xml[^>]*\?>/, "")}`);
+    this.opts.log?.(
+      `${requestXml.replace(/^<\?xml[^>]*\?>/, "")} -> ${out.length > 160 ? out.slice(0, 160) + "…" : out.replace(/^<\?xml[^>]*\?>/, "")}`,
+    );
     return out;
   }
 
@@ -286,35 +298,41 @@ export class FakeHqp {
       const pos = this.profile.volumeFormat === "long" ? p.toFixed(17) : String(p);
       const playing = this.playback !== 0 || this.stalled;
       // Real replies carry a <metadata> child while playing (measured); its stream URI is omitted here.
-      const song = this.feeder === "Roon" ? "Roon" : (this.playlist[this.playlistIndex] ?? "").split("/").pop() ?? "";
+      const song = this.feeder === "Roon" ? "Roon" : ((this.playlist[this.playlistIndex] ?? "").split("/").pop() ?? "");
       const meta = playing ? element("metadata", { bits: 24, channels: 2, samplerate: this.sourceRate, sdm: 0, song }) : "";
-      return this.doc("Status", {
-        active_bits: this.modeValue === 1 ? 1 : 32,
-        active_channels: 2,
-        active_filter: f?.name ?? "",
-        active_mode: this.mode.name,
-        active_rate: this.activeRateHz,
-        active_shaper: this.shaperName,
-        clips: 0,
-        filter_20k: this.filter20k,
-        // Real replies: the track length for files, 0 for a Roon stream (measured).
-        length: playing && this.feeder !== "Roon" ? 300 : 0,
-        position: pos,
-        state: this.playback,
-        track: playing ? 1 : 0,
-        tracks_total: playing ? 1 : 0,
-        volume: this.fmtVolume(this.volume),
-      }, undefined, meta);
+      return this.doc(
+        "Status",
+        {
+          active_bits: this.modeValue === 1 ? 1 : 32,
+          active_channels: 2,
+          active_filter: f?.name ?? "",
+          active_mode: this.mode.name,
+          active_rate: this.activeRateHz,
+          active_shaper: this.shaperName,
+          clips: 0,
+          filter_20k: this.filter20k,
+          // Real replies: the track length for files, 0 for a Roon stream (measured).
+          length: playing && this.feeder !== "Roon" ? 300 : 0,
+          position: pos,
+          state: this.playback,
+          track: playing ? 1 : 0,
+          tracks_total: playing ? 1 : 0,
+          volume: this.fmtVolume(this.volume),
+        },
+        undefined,
+        meta,
+      );
     },
 
-    GetModes: () =>
-      this.doc("GetModes", {}, undefined, this.profile.modes.map((m) => element("ModesItem", { ...m })).join("")),
+    GetModes: () => this.doc("GetModes", {}, undefined, this.profile.modes.map((m) => element("ModesItem", { ...m })).join("")),
     GetFilters: () =>
       this.doc(
         "GetFilters",
         {},
         undefined,
-        this.lists.filters.map((f) => element("FiltersItem", { arg: f.arg, index: f.index, name: f.name, value: f.value })).join(""),
+        this.lists.filters
+          .map((f) => element("FiltersItem", { arg: f.arg, index: f.index, name: f.name, value: f.value }))
+          .join(""),
       ),
     GetShapers: () =>
       this.doc("GetShapers", {}, undefined, this.lists.shapers.map((s) => element("ShapersItem", { ...s })).join("")),

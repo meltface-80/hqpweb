@@ -10,7 +10,10 @@ describe("ratio rules (manual §4.6)", () => {
   });
 
   it("explains the measured sinc-M stop: 44.1k → 192k isn't a whole-number ratio", () => {
-    expect(ratioHint("sinc-M", 44_100, 192_000)).toMatchObject({ level: "hard", text: expect.stringMatching(/whole-number.*4\.35×/) });
+    expect(ratioHint("sinc-M", 44_100, 192_000)).toMatchObject({
+      level: "hard",
+      text: expect.stringMatching(/whole-number.*4\.35×/),
+    });
     expect(ratioHint("sinc-M", 44_100, 176_400)).toBeUndefined();
     expect(ratioHint("sinc-M", 192_000, 96_000)).toBeUndefined(); // integer down is fine
   });
@@ -48,8 +51,20 @@ describe("modulator and dither hints (§4.5, §4.4)", () => {
   });
 
   it("predicts stops only from hard rules", () => {
-    expect(predictedStop({ mode: "PCM", filter: "sinc-M", shaper: "NS5", sourceRate: 44_100, outputRate: 192_000 })).toBeDefined();
-    expect(predictedStop({ mode: "PCM", filter: "poly-sinc-gauss-long", shaper: "NS5", sourceRate: 44_100, outputRate: 96_000 })).toBeUndefined();
-    expect(predictedStop({ mode: "SDM (DSD)", filter: "poly-sinc-gauss-xla", shaper: "AHM7EC8B", sourceRate: 44_100, outputRate: 11_289_600 })).toBeDefined();
+    expect(
+      predictedStop({ mode: "PCM", filter: "sinc-M", shaper: "NS5", sourceRate: 44_100, outputRate: 192_000 }),
+    ).toBeDefined();
+    expect(
+      predictedStop({ mode: "PCM", filter: "poly-sinc-gauss-long", shaper: "NS5", sourceRate: 44_100, outputRate: 96_000 }),
+    ).toBeUndefined();
+    expect(
+      predictedStop({
+        mode: "SDM (DSD)",
+        filter: "poly-sinc-gauss-xla",
+        shaper: "AHM7EC8B",
+        sourceRate: 44_100,
+        outputRate: 11_289_600,
+      }),
+    ).toBeDefined();
   });
 });

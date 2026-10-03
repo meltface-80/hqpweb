@@ -25,9 +25,7 @@
   let query = $state("");
   let search: HTMLInputElement;
 
-  const shown = $derived(
-    query.trim() ? items.filter((i) => i.name.toLowerCase().includes(query.trim().toLowerCase())) : items,
-  );
+  const shown = $derived(query.trim() ? items.filter((i) => i.name.toLowerCase().includes(query.trim().toLowerCase())) : items);
 
   function open() {
     query = "";
@@ -43,9 +41,14 @@
 </script>
 
 <button class="row" onclick={open} {disabled}>
-  <span class="label">{label}{#if hint}<span class="hint">{hint}</span>{/if}</span>
+  <span class="label"
+    >{label}{#if hint}<span class="hint">{hint}</span>{/if}</span
+  >
   <span class="value">
-    {#if active === true}<span class="taken" title="Active in HQPlayer">✓</span>{:else if active === false}<span class="not-taken" title="HQPlayer reports a different one active">⚠</span>{/if}
+    {#if active === true}<span class="taken" title="Active in HQPlayer">✓</span>{:else if active === false}<span
+        class="not-taken"
+        title="HQPlayer reports a different one active">⚠</span
+      >{/if}
     {current || "—"}
   </span>
   <span class="chev" aria-hidden="true">›</span>
@@ -61,10 +64,16 @@
     <ul>
       {#each shown as item (item.index)}
         <li>
-          <button class:current={item.name === current} class:warn={!!item.warn} disabled={item.disabled} onclick={() => pick(item)}>
+          <button
+            class:current={item.name === current}
+            class:warn={!!item.warn}
+            disabled={item.disabled}
+            onclick={() => pick(item)}
+          >
             <span class="name">
               {item.name}
-              {#if item.warn}<small class="why">⚠ {item.warn}</small>{:else if item.note}<small class="why">{item.note}</small>{/if}
+              {#if item.warn}<small class="why">⚠ {item.warn}</small>{:else if item.note}<small class="why">{item.note}</small
+                >{/if}
             </span>
             {#if item.name === current}<span class="tick">✓</span>{/if}
           </button>
@@ -91,9 +100,17 @@
     text-align: left;
     cursor: pointer;
   }
-  .row:disabled { opacity: 0.5; cursor: progress; }
-  .row:not(:last-child) { border-bottom: 1px solid var(--border); }
-  .label { color: var(--text-dim); white-space: nowrap; }
+  .row:disabled {
+    opacity: 0.5;
+    cursor: progress;
+  }
+  .row:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+  }
+  .label {
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
   .hint {
     margin-left: 6px;
     font-size: 0.72rem;
@@ -103,10 +120,27 @@
     color: var(--accent-text);
     vertical-align: 1px;
   }
-  .value { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
-  .chev { color: var(--text-dim); font-size: 1.3rem; line-height: 1; }
-  .taken { color: var(--ok); font-weight: 700; margin-right: 4px; }
-  .not-taken { color: var(--warn); margin-right: 4px; }
+  .value {
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .chev {
+    color: var(--text-dim);
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+  .taken {
+    color: var(--ok);
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .not-taken {
+    color: var(--warn);
+    margin-right: 4px;
+  }
 
   dialog {
     padding: 0;
@@ -118,8 +152,14 @@
     margin: auto auto 0;
     color: var(--text);
   }
-  @media (min-width: 40rem) { dialog { margin: auto; } }
-  dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+  @media (min-width: 40rem) {
+    dialog {
+      margin: auto;
+    }
+  }
+  dialog::backdrop {
+    background: rgb(0 0 0 / 0.45);
+  }
   .sheet {
     background: var(--bg-elev);
     border-radius: 16px 16px 0 0;
@@ -128,10 +168,29 @@
     max-height: 80vh;
     padding-bottom: env(safe-area-inset-bottom);
   }
-  @media (min-width: 40rem) { .sheet { border-radius: 16px; } }
-  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
-  h3 { margin: 0; font-size: 1rem; }
-  .close { background: none; border: 0; color: var(--text-dim); font-size: 1rem; padding: 6px; cursor: pointer; }
+  @media (min-width: 40rem) {
+    .sheet {
+      border-radius: 16px;
+    }
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 6px;
+  }
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+  }
+  .close {
+    background: none;
+    border: 0;
+    color: var(--text-dim);
+    font-size: 1rem;
+    padding: 6px;
+    cursor: pointer;
+  }
   input {
     margin: 6px 16px 10px;
     padding: 10px 12px;
@@ -141,7 +200,12 @@
     color: inherit;
     font: inherit;
   }
-  ul { list-style: none; margin: 0; padding: 0 0 8px; overflow-y: auto; }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 8px;
+    overflow-y: auto;
+  }
   li button {
     width: 100%;
     display: flex;
@@ -154,11 +218,31 @@
     text-align: left;
     cursor: pointer;
   }
-  li button:hover { background: var(--bg-elev-2); }
-  li button.current { color: var(--accent-text); font-weight: 600; }
-  li button:disabled { opacity: 0.45; cursor: not-allowed; }
-  .name { display: flex; flex-direction: column; }
-  .why { font-size: 0.78rem; color: var(--text-dim); font-weight: 400; }
-  li button.warn .why { color: var(--warn); }
-  .empty { padding: 12px 16px; color: var(--text-dim); }
+  li button:hover {
+    background: var(--bg-elev-2);
+  }
+  li button.current {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  li button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .name {
+    display: flex;
+    flex-direction: column;
+  }
+  .why {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  li button.warn .why {
+    color: var(--warn);
+  }
+  .empty {
+    padding: 12px 16px;
+    color: var(--text-dim);
+  }
 </style>

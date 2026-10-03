@@ -78,7 +78,12 @@
 <h4>Roon (optional)</h4>
 <label class="row">
   <span>Show Roon's now playing and controls</span>
-  <input type="checkbox" role="switch" checked={view?.enabled ?? false} onchange={(e) => configure({ enabled: e.currentTarget.checked })} />
+  <input
+    type="checkbox"
+    role="switch"
+    checked={view?.enabled ?? false}
+    onchange={(e) => configure({ enabled: e.currentTarget.checked })}
+  />
 </label>
 <p class="help">For HQPlayer fed by Roon. Everything else works without it.</p>
 
@@ -90,7 +95,15 @@
       configure({ host, port });
     }}
   >
-    <input bind:value={host} placeholder="Roon Core host or IP" required aria-label="Roon Core host" autocapitalize="off" autocorrect="off" spellcheck="false" />
+    <input
+      bind:value={host}
+      placeholder="Roon Core host or IP"
+      required
+      aria-label="Roon Core host"
+      autocapitalize="off"
+      autocorrect="off"
+      spellcheck="false"
+    />
     <input bind:value={port} type="number" min="1" max="65535" aria-label="Roon Core port" class="port" />
     <button class="small" type="submit">Connect</button>
     <button class="small" type="button" onclick={find} disabled={finding}>{finding ? "Finding…" : "Find"}</button>
@@ -98,15 +111,23 @@
   {#if found && found.length > 1}
     <ul class="found">
       {#each found as c (c.host + c.port)}
-        <li><button class="small" onclick={() => ((host = c.host), (port = c.port))}>{c.name ?? c.host} · {c.host}:{c.port}</button></li>
+        <li>
+          <button class="small" onclick={() => ((host = c.host), (port = c.port))}>{c.name ?? c.host} · {c.host}:{c.port}</button>
+        </li>
       {/each}
     </ul>
   {:else if found && found.length === 0}
-    <p class="help">No core found. Finding needs Docker host networking and the core on the same network segment; enter its address instead (the port is usually 9330).</p>
+    <p class="help">
+      No core found. Finding needs Docker host networking and the core on the same network segment; enter its address instead (the
+      port is usually 9330).
+    </p>
   {/if}
 
   <p class="status s-{view.status}">
-    {STATUS[view.status]}{view.core ? ` · ${view.core.name} (${view.core.version})` : ""}{view.error && view.status !== "connected" ? ` · ${view.error}` : ""}
+    {STATUS[view.status]}{view.core ? ` · ${view.core.name} (${view.core.version})` : ""}{view.error &&
+    view.status !== "connected"
+      ? ` · ${view.error}`
+      : ""}
   </p>
   {#if view.status === "unapproved"}
     <p class="help">In Roon, open Settings → Extensions and enable <b>{view.extensionName}</b>.</p>
@@ -125,7 +146,9 @@
         <span>{inst.name}</span>
         <select value={current} onchange={(e) => pickZone(inst.id, e.currentTarget.value)}>
           <option value="">None</option>
-          {#if current && !hqZones.some((z) => z.id === current)}<option value={current}>{currentZone ? `${currentZone.name} (not via HQPlayer)` : "(zone not on this core)"}</option>{/if}
+          {#if current && !hqZones.some((z) => z.id === current)}<option value={current}
+              >{currentZone ? `${currentZone.name} (not via HQPlayer)` : "(zone not on this core)"}</option
+            >{/if}
           {#each hqZones as z (z.id)}<option value={z.id}>{z.name}</option>{/each}
         </select>
       </label>
@@ -135,20 +158,99 @@
 {#if msg}<p class="err">{msg}</p>{/if}
 
 <style>
-  h4 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 18px 0 8px; }
-  .help { color: var(--text-dim); font-size: 0.85rem; margin: 0 0 8px; }
-  .err { color: var(--danger); font-size: 0.85rem; }
-  .row { display: flex; align-items: center; justify-content: space-between; min-height: 44px; cursor: pointer; }
-  .row input { width: 20px; height: 20px; accent-color: var(--accent); }
-  .add { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
-  .add input { flex: 1 1 8rem; min-width: 0; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
-  .add input.port { flex: 0 0 5.5rem; }
-  .small { font: inherit; font-size: 0.9rem; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--accent-text); cursor: pointer; min-height: 40px; }
-  .found { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  .status { font-size: 0.9rem; margin: 4px 0 8px; }
-  .s-connected { color: var(--ok); }
-  .s-unapproved, .s-connecting { color: var(--warn); }
-  .s-unreachable { color: var(--danger); }
-  .zone { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; font-size: 0.9rem; }
-  .zone select { font: inherit; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin: 18px 0 8px;
+  }
+  .help {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin: 0 0 8px;
+  }
+  .err {
+    color: var(--danger);
+    font-size: 0.85rem;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    cursor: pointer;
+  }
+  .row input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+  }
+  .add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0 8px;
+  }
+  .add input {
+    flex: 1 1 8rem;
+    min-width: 0;
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+  }
+  .add input.port {
+    flex: 0 0 5.5rem;
+  }
+  .small {
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--accent-text);
+    cursor: pointer;
+    min-height: 40px;
+  }
+  .found {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .status {
+    font-size: 0.9rem;
+    margin: 4px 0 8px;
+  }
+  .s-connected {
+    color: var(--ok);
+  }
+  .s-unapproved,
+  .s-connecting {
+    color: var(--warn);
+  }
+  .s-unreachable {
+    color: var(--danger);
+  }
+  .zone {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+    font-size: 0.9rem;
+  }
+  .zone select {
+    font: inherit;
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
 </style>

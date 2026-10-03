@@ -6,6 +6,7 @@ about: Something didn't work, or worked differently than expected
 **What happened** (and what you expected):
 
 **Your setup**
+
 - hqpweb version (Settings → About):
 - HQPlayer version (HQPlayer's Help → About) and the engine version hqpweb shows
   (Settings → General):

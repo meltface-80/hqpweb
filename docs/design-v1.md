@@ -26,7 +26,7 @@ phone, tablet or desktop browser.
   polarity, junk/20 kHz filter, adaptive volume, volume.
 - **Major changes**, deliberately less prominent: mode (PCM / SDM / source) and output rate.
 - **App-owned presets**: a named bundle of settings, applied in one action, each
-  labelled as a *quick apply* or a *major apply*.
+  labelled as a _quick apply_ or a _major apply_.
 - Installable as a PWA; works on iOS Safari without an App Store build.
 
 **Non-goals for v1**
@@ -54,6 +54,7 @@ phone, tablet or desktop browser.
   - mark combinations yellow or red per instance and rate.
 
   The harness must avoid tipping an instance into the overload described in §2.3.
+
 - **HQPlayer's own library (measured, not used by the app).** `LibraryGet` works
   without authentication; `LibraryLoad` needs a session key; a plain-path
   `PlaylistAdd` is accepted, and `start="1"` makes the playlist the active
@@ -81,6 +82,7 @@ phone, tablet or desktop browser.
   no longer answers. Embedded can restart through its web UI (port 8088). Desktop has
   no restart command in the control protocol that we know of, so it would need a
   host-side helper.
+
 ---
 
 ## 2. Fact base
@@ -134,7 +136,7 @@ phone, tablet or desktop browser.
 - **`VolumeRange.max` differs too:** −3 on the Mac, 0 on Linux. Read it; never
   assume it.
 - **`State.mode` is an index into `GetModes`.** `State.active_mode` is the mode's
-  *value* (−1 source, 0 PCM, 1 SDM).
+  _value_ (−1 source, 0 PCM, 1 SDM).
 - **The same filter name has different indices across modes and instances:**
   `poly-sinc-gauss-hires-lp` is 51 in SDM on the Mac and 40 in PCM on Linux.
 - **The `arg` attribute on `FiltersItem` is not a 1x/Nx flag.** The Mac's active 1x
@@ -148,7 +150,7 @@ phone, tablet or desktop browser.
   `result="Error">path doesn't exist`.
 - **v5 answers `GetJunkFilters` with `Unknown command`,** as expected (§2.5).
 - **Discovery reply:** `<discover name="…" result="OK" version="Signalyst HQPlayer
-  Desktop 5">hqplayer</discover>`, sent from the instance's own address.
+Desktop 5">hqplayer</discover>`, sent from the instance's own address.
 
 ### 2.2 Coexistence with Roon (or another controller)
 
@@ -157,6 +159,7 @@ Roon playback had no effect on playback. Every change below was also made while 
 was playing; Roon kept the zone throughout.
 
 **HQPlayer-side transport with Roon as the source (measured):**
+
 - a `Pause` sent to HQPlayer **pauses the Roon zone**;
 - `Play` does **not** reach Roon: HQPlayer played about 28 s from its buffer, then
   stopped;
@@ -167,6 +170,7 @@ So without the Roon link the app offers only Stop when `Status` metadata says
 `song="Roon"`; with it, transport goes through Roon's own API.
 
 **Roon's extension API (optional link, measured on a Roon 2.73 core).**
+
 - Discovery (SOOD, UDP 9003 multicast) found a core on the same segment; its API port
   was 9330. The connection is a WebSocket at `/api` carrying MOO messages.
 - Approval: registration waits until the user enables the extension in Roon; the
@@ -176,7 +180,7 @@ So without the Roon link the app offers only Stop when `Status` metadata says
   same id, the core sends the first an empty frame and closes it. Hence a separate
   extension id (and approval) per install.
 - HQPlayer zones are recognisable: an output has a source control named "HQPlayer".
-  Roon does not say *which* HQPlayer, so the zone ↔ instance link is chosen by the user.
+  Roon does not say _which_ HQPlayer, so the zone ↔ instance link is chosen by the user.
 - Cover art is served over plain HTTP from the same port.
 - Transport control and absolute seek on an HQPlayer zone worked; the audible effect
   lags by HQPlayer's buffer.
@@ -188,17 +192,17 @@ So without the Roon link the app offers only Stop when `Status` metadata says
 Measured on HQPlayer Desktop 5.15 (engine 5.32.5) on macOS, in SDM mode at DSD1024,
 with Roon playing. Every change was restored afterwards and diffed against a snapshot.
 
-| Change | Result during playback |
-|---|---|
-| Nx filter, 1x filter | Brief pause (≤ ~1 s), playback continues. The first call blocked ~5 s while the filter was prepared. |
-| Modulator / dither | Brief pause, continues |
-| Polarity invert, 20 kHz filter, adaptive volume | Brief pause or none, continues |
-| Volume | Continues |
-| Mode SDM → PCM, SDM → source | ~3 s, playback continues. The lists change completely. Each mode keeps its own remembered filter and dither. |
-| Rate, **valid combination** (DSD512 + ASDM7EC) | Continues |
+| Change                                                         | Result during playback                                                                                                                                                                                    |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nx filter, 1x filter                                           | Brief pause (≤ ~1 s), playback continues. The first call blocked ~5 s while the filter was prepared.                                                                                                      |
+| Modulator / dither                                             | Brief pause, continues                                                                                                                                                                                    |
+| Polarity invert, 20 kHz filter, adaptive volume                | Brief pause or none, continues                                                                                                                                                                            |
+| Volume                                                         | Continues                                                                                                                                                                                                 |
+| Mode SDM → PCM, SDM → source                                   | ~3 s, playback continues. The lists change completely. Each mode keeps its own remembered filter and dither.                                                                                              |
+| Rate, **valid combination** (DSD512 + ASDM7EC)                 | Continues                                                                                                                                                                                                 |
 | Rate, **invalid combination** (DSD256 or DSD512 with AHM7EC8B) | Reply is OK, then HQPlayer **stops and cannot be restarted**: not by the controlling app's play, nor by HQPlayer's own `Play`, nor by stop-change-play. Setting the rate back resumes playback by itself. |
-| Convolution on, with no filters configured | Reply is OK, nothing changes |
-| `ConfigurationLoad` (built-in presets) | `result="Error">missing data or not authorized` |
+| Convolution on, with no filters configured                     | Reply is OK, nothing changes                                                                                                                                                                              |
+| `ConfigurationLoad` (built-in presets)                         | `result="Error">missing data or not authorized`                                                                                                                                                           |
 
 **Consequence:** none of the changes above needed a manual restart. What a risky
 change needs is **verification and automatic rollback**, because some combinations
@@ -237,7 +241,7 @@ SDM, DSD1024, 44.1 kHz source, 1x `poly-sinc-gauss-xla`:
   at DSD1024.
 
 - **Settings after a restart (measured, three times on two instances):** HQPlayer
-  comes back on its *saved* settings, not the ones set over the control API, and
+  comes back on its _saved_ settings, not the ones set over the control API, and
   that can mean a louder volume (seen: −3 dB after running at −20 dB). Re-read
   everything after a reconnect, and never assume a volume.
 
@@ -257,7 +261,7 @@ SDM, DSD1024, 44.1 kHz source, 1x `poly-sinc-gauss-xla`:
 
 This is why v1 uses app-owned presets (§4.3).
 
-**Embedded uses the same control protocol.** This is *reported*, not measured: we
+**Embedded uses the same control protocol.** This is _reported_, not measured: we
 have no Embedded instance.
 
 - **Same commands.** HQPTuner drives Embedded (hqplayerd 6.0.4) with the same
@@ -334,17 +338,17 @@ From the 6.0.1 SDK source and the release notes:
 - **Instance:** name, host, port, source (discovered or static), and last `GetInfo`
   (product, platform, version, engine).
 - **Capabilities:** for each mode, the lists of filters, shapers and rates. Filters
-  carry an `arg` attribute whose meaning is unknown; it is *not* a 1x/Nx flag (§2.1).
+  carry an `arg` attribute whose meaning is unknown; it is _not_ a 1x/Nx flag (§2.1).
   - Re-enumerate when `engine` changes or after a mode change.
   - **Version drift:** when the engine changes, diff the old and new lists and show
     "new filters/modulators available".
 
 ### 4.2 Change classes
 
-| Class | Settings | Engine behaviour |
-|---|---|---|
-| **Quick** | Nx/1x filter, modulator/dither, invert, junk/20k filter, adaptive volume, volume | Apply, then read back |
-| **Major** | Mode, output rate | As quick, with a longer playback check |
+| Class     | Settings                                                                         | Engine behaviour                       |
+| --------- | -------------------------------------------------------------------------------- | -------------------------------------- |
+| **Quick** | Nx/1x filter, modulator/dither, invert, junk/20k filter, adaptive volume, volume | Apply, then read back                  |
+| **Major** | Mode, output rate                                                                | As quick, with a longer playback check |
 
 **Every change that can disturb playback is verified the same way:** mode, rate,
 filters and modulator/dither, during playback. The engine reads back, watches
@@ -365,16 +369,16 @@ section.
 
 ### 4.3 App-owned presets
 
-*Implemented: global presets in `presets.json` in the config volume. "Save current"
+_Implemented: global presets in `presets.json` in the config volume. "Save current"
 captures every setting by name, with volume opt-in. Previews classify each preset per
 instance (active / quick / major), list what it can't take, and show rule-predicted
 stops. Applying skips what an instance can't take, rather than offering "all or
-nothing".*
+nothing"._
 
 - **A preset stores names, never indices:**
   `{mode: "SDM (DSD)", rate: 22579200, filterNx: "poly-sinc-gauss-hires-lp",
-  filter1x: "poly-sinc-gauss-xla", shaper: "ASDM7EC", invert?, junk?, adaptive?,
-  volume?}`.
+filter1x: "poly-sinc-gauss-xla", shaper: "ASDM7EC", invert?, junk?, adaptive?,
+volume?}`.
   - Every field is optional. A preset can be just "this filter".
   - Volume is only included if the user explicitly saves it.
   - Applying a preset **never raises volume** unless it was saved with volume.
@@ -387,8 +391,9 @@ nothing".*
   6. volume
 
   Resolve names to indices against the instance's current lists at apply time.
+
 - **Classification is automatic:** the preset is diffed against the current `State`.
-  If mode or rate would change it's a *major apply*, otherwise a *quick apply*. The
+  If mode or rate would change it's a _major apply_, otherwise a _quick apply_. The
   UI shows which one before the tap.
 - **Unresolvable names** (a filter missing in this engine version, or on this
   instance) are reported per field. The rest still applies, unless the user chose
@@ -436,6 +441,7 @@ these combinations, not hard-code them.
 
   It must refuse to start unless playback is in a known state. Volume may only ever
   go down during tests.
+
 - **A fake HQPlayer server** (a small TCP responder) for CI and UI development.
 
 ---
@@ -464,9 +470,9 @@ these combinations, not hard-code them.
   - Implementing the published protocol is fine. Reverse engineering the closed
     Client is not, and we don't need to.
 - **Name:** "HQPlayer" is used descriptively, as in existing MIT projects (HQPTuner,
-  LMS-HQPlayer-Bridge). The README must carry a non-affiliation notice: *"Not
+  LMS-HQPlayer-Bridge). The README must carry a non-affiliation notice: _"Not
   affiliated with, endorsed by, or supported by Signalyst. HQPlayer is a trademark of
-  its owner, used here only to identify compatible software."* Do not use Signalyst
+  its owner, used here only to identify compatible software."_ Do not use Signalyst
   logos. Trademark registrations were not checked.
 - **Prior art:**
   - HQPTuner (MIT, Embedded-focused; excellent protocol notes)

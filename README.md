@@ -70,11 +70,11 @@ Your instances and presets are kept.
 
 Set these in a `.env` file next to `docker-compose.yml`, then `docker compose up -d`.
 
-| Variable | Default | Use |
-| --- | --- | --- |
-| `PORT` | `4380` | Port the app listens on. |
-| `BIND_ADDRESS` | `0.0.0.0` | Interface to publish on, e.g. `127.0.0.1` behind a local proxy. |
-| `ALLOWED_HOSTS` | (none) | Host names you open it by, comma-separated (IP addresses always work). Needed behind a reverse proxy. |
+| Variable        | Default   | Use                                                                                                   |
+| --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `PORT`          | `4380`    | Port the app listens on.                                                                              |
+| `BIND_ADDRESS`  | `0.0.0.0` | Interface to publish on, e.g. `127.0.0.1` behind a local proxy.                                       |
+| `ALLOWED_HOSTS` | (none)    | Host names you open it by, comma-separated (IP addresses always work). Needed behind a reverse proxy. |
 
 **Discovery** ("Scan now") uses multicast, so it needs host networking (Linux only)
 and only sees the same network segment. Otherwise add instances by address. To turn
@@ -110,14 +110,14 @@ authenticating proxy in front. Never expose it to the internet. To report a secu
 
 ## Tested with
 
-| HQPlayer | Platform | Status |
-| --- | --- | --- |
-| Desktop 5.17.2 (engine 5.35.10) | Linux (container, CUDA) | works (PCM) |
-| Desktop 5.17.2 (engine 5.35.10) | Linux (VM) | reads and Roon verified; changes not yet |
-| Desktop 5.17.2 (engine 5.35.10) | macOS (Apple Silicon) | reads verified; changes tested on 5.15 (engine 5.32.5), SDM up to DSD1024 |
-| Desktop 6, Embedded, Windows | — | **untested**: reports welcome ([TESTING.md](TESTING.md)) |
+| HQPlayer                        | Platform                | Status                                                                    |
+| ------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| Desktop 5.17.2 (engine 5.35.10) | Linux (container, CUDA) | works (PCM)                                                               |
+| Desktop 5.17.2 (engine 5.35.10) | Linux (VM)              | reads and Roon verified; changes not yet                                  |
+| Desktop 5.17.2 (engine 5.35.10) | macOS (Apple Silicon)   | reads verified; changes tested on 5.15 (engine 5.32.5), SDM up to DSD1024 |
+| Desktop 6, Embedded, Windows    | —                       | **untested**: reports welcome ([TESTING.md](TESTING.md))                  |
 
-hqpweb shows the *engine* version (Settings → General); HQPlayer's own Help → About
+hqpweb shows the _engine_ version (Settings → General); HQPlayer's own Help → About
 shows the product version.
 
 ## Why can't I switch profiles or endpoints?

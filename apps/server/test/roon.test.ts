@@ -37,7 +37,13 @@ function link(path: string | null = null) {
 describe("MOO framing", () => {
   it("round-trips a request with a JSON body", () => {
     const m = decode(encode("REQUEST", "com.roonlabs.transport:2/control", 7, { control: "next" }));
-    expect(m).toMatchObject({ verb: "REQUEST", service: "com.roonlabs.transport:2", name: "control", requestId: "7", body: { control: "next" } });
+    expect(m).toMatchObject({
+      verb: "REQUEST",
+      service: "com.roonlabs.transport:2",
+      name: "control",
+      requestId: "7",
+      body: { control: "next" },
+    });
   });
   it("round-trips a reply without a body", () => {
     const m = decode(encode("COMPLETE", "Success", 3));
@@ -49,7 +55,9 @@ describe("MOO framing", () => {
     expect(() => decode("HTTP/1.1 200 OK\n\n")).toThrow(/first line/);
     expect(() => decode("MOO/1 COMPLETE Success\n\n")).toThrow(/Request-Id/);
     expect(() => decode("MOO/1 COMPLETE Success\nRequest-Id: 1\nContent-Length: 2\n\n{}")).toThrow(/together/);
-    expect(() => decode("MOO/1 COMPLETE Success\nRequest-Id: 1\nContent-Length: 99\nContent-Type: application/json\n\n{}")).toThrow(/Length/);
+    expect(() =>
+      decode("MOO/1 COMPLETE Success\nRequest-Id: 1\nContent-Length: 99\nContent-Type: application/json\n\n{}"),
+    ).toThrow(/Length/);
   });
 });
 
@@ -199,7 +207,10 @@ describe("Roon API routes", () => {
     await fake.listen();
     const app = buildApp({ instances: [{ id: "hq", name: "HQ", host: "127.0.0.1", port: fake.port }] });
     const req = client(await app.listen(0, "127.0.0.1"));
-    cleanup.push(() => fake.close(), () => app.close());
+    cleanup.push(
+      () => fake.close(),
+      () => app.close(),
+    );
     expect((await req("GET", "/api/roon")).json()).toMatchObject({ enabled: false, status: "off" });
     const r = await req("POST", "/api/instances/hq/roontransport", { body: { action: "next" } });
     expect(r.status).toBe(409);
@@ -213,7 +224,10 @@ describe("Roon API routes", () => {
     const roon = link();
     const app = buildApp({ instances: [{ id: "hq", name: "HQ", host: "127.0.0.1", port: fake.port }] }, { roon });
     const req = client(await app.listen(0, "127.0.0.1"));
-    cleanup.push(() => fake.close(), () => app.close());
+    cleanup.push(
+      () => fake.close(),
+      () => app.close(),
+    );
 
     expect((await req("PUT", "/api/roon", { body: { enabled: true, host: "127.0.0.1", port, extra: 1 } })).status).toBe(400);
     const v = (await req("PUT", "/api/roon", { body: { enabled: true, host: "127.0.0.1", port } })).json() as RoonView;
@@ -223,7 +237,9 @@ describe("Roon API routes", () => {
     await until(() => roon.view().zones.length === 2);
 
     expect((await req("PUT", "/api/instances/hq/roonzone", { body: { zone: 5 } })).status).toBe(400);
-    expect((await req("PUT", "/api/instances/hq/roonzone", { body: { zone: "zone-hqp" } })).json().zoneFor).toEqual({ hq: "zone-hqp" });
+    expect((await req("PUT", "/api/instances/hq/roonzone", { body: { zone: "zone-hqp" } })).json().zoneFor).toEqual({
+      hq: "zone-hqp",
+    });
     expect((await req("POST", "/api/instances/hq/roontransport", { body: { action: "stop" } })).status).toBe(400);
     const r = await req("POST", "/api/instances/hq/roontransport", { body: { action: "pause" } });
     expect(r.status).toBe(200);
@@ -241,7 +257,11 @@ describe("Roon API routes", () => {
     const res = await fetch(`${base}/api/instances/hq/events`, { signal: ctl.signal });
     const reader = res.body!.getReader();
     let text = "";
-    const roonEvents = () => text.split("event: roon\ndata: ").slice(1).map((x) => JSON.parse(x.split("\n")[0]!));
+    const roonEvents = () =>
+      text
+        .split("event: roon\ndata: ")
+        .slice(1)
+        .map((x) => JSON.parse(x.split("\n")[0]!));
     while (!roonEvents().length) text += new TextDecoder().decode((await reader.read()).value);
     expect(roonEvents()[0]).toMatchObject({ status: "connected", zone: { name: "Listening Room", state: "paused" } });
     expect(roonEvents()[0].zone.nowPlaying.seek).toBe(12);
@@ -257,7 +277,9 @@ describe("Roon API routes", () => {
 
     // Removing an instance forgets its zone.
     await req("POST", "/api/instances", { body: { name: "Extra", host: "127.0.0.1", port: 1 } });
-    const extra = ((await req("GET", "/api/instances")).json() as { id: string; name: string }[]).find((i) => i.name === "Extra")!;
+    const extra = ((await req("GET", "/api/instances")).json() as { id: string; name: string }[]).find(
+      (i) => i.name === "Extra",
+    )!;
     await req("PUT", `/api/instances/${extra.id}/roonzone`, { body: { zone: "zone-hqp" } });
     expect(roon.view().zoneFor[extra.id]).toBe("zone-hqp");
     await req("DELETE", `/api/instances/${extra.id}`);

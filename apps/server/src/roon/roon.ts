@@ -194,7 +194,9 @@ export class RoonLink {
       ...(this.error ? { error: this.error } : {}),
       ...(this.core ? { core: { name: this.core.name, version: this.core.version } } : {}),
       extensionName: extensionName(this.settings.installId),
-      zones: [...this.zones.values()].map(zoneView).sort((a, b) => Number(b.hqplayer) - Number(a.hqplayer) || a.name.localeCompare(b.name)),
+      zones: [...this.zones.values()]
+        .map(zoneView)
+        .sort((a, b) => Number(b.hqplayer) - Number(a.hqplayer) || a.name.localeCompare(b.name)),
       zoneFor: { ...this.settings.zoneFor },
     };
   }
@@ -220,8 +222,10 @@ export class RoonLink {
   }
 
   configure(next: { enabled?: boolean; host?: string; port?: number }): RoonView {
-    if (next.host !== undefined && !validRoonHost(next.host)) throw new HttpError(400, "host must be a host name or IPv4 address");
-    if (next.port !== undefined && !(Number.isInteger(next.port) && next.port > 0 && next.port < 65536)) throw new HttpError(400, "port must be 1–65535");
+    if (next.host !== undefined && !validRoonHost(next.host))
+      throw new HttpError(400, "host must be a host name or IPv4 address");
+    if (next.port !== undefined && !(Number.isInteger(next.port) && next.port > 0 && next.port < 65536))
+      throw new HttpError(400, "port must be 1–65535");
     const before = JSON.stringify([this.settings.enabled, this.settings.host, this.settings.port]);
     if (next.enabled !== undefined) this.settings.enabled = next.enabled;
     if (next.host !== undefined) this.settings.host = next.host;
@@ -230,7 +234,8 @@ export class RoonLink {
     if (JSON.stringify([this.settings.enabled, this.settings.host, this.settings.port]) !== before) {
       this.disconnect();
       if (this.settings.enabled && this.settings.host) this.connect();
-      else this.setStatus(this.settings.enabled ? "unreachable" : "off", this.settings.enabled ? "no core address set" : undefined);
+      else
+        this.setStatus(this.settings.enabled ? "unreachable" : "off", this.settings.enabled ? "no core address set" : undefined);
     }
     return this.view();
   }
@@ -260,7 +265,11 @@ export class RoonLink {
   async seek(instanceId: string, seconds: number): Promise<ZoneView> {
     const zone = this.zoneFor(instanceId);
     if (!zone) throw new HttpError(409, "no Roon zone for this instance (Settings → Roon)");
-    const reply = await this.request(`${TRANSPORT}/seek`, { zone_or_output_id: zone.id, how: "absolute", seconds: Math.round(seconds) });
+    const reply = await this.request(`${TRANSPORT}/seek`, {
+      zone_or_output_id: zone.id,
+      how: "absolute",
+      seconds: Math.round(seconds),
+    });
     if (reply.name !== "Success") throw new HttpError(502, `Roon refused seek: ${reply.name}`);
     return this.zoneFor(instanceId) ?? zone;
   }
@@ -315,7 +324,10 @@ export class RoonLink {
     ws.binaryType = "arraybuffer";
     this.ws = ws;
     // A connect that neither opens nor fails (a silent firewall) must not hang.
-    const opening = setTimeout(() => gen === this.gen && ws.readyState === WebSocket.CONNECTING && (ws.close(), this.lost(gen, `can't connect to ${url}`)), this.opts.replyMs);
+    const opening = setTimeout(
+      () => gen === this.gen && ws.readyState === WebSocket.CONNECTING && (ws.close(), this.lost(gen, `can't connect to ${url}`)),
+      this.opts.replyMs,
+    );
     ws.onopen = () => {
       clearTimeout(opening);
       if (gen === this.gen) this.handshake(gen);
@@ -363,7 +375,8 @@ export class RoonLink {
       // so an approved reconnect doesn't flash "waiting for approval".
       let approvalHint: ReturnType<typeof setTimeout> | undefined;
       if (!token) this.setStatus("unapproved");
-      else approvalHint = setTimeout(() => gen === this.gen && this.status === "connecting" && this.setStatus("unapproved"), 3000);
+      else
+        approvalHint = setTimeout(() => gen === this.gen && this.status === "connecting" && this.setStatus("unapproved"), 3000);
       // Unapproved, this reply only comes once the user enables the extension in
       // Roon (Settings → Extensions); until then the request stays open.
       const reg = await new Promise<MooMessage>((resolve, reject) =>
@@ -419,33 +432,40 @@ export class RoonLink {
   }
 
   private subscribeZones() {
-    this.send("REQUEST", `${TRANSPORT}/subscribe_zones`, { subscription_key: 0 }, (m) => {
-      if (!m) return;
-      const b = (m.body ?? {}) as {
-        zones?: RawZone[];
-        zones_added?: RawZone[];
-        zones_changed?: RawZone[];
-        zones_removed?: string[];
-        zones_seek_changed?: { zone_id: string; seek_position?: number }[];
-      };
-      if (m.name === "Subscribed") {
-        this.zones.clear();
-        for (const z of b.zones ?? []) this.zones.set(z.zone_id, z);
-      } else if (m.name === "Changed") {
-        for (const id of b.zones_removed ?? []) this.zones.delete(id);
-        for (const z of [...(b.zones_added ?? []), ...(b.zones_changed ?? [])]) this.zones.set(z.zone_id, z);
-        for (const s of b.zones_seek_changed ?? []) {
-          const z = this.zones.get(s.zone_id);
-          if (z?.now_playing && s.seek_position != null) z.now_playing.seek_position = s.seek_position;
+    this.send(
+      "REQUEST",
+      `${TRANSPORT}/subscribe_zones`,
+      { subscription_key: 0 },
+      (m) => {
+        if (!m) return;
+        const b = (m.body ?? {}) as {
+          zones?: RawZone[];
+          zones_added?: RawZone[];
+          zones_changed?: RawZone[];
+          zones_removed?: string[];
+          zones_seek_changed?: { zone_id: string; seek_position?: number }[];
+        };
+        if (m.name === "Subscribed") {
+          this.zones.clear();
+          for (const z of b.zones ?? []) this.zones.set(z.zone_id, z);
+        } else if (m.name === "Changed") {
+          for (const id of b.zones_removed ?? []) this.zones.delete(id);
+          for (const z of [...(b.zones_added ?? []), ...(b.zones_changed ?? [])]) this.zones.set(z.zone_id, z);
+          for (const s of b.zones_seek_changed ?? []) {
+            const z = this.zones.get(s.zone_id);
+            if (z?.now_playing && s.seek_position != null) z.now_playing.seek_position = s.seek_position;
+          }
         }
-      }
-      this.emit();
-    }, true);
+        this.emit();
+      },
+      true,
+    );
   }
 
   /** The core also calls us: ping, and the pairing service every extension provides. */
   private answer(m: MooMessage) {
-    const reply = (verb: "CONTINUE" | "COMPLETE", name: string, body?: unknown) => this.ws?.send(encode(verb, name, m.requestId, body));
+    const reply = (verb: "CONTINUE" | "COMPLETE", name: string, body?: unknown) =>
+      this.ws?.send(encode(verb, name, m.requestId, body));
     const paired = { paired_core_id: this.core?.id };
     if (m.service === PING && m.name === "ping") reply("COMPLETE", "Success");
     else if (m.service === PAIRING && m.name === "subscribe_pairing") reply("CONTINUE", "Subscribed", paired);

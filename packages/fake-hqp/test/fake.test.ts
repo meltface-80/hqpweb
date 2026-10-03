@@ -80,7 +80,7 @@ describe("measured reply quirks", () => {
 
   it("unknown commands, v6-only commands and ConfigurationLoad are errors", async () => {
     const c = await start();
-    expect(await c.send("<SetFilter20k value=\"1\"/>")).toEqual({ kind: "error", message: "Unknown command" });
+    expect(await c.send('<SetFilter20k value="1"/>')).toEqual({ kind: "error", message: "Unknown command" });
     expect(await c.send("<GetJunkFilters/>")).toEqual({ kind: "error", message: "Unknown command" });
     expect(await c.send('<ConfigurationLoad value="Example configuration 1"/>')).toEqual({
       kind: "error",
@@ -161,7 +161,7 @@ describe("invalid rate/modulator combination (measured)", () => {
     await c.send(cmd.setShaping(asdm));
     const dsd512 = (await c.rates()).find((r) => r.rate === 22579200)!.index;
     await c.send(cmd.setRate(dsd512));
-    expect((await c.status())).toMatchObject({ state: 2, activeRate: 22579200, activeShaper: "ASDM7EC" });
+    expect(await c.status()).toMatchObject({ state: 2, activeRate: 22579200, activeShaper: "ASDM7EC" });
   });
 });
 

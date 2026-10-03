@@ -14,7 +14,10 @@ const host = process.env.HOST ?? "127.0.0.1";
 const port = Number(process.env.PORT ?? 4380);
 // Names the app is reached by, besides loopback (e.g. its internal DNS name or
 // tailnet name). Requests under any other Host are refused.
-const allowedHosts = (process.env.ALLOWED_HOSTS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const allowedHosts = (process.env.ALLOWED_HOSTS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 const config = loadConfig();
 const configDir = process.env.CONFIG_DIR ?? "config";

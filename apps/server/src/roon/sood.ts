@@ -55,7 +55,10 @@ export function decodePacket(buf: Buffer): { type: string; props: Record<string,
 }
 
 /** Asks the LAN for Roon Cores and collects answers for `timeoutMs`. */
-export function discoverCores({ timeoutMs = 1500, target }: { timeoutMs?: number; target?: { address: string; port: number } } = {}): Promise<FoundCore[]> {
+export function discoverCores({
+  timeoutMs = 1500,
+  target,
+}: { timeoutMs?: number; target?: { address: string; port: number } } = {}): Promise<FoundCore[]> {
   return new Promise((resolve) => {
     const found = new Map<string, FoundCore>();
     const sock = createSocket({ type: "udp4" });

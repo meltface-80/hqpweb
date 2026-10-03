@@ -69,7 +69,13 @@
     });
   });
   const speedClass = $derived(
-    speed == null ? "" : speed < 0.9 ? "bad" : slowSince !== null && (snap ? Date.now() : 0) - slowSince >= 15_000 ? "warn" : "ok",
+    speed == null
+      ? ""
+      : speed < 0.9
+        ? "bad"
+        : slowSince !== null && (snap ? Date.now() : 0) - slowSince >= 15_000
+          ? "warn"
+          : "ok",
   );
   const SPEED_LABEL: Record<string, string> = { ok: "Real-time ✓", warn: "Straining", bad: "Falling behind" };
   const speedTitle = $derived(
@@ -226,7 +232,12 @@
       const mod = r.rate ? (isSdm ? modulatorHint(shaperName, r.rate) : ditherHint(shaperName, r.rate)) : undefined;
       const rule = ratio?.level === "hard" ? ratio : mod;
       return {
-        ...decorate({ index: r.index, name: formatRate(r.rate, caps!.mode.name) }, rule, r.rate ? warnFor("rateHz", r.rate) : undefined, r.note),
+        ...decorate(
+          { index: r.index, name: formatRate(r.rate, caps!.mode.name) },
+          rule,
+          r.rate ? warnFor("rateHz", r.rate) : undefined,
+          r.note,
+        ),
         rate: r.rate,
         disabled: !r.allowed,
       };
@@ -245,9 +256,11 @@
       const back = r.rolledBack.results.map((x) => `${FIELD_LABEL[x.field]} back to ${show(x.field, x.actual)}`).join(", ");
       const rec: PlaybackCheck = r.rolledBack.playback;
       const tail =
-        rec.kind === "playing" ? "Playback resumed."
-        : rec.kind === "not-checked" ? ""
-        : `Playback did not recover (${rec.detail}): HQPlayer may need a restart.`;
+        rec.kind === "playing"
+          ? "Playback resumed."
+          : rec.kind === "not-checked"
+            ? ""
+            : `Playback did not recover (${rec.detail}): HQPlayer may need a restart.`;
       return {
         kind: "warn" as const,
         text: r.incompatible
@@ -259,7 +272,9 @@
     const notes = r.results.filter((x) => x.note).map((x) => `${FIELD_LABEL[x.field]} ${x.note}`);
     if (failed.length) {
       const text = failed
-        .map((x) => `${FIELD_LABEL[x.field]}: asked for ${show(x.field, x.requested)}, HQPlayer reports ${show(x.field, x.actual)}`)
+        .map(
+          (x) => `${FIELD_LABEL[x.field]}: asked for ${show(x.field, x.requested)}, HQPlayer reports ${show(x.field, x.actual)}`,
+        )
         .concat(notes)
         .join(" · ");
       return { kind: "warn" as const, text };
@@ -267,10 +282,13 @@
     if (r.results.length === 0) return { kind: "warn" as const, text: "Nothing applied" };
     const text = r.results.map((x) => `${FIELD_LABEL[x.field]} → ${show(x.field, x.actual)}`);
     const pb =
-      r.playback.kind === "playing" ? "playback OK"
-      : r.playback.kind === "not-checked" && r.playback.detail?.startsWith("nothing") ? "not playing, so not checked"
-      : r.playback.kind === "inconclusive" ? `playback not checked (${r.playback.detail})`
-      : "";
+      r.playback.kind === "playing"
+        ? "playback OK"
+        : r.playback.kind === "not-checked" && r.playback.detail?.startsWith("nothing")
+          ? "not playing, so not checked"
+          : r.playback.kind === "inconclusive"
+            ? `playback not checked (${r.playback.detail})`
+            : "";
     return { kind: "ok" as const, text: ["✓ " + text.join(", "), pb, ...notes].filter(Boolean).join(" · ") };
   }
 
@@ -352,7 +370,8 @@
    * Next don't reach Roon, so after a pause only Roon can resume. With Roon as the
    * source, leave transport to Roon.
    */
-  const ROON_NOTE = "Playing from Roon: Stop stops HQPlayer; play, skip and resume are in Roon (or connect Roon in Settings → Roon)";
+  const ROON_NOTE =
+    "Playing from Roon: Stop stops HQPlayer; play, skip and resume are in Roon (or connect Roon in Settings → Roon)";
   // With a Roon zone, controls go to Roon (HQPlayer-side play/next don't reach Roon).
   const allowed = (a: "play" | "pause" | "previous" | "next") => (viaRoon ? viaRoon.allowed[a] : !fromRoon);
   async function transport(action: "play" | "pause" | "stop" | "previous" | "next") {
@@ -403,10 +422,15 @@
       {/if}
     </div>
     <button class="gear" onclick={() => settings.open()} aria-label="Settings">
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"
+        ><path
+          fill="currentColor"
+          d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"
+          transform="translate(-1 0)"
+        /></svg
+      >
     </button>
   </header>
-
 
   <Settings
     bind:this={settings}
@@ -423,7 +447,8 @@
   {#if speedClass === "bad" && speed != null}
     <p class="banner warn">
       HQPlayer is falling behind real time ({speed.toFixed(2)}×): it may be overloaded.
-      {#if undoAvailable}Undo the last change below, or pick a lighter filter or modulator.{:else}Try a lighter filter or modulator.{/if}
+      {#if undoAvailable}Undo the last change below, or pick a lighter filter or modulator.{:else}Try a lighter filter or
+        modulator.{/if}
     </p>
   {/if}
   {#if online === "live" && slow}
@@ -470,7 +495,8 @@
         <div class="seek">
           <span>{mmss(snap.status.position)}</span>
           {#if snap.status.length > 0}
-            <progress max={snap.status.length} value={Math.min(snap.status.position, snap.status.length)} aria-label="Position"></progress>
+            <progress max={snap.status.length} value={Math.min(snap.status.position, snap.status.length)} aria-label="Position"
+            ></progress>
             <span>{mmss(snap.status.length)}</span>
           {/if}
         </div>
@@ -492,12 +518,24 @@
         {#if fromRoon && !viaRoon}
           <!-- Roon is the source and the Roon link isn't set up: HQPlayer-side play and
                next don't reach Roon (measured), so offer only Stop. -->
-          <button class="tbtn stop" onclick={() => transport("stop")} disabled={tbusy || snap.status.state === 0} title={ROON_NOTE} aria-label="Stop">
+          <button
+            class="tbtn stop"
+            onclick={() => transport("stop")}
+            disabled={tbusy || snap.status.state === 0}
+            title={ROON_NOTE}
+            aria-label="Stop"
+          >
             <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 6h12v12H6z" /></svg>
             <span>Stop</span>
           </button>
         {:else}
-          <button class="tbtn" onclick={() => transport("previous")} disabled={tbusy || !allowed("previous")} title="Previous" aria-label="Previous track">
+          <button
+            class="tbtn"
+            onclick={() => transport("previous")}
+            disabled={tbusy || !allowed("previous")}
+            title="Previous"
+            aria-label="Previous track"
+          >
             <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 5h2v14H6zM20 5v14L9 12z" /></svg>
           </button>
           <button
@@ -513,21 +551,31 @@
               <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M8 5v14l11-7z" /></svg>
             {/if}
           </button>
-          <button class="tbtn" onclick={() => transport("next")} disabled={tbusy || !allowed("next")} title="Next" aria-label="Next track">
+          <button
+            class="tbtn"
+            onclick={() => transport("next")}
+            disabled={tbusy || !allowed("next")}
+            title="Next"
+            aria-label="Next track"
+          >
             <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 5h2v14h-2zM4 5l11 7-11 7z" /></svg>
           </button>
         {/if}
       </div>
       <dl class="side">
         <dt>Source</dt>
-        <dd>{snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}</dd>
+        <dd>
+          {snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}
+        </dd>
         <dt title={speedTitle}>Processing</dt>
         <dd class="speed {speedClass}" title={speedTitle}>{speed == null ? "—" : SPEED_LABEL[speedClass]}</dd>
       </dl>
       {#if caps}
         <!-- Volume belongs with playback: compact, on the Now card. -->
         <div class="vol">
-          <button class="round" onclick={() => step(-prefs.volumeStep)} disabled={busy} aria-label="Down {prefs.volumeStep} dB">−</button>
+          <button class="round" onclick={() => step(-prefs.volumeStep)} disabled={busy} aria-label="Down {prefs.volumeStep} dB"
+            >−</button
+          >
           <input
             type="range"
             min={caps.volumeRange.min}
@@ -540,7 +588,9 @@
             aria-label="Volume"
             title="{caps.volumeRange.min} to {caps.volumeRange.max} dB"
           />
-          <button class="round" onclick={() => step(prefs.volumeStep)} disabled={busy} aria-label="Up {prefs.volumeStep} dB">+</button>
+          <button class="round" onclick={() => step(prefs.volumeStep)} disabled={busy} aria-label="Up {prefs.volumeStep} dB"
+            >+</button
+          >
           <output>{vol.toFixed(1)}<small> dB</small></output>
         </div>
         {#if vol > RECOMMENDED_MAX_VOLUME_DB}
@@ -553,23 +603,23 @@
       <!-- Most frequent jobs, kept above the fold: filters, then dither/modulator, then presets. -->
       <section class="card list quick" title="1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.">
         <Picker
-            label="1x filter"
-            hint={inUse === "1x" ? "in use" : ""}
-            active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
-            items={filterItems("1x")}
-            current={nameAt(caps.filters, snap.state.filter1x)}
-            disabled={busy}
-            onpick={(i) => apply({ filter1x: i.name })}
-          />
+          label="1x filter"
+          hint={inUse === "1x" ? "in use" : ""}
+          active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
+          items={filterItems("1x")}
+          current={nameAt(caps.filters, snap.state.filter1x)}
+          disabled={busy}
+          onpick={(i) => apply({ filter1x: i.name })}
+        />
         <Picker
-            label="Nx filter"
-            hint={inUse === "Nx" ? "in use" : ""}
-            active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
-            items={filterItems("Nx")}
-            current={nameAt(caps.filters, snap.state.filterNx)}
-            disabled={busy}
-            onpick={(i) => apply({ filterNx: i.name })}
-          />
+          label="Nx filter"
+          hint={inUse === "Nx" ? "in use" : ""}
+          active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
+          items={filterItems("Nx")}
+          current={nameAt(caps.filters, snap.state.filterNx)}
+          disabled={busy}
+          onpick={(i) => apply({ filterNx: i.name })}
+        />
       </section>
       <section class="card list quick">
         <Picker
@@ -596,7 +646,7 @@
         <summary>Advanced</summary>
         <p class="help">These can stop playback. The app checks that playback recovers and rolls back if it doesn't.</p>
         <section class="card list">
-        <Picker
+          <Picker
             label="Mode"
             items={caps.modes}
             current={caps.mode.name}
@@ -638,8 +688,8 @@
           {/if}
         </section>
         <p class="help">
-          Impulse responses and matrix profiles are set up in HQPlayer itself (its Convolution and Matrix menus); the
-          control API can only switch them.
+          Impulse responses and matrix profiles are set up in HQPlayer itself (its Convolution and Matrix menus); the control API
+          can only switch them.
           {#if !caps.matrixProfiles.length}No matrix profiles are set up on this instance.{/if}
         </p>
 
@@ -649,12 +699,17 @@
             {@const k = key as "invert" | "filter20k" | "adaptive"}
             <label class="toggle">
               <span>{label}</span>
-              <input type="checkbox" role="switch" checked={snap.state[k]} disabled={busy} onchange={(e) => toggle(e.currentTarget, k)} />
+              <input
+                type="checkbox"
+                role="switch"
+                checked={snap.state[k]}
+                disabled={busy}
+                onchange={(e) => toggle(e.currentTarget, k)}
+              />
             </label>
           {/each}
         </section>
       </details>
-
     {/if}
   {:else if online === "connecting" && instances.length}
     <p class="muted">Connecting…</p>
@@ -667,88 +722,441 @@
 </footer>
 
 <style>
-  :global(body) { margin: 0; font-size: 16px; line-height: 1.4; -webkit-tap-highlight-color: transparent; }
-  main { max-width: 34rem; margin: 0 auto; padding: 16px 16px 140px; padding-top: max(16px, env(safe-area-inset-top)); }
+  :global(body) {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.4;
+    -webkit-tap-highlight-color: transparent;
+  }
+  main {
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 16px 16px 140px;
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
 
-  .top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .top h1 { font-size: 1rem; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gear { background: none; border: 0; color: var(--text-dim); padding: 8px; margin: -8px -8px -8px 0; cursor: pointer; min-width: 44px; min-height: 44px; display: grid; place-items: center; }
-  .top select { flex: 1; min-width: 0; width: 100%; font: inherit; font-size: 0.95rem; font-weight: 600; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elev); color: inherit; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); flex: none; }
-  .brand { display: flex; align-items: center; gap: 6px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-dim); font-size: 0.95rem; flex: none; }
-  .brand img { border-radius: 6px; }
-  .inst { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
-  .quick { margin-top: 10px; }
-  .vol { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; }
-  .vol input { flex: 1; min-width: 0; accent-color: var(--accent); }
-  .vol output { font-size: 1.05rem; font-variant-numeric: tabular-nums; font-weight: 600; min-width: 4.8rem; text-align: right; }
-  .vol output small { color: var(--text-dim); font-weight: 400; }
-  .vol .round { width: 34px; height: 34px; font-size: 1.1rem; }
-  .vol-note { flex: 1 1 100%; margin: 0; font-size: 0.8rem; color: var(--text-dim); }
-  .dot.live { background: var(--ok); }
-  .dot.live.slow { background: var(--warn); }
-  .dot.unreachable, .dot.lost { background: var(--danger); }
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .top h1 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .gear {
+    background: none;
+    border: 0;
+    color: var(--text-dim);
+    padding: 8px;
+    margin: -8px -8px -8px 0;
+    cursor: pointer;
+    min-width: 44px;
+    min-height: 44px;
+    display: grid;
+    place-items: center;
+  }
+  .top select {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: inherit;
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    flex: none;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    flex: none;
+  }
+  .brand img {
+    border-radius: 6px;
+  }
+  .inst {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .quick {
+    margin-top: 10px;
+  }
+  .vol {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .vol input {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--accent);
+  }
+  .vol output {
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    min-width: 4.8rem;
+    text-align: right;
+  }
+  .vol output small {
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  .vol .round {
+    width: 34px;
+    height: 34px;
+    font-size: 1.1rem;
+  }
+  .vol-note {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .dot.live {
+    background: var(--ok);
+  }
+  .dot.live.slow {
+    background: var(--warn);
+  }
+  .dot.unreachable,
+  .dot.lost {
+    background: var(--danger);
+  }
 
-  .banner { padding: 10px 14px; border-radius: 10px; margin: 0 0 12px; }
-  .banner.error { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
-  .banner.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+  .banner {
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin: 0 0 12px;
+  }
+  .banner.error {
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+    color: var(--danger);
+  }
+  .banner.warn {
+    background: color-mix(in srgb, var(--warn) 14%, transparent);
+    color: var(--warn);
+  }
 
-  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 22px 4px 8px; font-weight: 600; }
-  .card { background: var(--bg-elev); border-radius: 14px; }
-  .card.list { overflow: hidden; }
-  .help { color: var(--text-dim); font-size: 0.82rem; margin: 6px 4px 0; }
-  .muted { color: var(--text-dim); }
+  h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin: 22px 4px 8px;
+    font-weight: 600;
+  }
+  .card {
+    background: var(--bg-elev);
+    border-radius: 14px;
+  }
+  .card.list {
+    overflow: hidden;
+  }
+  .help {
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    margin: 6px 4px 0;
+  }
+  .muted {
+    color: var(--text-dim);
+  }
 
-  .now { padding: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
-  .headline { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0; }
-  .sub { display: flex; align-items: center; gap: 8px; }
-  .side { grid-template-columns: auto auto; text-align: right; font-size: 0.9rem; }
-  .transport { display: flex; align-items: center; gap: 6px; }
-  .seek { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-  .seek input, .seek progress { flex: 1; accent-color: var(--accent); }
-  .seek progress { height: 6px; }
-  .mismatch { flex: 1 1 100%; margin: 0; font-size: 0.85rem; color: var(--warn); }
-  .track { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .track img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; flex: none; background: var(--bg-elev-2); }
-  .track div { display: flex; flex-direction: column; min-width: 0; }
-  .track b, .track small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .track small { color: var(--text-dim); font-size: 0.85rem; }
-  .tbtn { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--bg-elev-2); color: var(--text); display: grid; place-items: center; cursor: pointer; }
-  .tbtn.stop { width: auto; padding: 0 16px; border-radius: 999px; gap: 6px; display: flex; font: inherit; font-weight: 600; }
-  .tbtn.main { width: 52px; height: 52px; background: var(--accent); color: var(--on-accent); }
-  .tbtn:disabled { opacity: 0.5; }
-  .side dd { font-variant-numeric: tabular-nums; }
-  .speed.ok { color: var(--ok); }
-  .speed.warn { color: var(--warn); }
-  .speed.bad { color: var(--danger); font-weight: 600; }
-  .state { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--bg-elev-2); color: var(--text-dim); align-self: center; }
-  .state.s2 { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
-  .state.s3 { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
-  .big { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .mode { color: var(--text-dim); }
-  dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
-  dt { color: var(--text-dim); }
-  dd { margin: 0; overflow-wrap: anywhere; }
+  .now {
+    padding: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+  }
+  .headline {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin: 0;
+  }
+  .sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .side {
+    grid-template-columns: auto auto;
+    text-align: right;
+    font-size: 0.9rem;
+  }
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .seek {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .seek input,
+  .seek progress {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+  .seek progress {
+    height: 6px;
+  }
+  .mismatch {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--warn);
+  }
+  .track {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .track img {
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex: none;
+    background: var(--bg-elev-2);
+  }
+  .track div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .track b,
+  .track small {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .track small {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  .tbtn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 0;
+    background: var(--bg-elev-2);
+    color: var(--text);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+  .tbtn.stop {
+    width: auto;
+    padding: 0 16px;
+    border-radius: 999px;
+    gap: 6px;
+    display: flex;
+    font: inherit;
+    font-weight: 600;
+  }
+  .tbtn.main {
+    width: 52px;
+    height: 52px;
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+  .tbtn:disabled {
+    opacity: 0.5;
+  }
+  .side dd {
+    font-variant-numeric: tabular-nums;
+  }
+  .speed.ok {
+    color: var(--ok);
+  }
+  .speed.warn {
+    color: var(--warn);
+  }
+  .speed.bad {
+    color: var(--danger);
+    font-weight: 600;
+  }
+  .state {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--bg-elev-2);
+    color: var(--text-dim);
+    align-self: center;
+  }
+  .state.s2 {
+    background: color-mix(in srgb, var(--ok) 16%, transparent);
+    color: var(--ok);
+  }
+  .state.s3 {
+    background: color-mix(in srgb, var(--warn) 16%, transparent);
+    color: var(--warn);
+  }
+  .big {
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .mode {
+    color: var(--text-dim);
+  }
+  dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 16px;
+    margin: 0;
+  }
+  dt {
+    color: var(--text-dim);
+  }
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
 
-  .round { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); color: inherit; font-size: 1.5rem; cursor: pointer; }
-  .round:disabled { opacity: 0.5; }
-  input[type="range"] { width: 100%; accent-color: var(--accent-text); }
+  .round {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: inherit;
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+  .round:disabled {
+    opacity: 0.5;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent-text);
+  }
 
-  .toggle { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; }
-  .toggle:not(:last-child) { border-bottom: 1px solid var(--border); }
-  .toggle input { width: 20px; height: 20px; accent-color: var(--accent-text); }
+  .toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    cursor: pointer;
+  }
+  .toggle:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent-text);
+  }
 
-  .advanced { margin-top: 22px; }
-  .advanced summary { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; padding: 0 4px; cursor: pointer; }
-  .advanced .help { margin: 8px 4px; }
-  .sub-h { margin-top: 14px; }
+  .advanced {
+    margin-top: 22px;
+  }
+  .advanced summary {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    font-weight: 600;
+    padding: 0 4px;
+    cursor: pointer;
+  }
+  .advanced .help {
+    margin: 8px 4px;
+  }
+  .sub-h {
+    margin-top: 14px;
+  }
 
-  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; align-items: center; opacity: 0; transform: translateY(100%); pointer-events: none; transition: opacity 0.4s, transform 0.4s; }
-  footer.show { opacity: 1; transform: none; pointer-events: auto; }
-  .msg { margin: 0; max-width: 34rem; text-align: center; font-size: 0.9rem; }
-  .msg.ok { color: var(--ok); }
-  .msg.warn { color: var(--warn); }
-  .msg.error { color: var(--danger); }
-  .msg.info { color: var(--text-dim); }
-  .undo { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--accent-text); cursor: pointer; }
+  footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    opacity: 0;
+    transform: translateY(100%);
+    pointer-events: none;
+    transition:
+      opacity 0.4s,
+      transform 0.4s;
+  }
+  footer.show {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .msg {
+    margin: 0;
+    max-width: 34rem;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+  .msg.ok {
+    color: var(--ok);
+  }
+  .msg.warn {
+    color: var(--warn);
+  }
+  .msg.error {
+    color: var(--danger);
+  }
+  .msg.info {
+    color: var(--text-dim);
+  }
+  .undo {
+    font: inherit;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--accent-text);
+    cursor: pointer;
+  }
 </style>

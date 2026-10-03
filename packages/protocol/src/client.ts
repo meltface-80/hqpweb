@@ -15,7 +15,19 @@ export const DEFAULT_PORT = 4321;
 export const MAX_REPLY = 4 * 1024 * 1024;
 
 /** Commands that change something relative to the current state: never resent. */
-const NOT_IDEMPOTENT = new Set(["Next", "Previous", "Forward", "Backward", "VolumeUp", "VolumeDown", "VolumeMute", "PlaylistAdd", "PlaylistRemove", "PlaylistMoveUp", "PlaylistMoveDown"]);
+const NOT_IDEMPOTENT = new Set([
+  "Next",
+  "Previous",
+  "Forward",
+  "Backward",
+  "VolumeUp",
+  "VolumeDown",
+  "VolumeMute",
+  "PlaylistAdd",
+  "PlaylistRemove",
+  "PlaylistMoveUp",
+  "PlaylistMoveDown",
+]);
 
 /** Anything that went wrong talking to HQPlayer: network, timeout, or a reply we couldn't read. */
 export class PeerError extends Error {
