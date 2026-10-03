@@ -8,6 +8,15 @@ import { libraryCmd, parseLibrary } from "./library.ts";
 import { PROLOG, parseDocument, type Element } from "./xml.ts";
 
 export const DEFAULT_PORT = 4321;
+/**
+ * Longest reply line accepted. Real replies are a few KB (filter lists ~10 KB);
+ * a peer that sends more without a newline is broken or hostile, and is dropped
+ * rather than buffered until the process runs out of memory.
+ */
+export const MAX_REPLY = 4 * 1024 * 1024;
+
+/** Commands that change something relative to the current state: never resent. */
+const NOT_IDEMPOTENT = new Set(["Next", "Previous", "Forward", "Backward", "VolumeUp", "VolumeDown", "VolumeMute", "PlaylistAdd", "PlaylistRemove", "PlaylistMoveUp", "PlaylistMoveDown"]);
 
 export interface ClientOptions {
   port?: number;
@@ -32,9 +41,10 @@ export function rawRequest(host: string, port: number, body: string, timeoutMs: 
     sock.setTimeout(timeoutMs, () => finish(new Error(`timeout after ${timeoutMs} ms waiting for ${host}:${port}`)));
     sock.on("connect", () => sock.write(PROLOG + body + "\n"));
     sock.on("data", (d: string) => {
+      const nl = d.indexOf("\n");
+      if (nl >= 0) return finish(null, buf + d.slice(0, nl));
       buf += d;
-      const nl = buf.indexOf("\n");
-      if (nl >= 0) finish(null, buf.slice(0, nl));
+      if (buf.length > MAX_REPLY) finish(new Error(`reply from ${host}:${port} too long`));
     });
     sock.on("error", (e) => finish(e));
     sock.on("close", () => finish(new Error(`connection closed before a complete reply from ${host}:${port}`)));
@@ -77,8 +87,10 @@ export class HqpClient {
       return await this.once(body);
     } catch (e) {
       // A reused connection may have been closed by HQPlayer while idle. Retry once
-      // on a fresh one. Safe for setters too: they all carry absolute values.
-      if (reused && (e as { stale?: boolean }).stale) return this.once(body);
+      // on a fresh one, but only commands that are safe to repeat: setters carry
+      // absolute values; Next, VolumeUp and the like don't.
+      const name = /^<(\w+)/.exec(body)?.[1] ?? "";
+      if (reused && (e as { stale?: boolean }).stale && !NOT_IDEMPOTENT.has(name)) return this.once(body);
       throw e;
     }
   }
@@ -128,12 +140,20 @@ export class HqpClient {
         this.sock = sock;
         this.buf = "";
         sock.on("data", (d: string) => {
-          this.buf += d;
+          // Search only the new chunk for line ends: rescanning the whole buffer
+          // on every chunk is quadratic.
+          let start = 0;
           let nl: number;
-          while ((nl = this.buf.indexOf("\n")) >= 0) {
-            const line = this.buf.slice(0, nl);
-            this.buf = this.buf.slice(nl + 1);
+          while ((nl = d.indexOf("\n", start)) >= 0) {
+            const line = this.buf + d.slice(start, nl);
+            this.buf = "";
+            start = nl + 1;
             this.waiting?.(line);
+          }
+          this.buf += d.slice(start);
+          if (this.buf.length > MAX_REPLY) {
+            this.buf = "";
+            sock.destroy(new Error(`reply from ${this.host}:${this.port} too long`));
           }
         });
         const lost = (e?: Error) => {

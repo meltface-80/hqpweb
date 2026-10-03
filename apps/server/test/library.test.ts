@@ -92,7 +92,7 @@ describe("cover art hardening", () => {
     expect(r.status).toBe(200);
     expect(r.headers["content-type"]).toBe("image/png");
     expect(r.headers["x-content-type-options"]).toBe("nosniff");
-    expect(r.headers["content-security-policy"]).toBe("default-src 'none'");
+    expect(r.headers["content-security-policy"]).toBe("default-src 'none'; frame-ancestors 'none'");
     expect(r.text()).toBe("PNGDATA");
   });
 

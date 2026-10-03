@@ -5,6 +5,7 @@ import type { AppConfig } from "./config.ts";
 import { HttpError, Instance, TRANSPORT_ACTIONS, type Change, type TransportAction } from "./instance.ts";
 import { LearnedStore } from "./learned.ts";
 import { serveStatic } from "./static.ts";
+import { SECURITY_HEADERS } from "./headers.ts";
 import { Registry } from "./registry.ts";
 import { PresetStore } from "./presets.ts";
 import type { DiscoverOptions, LibraryAlbum } from "@app/protocol";
@@ -86,7 +87,7 @@ const hostnameOf = (hostHeader: string) => hostHeader.replace(/:\d+$/, "").toLow
 const isIpLiteral = (h: string) => isIP(h.replace(/^\[|\]$/g, "")) !== 0;
 
 function send(res: ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+  res.writeHead(status, { ...SECURITY_HEADERS, "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
   res.end(JSON.stringify(body));
 }
 
@@ -184,10 +185,12 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       }),
   });
   const roon = opts.roon ?? new RoonLink(null);
-  const allowed = new Set([...LOOPBACK, ...(opts.allowedHosts ?? []).map((h) => h.toLowerCase())]);
+  const listedHosts = new Set((opts.allowedHosts ?? []).map((h) => h.toLowerCase()));
+  const allowed = new Set([...LOOPBACK, ...listedHosts]);
 
   const events: Handler = (req, res, inst) => {
     res.writeHead(200, {
+      ...SECURITY_HEADERS,
       "content-type": "text/event-stream",
       "cache-control": "no-cache, no-transform",
       connection: "keep-alive",
@@ -278,16 +281,17 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     const host = hostnameOf(req.headers.host ?? "");
     if (!allowed.has(host) && !isIpLiteral(host))
       throw new HttpError(403, `host "${host}" not allowed; add it to ALLOWED_HOSTS`);
-    // Writes must come from our own pages: the Origin must be the very host the
-    // request was sent to (or a listed name). A page served from any other
-    // address, IP or not, is refused.
+    // Writes must come from our own pages: the Origin must be the very host and
+    // port the request was sent to, or a listed name on its default port (a
+    // reverse proxy). Anything else, including another app on a different port
+    // of this machine, is refused.
     if (req.method !== "GET" && req.headers.origin) {
-      let originHost = "";
+      let origin: URL | null = null;
       try {
-        originHost = new URL(req.headers.origin).host.toLowerCase();
+        origin = new URL(req.headers.origin);
       } catch {}
-      const sameOrigin = originHost !== "" && originHost === (req.headers.host ?? "").toLowerCase();
-      const listed = allowed.has(hostnameOf(originHost));
+      const sameOrigin = !!origin && origin.host.toLowerCase() === (req.headers.host ?? "").toLowerCase();
+      const listed = !!origin && origin.port === "" && listedHosts.has(origin.hostname.toLowerCase());
       if (!sameOrigin && !listed) throw new HttpError(403, "cross-origin request refused");
     }
 
@@ -317,7 +321,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         "content-type": type,
         "cache-control": "max-age=86400",
         "x-content-type-options": "nosniff",
-        "content-security-policy": "default-src 'none'",
+        "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
+          "x-frame-options": "DENY",
       });
       return res.end(img.data);
     }
@@ -388,7 +393,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
           "content-type": type,
           "cache-control": "max-age=86400",
           "x-content-type-options": "nosniff",
-          "content-security-policy": "default-src 'none'",
+          "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
+          "x-frame-options": "DENY",
         });
         return res.end(pic.data);
       }

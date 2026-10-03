@@ -125,3 +125,10 @@ describe("matrix profiles", () => {
     expect(cmd.matrixSetProfile("Room EQ")).toBe('<MatrixSetProfile value="Room EQ"/>');
   });
 });
+
+describe("attribute escaping", () => {
+  it("keeps a request on one line whatever the value", async () => {
+    const { escapeAttr } = await import("../src/xml.ts");
+    expect(escapeAttr('a"b<c>&\nd\re\tf')).toBe("a&quot;b&lt;c&gt;&amp;&#10;d&#13;e&#9;f");
+  });
+});

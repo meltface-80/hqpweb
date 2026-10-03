@@ -6,7 +6,7 @@
 // node-roon-api-transport). Measured against a real core: discovery, the port
 // (9330) and that HQPlayer zones carry a source control named "HQPlayer".
 // Not yet measured: the register reply on first approval, and control results.
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
 import { decode, encode, type MooMessage } from "./moo.ts";
@@ -17,6 +17,7 @@ export type RoonAction = (typeof ROON_ACTIONS)[number];
 export const DEFAULT_ROON_PORT = 9330;
 /** Art is requested scaled to ≤ 1000 px; anything far bigger is not art. */
 const MAX_IMAGE = 5 * 1024 * 1024;
+const MAX_MESSAGE = 8 * 1024 * 1024;
 
 export interface RoonSettings {
   /**
@@ -276,9 +277,19 @@ export class RoonLink {
       throw new HttpError(502, `Roon image: ${(e as Error).message}`);
     }
     if (r.status !== 200) throw new HttpError(r.status === 404 ? 404 : 502, `Roon image: HTTP ${r.status}`);
-    const data = Buffer.from(await r.arrayBuffer());
-    if (data.length > MAX_IMAGE) throw new HttpError(502, "Roon image too large");
-    return { type: r.headers.get("content-type") ?? "", data };
+    if (Number(r.headers.get("content-length") ?? 0) > MAX_IMAGE) throw new HttpError(502, "Roon image too large");
+    // Count bytes as they arrive: a hostile "core" mustn't be able to fill memory.
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    for await (const chunk of r.body ?? []) {
+      received += chunk.length;
+      if (received > MAX_IMAGE) {
+        await r.body?.cancel().catch(() => {});
+        throw new HttpError(502, "Roon image too large");
+      }
+      chunks.push(chunk);
+    }
+    return { type: r.headers.get("content-type") ?? "", data: Buffer.concat(chunks) };
   }
 
   close() {
@@ -313,6 +324,12 @@ export class RoonLink {
       let msg: MooMessage;
       const size = typeof ev.data === "string" ? ev.data.length : (ev.data as ArrayBuffer).byteLength;
       if (size === 0) return this.emptyFrame();
+      // Zone lists are tens of KB; anything this big is not a Roon core.
+      if (size > MAX_MESSAGE) {
+        ws.close();
+        this.lost(gen, "Roon message too large");
+        return;
+      }
       try {
         msg = decode(ev.data as ArrayBuffer | string);
       } catch (e) {
@@ -523,6 +540,8 @@ export class RoonLink {
     if (!this.path || this.closed) return;
     mkdirSync(dirname(this.path), { recursive: true });
     const tmp = `${this.path}.tmp`;
+    // The file holds Roon approval tokens: owner-only, even if a stale tmp exists.
+    rmSync(tmp, { force: true });
     writeFileSync(tmp, JSON.stringify(this.settings, null, 2) + "\n", { mode: 0o600 });
     renameSync(tmp, this.path);
   }

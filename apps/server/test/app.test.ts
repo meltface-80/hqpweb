@@ -95,6 +95,28 @@ describe("request hardening", () => {
     expect(r.status).toBe(403);
   });
 
+  it("refuses another app on this machine (same name, different port)", async () => {
+    const r = await req("POST", "/api/instances/fake/change", {
+      body: { invert: true },
+      headers: { origin: "http://localhost:3000" },
+    });
+    expect(r.status).toBe(403);
+  });
+
+  it("refuses a listed name on a non-default port", async () => {
+    const r = await req("POST", "/api/instances/fake/change", {
+      body: { invert: true },
+      headers: { origin: "https://controller.example:8443" },
+    });
+    expect(r.status).toBe(403);
+  });
+
+  it("sends anti-framing headers on API responses", async () => {
+    const r = await req("GET", "/api/instances");
+    expect(r.headers["x-frame-options"]).toBe("DENY");
+    expect(String(r.headers["content-security-policy"])).toContain("frame-ancestors 'none'");
+  });
+
   it("refuses cross-origin writes", async () => {
     const r = await req("POST", "/api/instances/fake/change", {
       body: { invert: true },

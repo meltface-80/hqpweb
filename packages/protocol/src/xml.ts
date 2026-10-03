@@ -49,12 +49,16 @@ export function parseDocument(xml: string): Element {
   throw new Error(`no root element in reply: ${xml.slice(0, 120)}`);
 }
 
-function escapeAttr(v: string): string {
+/** Also escapes line breaks: the protocol is one document per line. */
+export function escapeAttr(v: string): string {
   return v
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/\n/g, "&#10;")
+    .replace(/\r/g, "&#13;")
+    .replace(/\t/g, "&#9;");
 }
 
 export function escapeText(v: string): string {

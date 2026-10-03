@@ -1,5 +1,6 @@
 // Serves the built web app (apps/web/dist) in production. Hashed assets are
 // cached for a year; index.html never, so a deploy is picked up on reload.
+import { SECURITY_HEADERS } from "./headers.ts";
 import { readFile, stat } from "node:fs/promises";
 import type { ServerResponse } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
@@ -36,9 +37,9 @@ export async function serveStatic(root: string, urlPath: string, res: ServerResp
   }
   const hashed = file.includes(`${sep}assets${sep}`);
   res.writeHead(200, {
+    ...SECURITY_HEADERS,
     "content-type": TYPES[extname(file)] ?? "application/octet-stream",
     "cache-control": hashed ? "public, max-age=31536000, immutable" : "no-cache",
-    "x-content-type-options": "nosniff",
   });
   res.end(body);
   return true;

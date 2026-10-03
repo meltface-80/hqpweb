@@ -71,7 +71,9 @@ export function discoverCores({ timeoutMs = 1500, target }: { timeoutMs?: number
       if (!p || p.type !== "R" || p.props.service_id !== ROON_CORE_SERVICE) return;
       const port = Number(p.props.http_port);
       if (!Number.isInteger(port) || port <= 0 || port > 65535) return;
-      const host = p.props._replyaddr || rinfo.address;
+      // The address the reply actually came from, not the one it claims: a spoofed
+      // `_replyaddr` could otherwise point the app at any host.
+      const host = rinfo.address;
       const core: FoundCore = { host, port };
       if (p.props.name) core.name = p.props.name;
       if (p.props.display_version) core.version = p.props.display_version;

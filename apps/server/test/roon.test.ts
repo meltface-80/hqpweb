@@ -232,7 +232,7 @@ describe("Roon API routes", () => {
     const art = await req("GET", "/api/roon/art/img1?size=100");
     expect(art.status).toBe(200);
     expect(art.headers["content-type"]).toBe("image/png");
-    expect(art.headers["content-security-policy"]).toBe("default-src 'none'");
+    expect(art.headers["content-security-policy"]).toBe("default-src 'none'; frame-ancestors 'none'");
     expect((await req("GET", "/api/roon/art/bad.key")).status).toBe(404);
 
     // The event stream carries the mapped zone, without the once-a-second seek.
