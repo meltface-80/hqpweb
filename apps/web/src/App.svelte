@@ -520,7 +520,6 @@
       <dl class="side">
         <dt>Source</dt>
         <dd>{snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}</dd>
-        {#if caps}<dt>Engine</dt><dd>{caps.engine}</dd>{/if}
         <dt title={speedTitle}>Keeping up</dt>
         <dd class="speed {speedClass}" title={speedTitle}>{speed == null ? "—" : SPEED_LABEL[speedClass]}</dd>
       </dl>
@@ -667,9 +666,9 @@
   main { max-width: 34rem; margin: 0 auto; padding: 16px 16px 140px; padding-top: max(16px, env(safe-area-inset-top)); }
 
   .top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .top h1 { font-size: 1.25rem; margin: 0; flex: 1; }
+  .top h1 { font-size: 1rem; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .gear { background: none; border: 0; color: var(--text-dim); padding: 8px; margin: -8px -8px -8px 0; cursor: pointer; min-width: 44px; min-height: 44px; display: grid; place-items: center; }
-  .top select { flex: 1; min-width: 0; width: 100%; font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elev); color: inherit; }
+  .top select { flex: 1; min-width: 0; width: 100%; font: inherit; font-size: 0.95rem; font-weight: 600; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elev); color: inherit; }
   .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); flex: none; }
   .brand { display: flex; align-items: center; gap: 6px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-dim); font-size: 0.95rem; flex: none; }
   .brand img { border-radius: 6px; }
