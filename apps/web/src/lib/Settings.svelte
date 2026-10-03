@@ -76,7 +76,7 @@
       if (found.length === 0)
         instMsg = {
           kind: "error",
-          text: "Scan found no HQPlayer. Scanning needs Docker host networking and multicast on your network (see README → Discovery); add by address instead.",
+          text: "Scan found no HQPlayer. Scanning needs Docker host networking and multicast on your network (see README → Options); add by address instead.",
         };
     } catch (err) {
       instMsg = { kind: "error", text: (err as Error).message };

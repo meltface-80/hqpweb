@@ -1,65 +1,47 @@
+<img src="apps/web/public/icon-192.png" alt="" width="72" height="72" align="right" />
+
 # hqpweb
 
-**A web controller for HQPlayer.** A small, modern controller for Signalyst HQPlayer: pick an instance, see what it
-is doing, and change filters, modulator/dither, volume, mode and output rate from any
-phone, tablet or browser.
+**A web controller for HQPlayer.** Change filters, dither/modulator, volume, mode and
+rate from any phone or browser, and see whether HQPlayer is keeping up.
 
-**Status: pre-alpha.** It works against HQPlayer Desktop 5; Embedded is untested.
-Design and measured protocol behaviour: [docs/design-v1.md](docs/design-v1.md).
-
-It speaks HQPlayer's published control protocol (XML over TCP 4321), the one Signalyst
-publishes as MIT-licensed source in the HQPlayer SDK. It doesn't play music: Roon, or
-whatever else drives HQPlayer, keeps doing that.
+**Status: pre-alpha.** Works with HQPlayer Desktop 5; Embedded and v6 are untested.
 
 > Not affiliated with, endorsed by, or supported by Signalyst. HQPlayer is a
 > trademark of its owner, used here only to identify compatible software.
 
+## How it fits
+
+```mermaid
+flowchart LR
+  you["You<br/>(phone / browser)"] -->|"HTTP :4380"| hqpweb
+  hqpweb -->|"control, TCP 4321"| hqp["HQPlayer"]
+  roon["Roon Core<br/>(optional)"] -->|"music"| hqp
+  hqp -->|"audio"| dac["DAC / endpoint"]
+  hqpweb -.->|"now playing, transport<br/>TCP 9330 (optional)"| roon
+```
+
+hqpweb never plays music itself. It talks to HQPlayer through HQPlayer's published
+control protocol, and to Roon (if you want) through Roon's extension API.
+
 ## What it does
 
-- **Live status.** Output rate, mode, source rate, playback state, engine version.
-- **Quick changes.** Nx and 1x filters, modulator/dither, volume, polarity, 20 kHz
+- **Quick changes:** 1x and Nx filters, dither or modulator, volume, presets.
+- **Advanced:** mode, output rate, convolution, matrix profile, polarity, 20 kHz
   filter, adaptive volume.
-- **Mode and output rate,** under "Advanced", along with convolution on/off and
-  matrix profile selection. Both are switch-only: they're set up in HQPlayer itself.
-- **Presets.** Named one-tap bundles of settings, shared by all instances. Each
-  shows whether applying it is already active, a quick change, or a major one.
-  Settings an instance can't take are skipped and listed.
-- **Warnings before you pick.** Combinations HQPlayer's documented rules say won't
-  play are marked (for example a filter that needs a whole-number ratio), and the
-  app warns when an instance falls behind real time or answers slowly.
-- **Every change is checked.** The app reads HQPlayer's settings back instead of
-  trusting its "OK".
-- **Automatic rollback.** If a change made during playback stops playback or leaves
-  HQPlayer unable to keep up, the app puts the previous settings back. It remembers
-  the combination and warns about it next time.
-- **Undo** for the last change.
-- **Roon now playing (optional).** If Roon feeds your HQPlayer, the app can show
-  the track and cover art and give you working play/pause, previous and next. Off
-  until you switch it on; nothing else needs it.
-- **Volume safety.**
-  - It is never raised by more than 6 dB in one step, and never above HQPlayer's
-    own maximum.
-  - An undo or rollback won't raise it either if someone else changed it in the
-    meantime.
+- **Checked and reversible:** every change is read back from HQPlayer. If one stops
+  playback or HQPlayer can't keep up, the app puts the old settings back, remembers
+  the combination, and warns you next time. Undo is one tap.
+- **HQP status:** whether HQPlayer is processing in real time.
+- **Volume safety:** never raised by more than 6 dB at once; undo and rollback
+  never raise it.
+- **Roon (optional):** track, cover art, seek and working play/pause/skip for the
+  Roon zone that feeds HQPlayer.
 
-## Tested with
+## Install
 
-| HQPlayer | Platform | Status |
-|---|---|---|
-| Desktop 5.32 | macOS (Apple Silicon) | works, including SDM / DSD1024 |
-| Desktop 5.35 | Linux (container, CUDA) | works, PCM |
-| Desktop 5.28 | Linux (VM) | reads verified; changes untested |
-| Desktop 6.x, Embedded, Windows | — | **untested**: reports welcome ([TESTING.md](TESTING.md)) |
-
-The controller itself runs in Docker on Linux (verified twice from this README on a
-fresh machine). Docker Desktop on macOS or Windows should work, but without
-discovery (no host networking); add instances by address.
-
-## Install (Docker)
-
-You need **git** and **Docker** (with Compose) on a machine that can reach your
-HQPlayer on TCP port 4321, and a user that can run `docker` (root, `sudo`, or a
-member of the `docker` group).
+You need **git** and **Docker** (with Compose) on a machine that can reach HQPlayer on
+TCP 4321.
 
 ```sh
 git clone https://github.com/statelycurmudgeon/hqpweb.git
@@ -67,101 +49,70 @@ cd hqpweb
 docker compose up -d --build
 ```
 
-Open `http://<this machine's IP>:4380`, go to **Settings → Instances**, and add your
-HQPlayer by its address. That's it. (**Scan now** finds instances automatically
-only with host networking; see Discovery under Options.)
+Open `http://<this machine's IP>:4380`, then **Settings → General → Add** your
+HQPlayer's address (leave the name blank to use HQPlayer's own). On a phone, "Add to
+Home Screen" makes it a full-screen app.
 
-On a phone, "Add to Home Screen" gives you a full-screen app.
+**Update:** read [CHANGELOG.md](CHANGELOG.md), then `git pull && docker compose up -d --build`.
+Your instances and presets are kept.
 
-### Updating
+## Options
 
-Read [CHANGELOG.md](CHANGELOG.md) for upgrade notes first, then:
+Set these in a `.env` file next to `docker-compose.yml`, then `docker compose up -d`.
 
-```sh
-git pull
-docker compose up -d --build
-```
+| Variable | Default | Use |
+| --- | --- | --- |
+| `PORT` | `4380` | Port the app listens on. |
+| `BIND_ADDRESS` | `0.0.0.0` | Interface to publish on, e.g. `127.0.0.1` behind a local proxy. |
+| `ALLOWED_HOSTS` | (none) | Host names you open it by, comma-separated (IP addresses always work). Needed behind a reverse proxy. |
 
-Your instances, presets and learned failures are kept (in a Docker volume).
-
-### Options
-
-Put these in a `.env` file next to `docker-compose.yml` (create it if needed). After
-changing any option, including the override file below, run `docker compose up -d`.
-
-- **Opening it by a name instead of an IP**, e.g. `http://controller.home.arpa:4380`
-  or through a reverse proxy: `ALLOWED_HOSTS=controller.home.arpa` (several names
-  comma-separated). IP addresses always work. Names must be listed, which protects
-  the app from malicious web pages on your network (DNS rebinding).
-- **A different port:** `PORT=8080`.
-- **Publishing on one interface only**, e.g. when a reverse proxy runs on the same
-  machine: `BIND_ADDRESS=127.0.0.1`.
-
-**Discovery.** Scan now finds HQPlayer on the same network segment using UDP
-multicast, which needs Docker's **host networking** (Linux only). Without it, add
-instances by address; everything else works. To turn it on, create
-`docker-compose.override.yml`:
+**Discovery** ("Scan now") uses multicast, so it needs host networking (Linux only)
+and only sees the same network segment. Otherwise add instances by address. To turn
+it on, create `docker-compose.override.yml`:
 
 ```yaml
 services:
   controller:
     network_mode: host
     ports: !reset []
+    # BIND_ADDRESS doesn't apply with host networking; limit it here instead:
+    # environment: { HOST: 127.0.0.1 }
 ```
 
-Multicast never crosses VLANs or routers, so instances elsewhere are always added by
-address. If Scan finds nothing even on the same network, your switch or hypervisor
-bridge may be filtering multicast (IGMP snooping without a querier): add by address,
-or fix that on the network side. The container must reach each instance on TCP 4321; across VLANs that may
-need a firewall rule.
+**Reverse proxy:** pass the `Host` header through, list the name in `ALLOWED_HOSTS`,
+and don't buffer `/api/instances/*/events`.
 
-**Behind a reverse proxy** (Caddy, nginx, Traefik): forward the original `Host`
-header (most do by default), list that name in `ALLOWED_HOSTS`, and don't buffer
-`/api/instances/*/events` (a server-sent event stream; the app sends
-`X-Accel-Buffering: no`).
+## Roon (optional)
 
-**Roon (optional).** In Settings → Roon, switch it on, then **Find** the core or
-enter its address (port 9330). In Roon, open Settings → Extensions and enable the
-`hqpweb …` entry, then pick which Roon zone feeds each HQPlayer (Roon doesn't say
-which one, so it's a one-time choice; only zones that output through HQPlayer are
-listed). Find uses
-multicast like Scan, so it needs the same host networking; the address always works.
-The container must reach the core on TCP 9330. Each install of the app has its own
-approval: a Roon Core keeps one connection per extension, so two installs sharing
-one would keep knocking each other off.
+1. **Settings → Roon:** switch it on, then **Find** the core or enter its address
+   (port 9330).
+2. **In Roon → Settings → Extensions,** enable `hqpweb …`.
+3. **Back in Settings → Roon,** pick the Roon zone that feeds each HQPlayer.
 
-**Config by file** (optional): the app keeps `instances.json`, `presets.json`, `roon.json` and
-`learned.json` in its volume. To copy them out or in:
-`docker compose cp controller:/config ./config-backup` /
-`docker compose cp ./config-backup/. controller:/config`. Hand-edit
-`instances.json` only while the container is stopped; the format is in
-[config/instances.example.json](config/instances.example.json).
+The container must reach the core on TCP 9330. Each install of hqpweb needs its own
+approval in Roon.
 
-### Security
+## Security
 
-The app has **no login**. Anyone who can reach it can change your HQPlayer settings,
-just as anyone who can reach HQPlayer's port 4321 already can. Run it on a network
-you trust, or put an authenticating proxy in front. Never expose it to the internet.
+There's **no login**: anyone who can reach the app can change HQPlayer, just as anyone
+who can reach port 4321 already can. Keep it on a network you trust, or put an
+authenticating proxy in front. Never expose it to the internet.
 
-By default Docker publishes the port on every interface of the host; see
-`BIND_ADDRESS` under Options to narrow that. With host networking, set
-`HOST=127.0.0.1` in the override file's `environment` instead.
+## Tested with
+
+| HQPlayer | Platform | Status |
+| --- | --- | --- |
+| Desktop 5.17.2 | Linux (container, CUDA) | works (PCM) |
+| Desktop 5.17.2 | Linux (VM) | reads and Roon verified; changes not yet |
+| Desktop 5.17.2 | macOS (Apple Silicon) | reads verified; changes tested on 5.15 (SDM, DSD1024) |
+| Desktop 6, Embedded, Windows | — | **untested**: reports welcome ([TESTING.md](TESTING.md)) |
 
 ## How this was made
 
-I built hqpweb working with an AI coding assistant (Claude, from Anthropic). I
-couldn't have done it on my own. I tried hard to make it solid and secure:
-- HQPlayer's behaviour comes from measurements on real instances, written down
-  in [docs/design-v1.md](docs/design-v1.md), and the code says where something is
-  measured and where it's a guess;
-- there are automated tests, including a fake HQPlayer to test against;
-- every change that could disturb playback is checked and rolled back if it fails;
-- the code has had security reviews.
+I built hqpweb with an AI coding assistant (Claude, from Anthropic); I couldn't have
+done it alone. HQPlayer's behaviour was measured on real instances
+([docs/design-v1.md](docs/design-v1.md)), there are automated tests against a fake
+HQPlayer, and the code has had security reviews. It will still have rough edges, and
+I'd love your feedback: [TESTING.md](TESTING.md).
 
-It will still have rough edges. I'd love your feedback, especially where it falls
-short: open an issue (see [TESTING.md](TESTING.md)).
-
-## Development
-
-See [docs/development.md](docs/development.md). In short: Node 24, `npm install`,
-`npm test`, and a fake HQPlayer server for working without a real one.
+Development: [docs/development.md](docs/development.md).
