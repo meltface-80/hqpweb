@@ -700,9 +700,11 @@ export class Instance {
     // A jump either way is a track change or seek: start over.
     if (last && (status.position < last.pos - 0.5 || status.position - last.pos > (now - last.t) / 1000 + 3)) this.trail = [];
     this.trail.push({ t: now, pos: status.position });
-    this.trail = this.trail.filter((p) => now - p.t <= this.speedWindowMs);
+    // Keep a little more than the window, so uneven polling (it backs off to 10 s
+    // when HQPlayer is slow) can't leave the trail permanently too short.
+    this.trail = this.trail.filter((p) => now - p.t <= this.speedWindowMs * 1.5);
     const first = this.trail[0]!;
-    if (now - first.t < this.speedWindowMs * 0.9 || this.trail.length < 3) return null;
+    if (now - first.t < this.speedWindowMs || this.trail.length < 3) return null;
     const n = this.trail.length;
     const mt = this.trail.reduce((a, p) => a + (p.t - first.t) / 1000, 0) / n;
     const mp = this.trail.reduce((a, p) => a + p.pos, 0) / n;

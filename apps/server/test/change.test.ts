@@ -381,6 +381,20 @@ describe("live health in the status stream", () => {
     expect(d.health.speed).toBeGreaterThan(0.8);
   });
 
+  it("still reports speed when polls are spaced widely (as when polling backs off)", async () => {
+    // Regression: the trail was cut to exactly the window but had to span 90% of it,
+    // so polls spaced more than 10% of the window apart never produced a reading.
+    fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
+    await fake.listen();
+    app = buildApp(
+      { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] },
+      { pollMs: 150, speedWindowMs: 400 },
+    );
+    base = await app.listen(0, "127.0.0.1");
+    const d = await events(20, (x) => x.health?.speed != null);
+    expect(d?.health.speed).toBeGreaterThan(0.8);
+  });
+
   it("shows an instance falling behind (simulated overload)", async () => {
     fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, speed: () => 0.5 });
     await fake.listen();
