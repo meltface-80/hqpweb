@@ -295,7 +295,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     if (req.method === "GET" && path === "/api/health") return send(res, 200, { ok: true });
     if (path === "/api/instances") {
       if (req.method === "GET") return send(res, 200, await registry.list());
-      if (req.method === "POST") return send(res, 200, registry.add(parseNewInstance(await readJson(req))));
+      if (req.method === "POST") return send(res, 200, await registry.add(parseNewInstance(await readJson(req))));
     }
     if (req.method === "POST" && path === "/api/discover") {
       await registry.scan();
@@ -402,6 +402,12 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     }
 
     const one = /^\/api\/instances\/([^/]+)$/.exec(path);
+    if (one && req.method === "PATCH") {
+      const body = (await readJson(req)) as { name?: unknown };
+      if (typeof body !== "object" || body === null || typeof body.name !== "string" || Object.keys(body).length !== 1)
+        throw new HttpError(400, "body must be { name }");
+      return send(res, 200, registry.rename(decodeURIComponent(one[1]!), body.name));
+    }
     if (one && req.method === "DELETE") {
       registry.remove(decodeURIComponent(one[1]!));
       roon.forgetInstance(decodeURIComponent(one[1]!));

@@ -2,7 +2,7 @@
 // merged with instances found by discovery, deduplicated, each with a health
 // check. Discovered-only instances are usable without saving them.
 import { lookup } from "node:dns/promises";
-import { discover, type DiscoverOptions, type Discovered } from "@app/protocol";
+import { HqpClient, discover, type DiscoverOptions, type Discovered } from "@app/protocol";
 import { HttpError, Instance } from "./instance.ts";
 import { ID_PATTERN, saveConfig, type AppConfig, type InstanceConfig } from "./config.ts";
 
@@ -207,10 +207,24 @@ export class Registry {
 
   // ---- edits (Settings) ---------------------------------------------------------
 
-  add(input: { name: string; host: string; port?: number; id?: string }): InstanceConfig {
-    const name = input.name.trim();
+  /**
+   * Adds an instance. A blank name becomes the name HQPlayer reports for itself
+   * (GetInfo), or the host if it doesn't answer within 3 s.
+   */
+  async add(input: { name: string; host: string; port?: number; id?: string }): Promise<InstanceConfig> {
+    let name = input.name.trim();
     const host = input.host.trim();
     const port = input.port ?? 4321;
+    if (!name && /^[A-Za-z0-9.\-:[\]]{1,253}$/.test(host)) {
+      const probe = new HqpClient(host, { port, timeoutMs: 3000 });
+      try {
+        name = (await probe.info()).name.trim().slice(0, 64);
+      } catch {
+      } finally {
+        probe.close();
+      }
+      name ||= host.slice(0, 64);
+    }
     if (!name || name.length > 64) throw new HttpError(400, "name must be 1–64 characters");
     if (!/^[A-Za-z0-9.\-:[\]]{1,253}$/.test(host)) throw new HttpError(400, "host must be a hostname or IP address");
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new HttpError(400, "port must be 1–65535");
@@ -220,6 +234,17 @@ export class Registry {
     for (let n = 2; this.config.instances.some((i) => i.id === id); n++) id = `${slug(name)}-${n}`;
     const cfg: InstanceConfig = { id, name, host, port };
     this.config.instances.push(cfg);
+    this.persist();
+    return cfg;
+  }
+
+  /** Renames a configured instance; its id (and so its Roon zone and learned failures) stays. */
+  rename(id: string, name: string): InstanceConfig {
+    const cfg = this.config.instances.find((i) => i.id === id);
+    if (!cfg) throw new HttpError(404, "not a configured instance");
+    const n = name.trim();
+    if (!n || n.length > 64) throw new HttpError(400, "name must be 1–64 characters");
+    cfg.name = n;
     this.persist();
     return cfg;
   }

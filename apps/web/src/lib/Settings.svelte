@@ -41,6 +41,17 @@
     }
   }
 
+  async function rename(i: Inst) {
+    const name = prompt(`Rename ${i.name}`, i.name)?.trim();
+    if (!name || name === i.name) return;
+    try {
+      await api.renameInstance(i.id, name);
+      await onchange();
+    } catch (err) {
+      instMsg = { kind: "error", text: (err as Error).message };
+    }
+  }
+
   async function remove(i: Inst) {
     if (!confirm(`Remove ${i.name} (${i.host}:${i.port})?`)) return;
     await api.removeInstance(i.id);
@@ -142,6 +153,7 @@
               </small>
             </div>
             {#if i.source === "configured"}
+              <button class="small" onclick={() => rename(i)}>Rename</button>
               <button class="small" onclick={() => remove(i)}>Remove</button>
             {:else}
               <button class="small" onclick={() => keep(i)}>Save</button>
@@ -158,7 +170,7 @@
       <button class="small" onclick={scan} disabled={scanning}>{scanning ? "Scanning…" : "Scan now"}</button>
 
       <form class="add" onsubmit={addInstance}>
-        <input bind:value={addName} placeholder="Name, e.g. Office" required maxlength="64" aria-label="Name" />
+        <input bind:value={addName} placeholder="Name (optional)" maxlength="64" aria-label="Name" title="Leave blank to use the name HQPlayer reports" />
         <input bind:value={addHost} placeholder="Host or IP" required aria-label="Host" autocapitalize="off" autocorrect="off" spellcheck="false" />
         <input bind:value={addPort} type="number" min="1" max="65535" aria-label="Port" class="port" />
         <button class="small" type="submit">Add</button>

@@ -139,6 +139,8 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }),
+  renameInstance: (id: string, name: string) =>
+    call<{ id: string; name: string }>(`/api/instances/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) }),
   removeInstance: (id: string) => call<{ ok: true }>(`/api/instances/${id}`, { method: "DELETE" }),
   discover: () => call<Inst[]>("/api/discover", { method: "POST" }),
   capabilities: (id: string) => call<Capabilities>(`/api/instances/${id}/capabilities`),
