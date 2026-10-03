@@ -107,6 +107,17 @@ authenticating proxy in front. Never expose it to the internet.
 | Desktop 5.17.2 | macOS (Apple Silicon) | reads verified; changes tested on 5.15 (SDM, DSD1024) |
 | Desktop 6, Embedded, Windows | — | **untested**: reports welcome ([TESTING.md](TESTING.md)) |
 
+## Why can't I switch profiles or endpoints?
+
+HQPlayer's control protocol doesn't offer it. hqpweb can list the configurations you
+saved in HQPlayer, but loading one needs an encrypted handshake whose key only ships
+in Signalyst's own Client, and nothing in the protocol selects the output device or
+NAA. HQPlayer Embedded can switch profiles through its own web page, but Desktop has
+no equivalent, and we'd rather keep one way of doing things for both than build and
+maintain two. Signalyst has said profile switching over the control API is planned;
+when it arrives, hqpweb will use it. Until then, use HQPlayer's Client (or Embedded's
+web page) to change rooms, and hqpweb's presets for filters and dither.
+
 ## How this was made
 
 I built hqpweb with an AI coding assistant (Claude, from Anthropic); I couldn't have
