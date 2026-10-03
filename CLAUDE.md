@@ -1,37 +1,31 @@
-# CLAUDE.md — hqplayer-web-controller
+# CLAUDE.md — guidance for AI assistants (and humans) working on hqpweb
 
-A modern web controller for Signalyst HQPlayer. The design is
+A web controller for Signalyst HQPlayer. The design is
 [`docs/design-v1.md`](docs/design-v1.md). Read it first: its §2 is a **measured fact
 base**, not speculation, and the design follows from it.
 
-**If `HANDOFF.local.md` exists, read it next.** It is git-ignored and holds the
-operator's real environment, the rules for touching live HQPlayer instances, and how
-to reach the session that did the groundwork.
+A git-ignored `HANDOFF.local.md`, if present, describes a maintainer's own test
+environment. Read it if it exists; never commit anything from it.
 
 ## Hard rules
 
-1. **This repo will be PUBLIC. No personal or location data, ever** (operator's firm
-   requirement, 2026-10-02).
-   - Never put real names, email addresses, **place names (the operator's homes or
-     sites)**, hostnames, domain names, IP addresses, or anything from the operator's
-     music library (paths, collection names, artists, albums) into **any** git
-     content: files, **commit messages**, tags, branch names. Use invented examples
-     (`192.0.2.x`, "Example Artist").
+1. **This repo is public. No personal or location data, ever.**
+   - Never put real names, email addresses, place names, hostnames, domain names, IP
+     addresses, or anything from a real music library (paths, collection names,
+     artists, albums) into **any** git content: files, commit messages, tags, branch
+     names. Use invented examples (`192.0.2.x`, "Example Artist").
+   - Commit dates must be UTC: commit with `TZ=UTC`.
    - The hooks in `tools/hooks/` enforce this (`git config core.hooksPath tools/hooks`):
-     `commit-msg` checks messages, and `pre-push` checks every outgoing commit's files and
-     messages. Private terms live in the git-ignored `pii-denylist.local`. **Never bypass
-     them (`--no-verify`)**; fix the text. Add new private terms to the denylist as they
-     come up.
-   - Anything about the operator's own network goes in `*.local.md`, which is
+     `commit-msg` checks messages; `pre-push` checks every outgoing commit's files,
+     messages, dates and identity. Private terms go in the git-ignored
+     `pii-denylist.local`. **Never bypass the hooks (`--no-verify`)**; fix the text.
+   - Anything about a maintainer's own network goes in `*.local.md`, which is
      git-ignored.
-   - Before any push that could become public, run the operator's preflight scanner
-     (path in `HANDOFF.local.md`).
-2. **Git identity is already correct globally** (a pseudonym). Never set
-   `user.name` / `user.email` locally, and never add `Co-Authored-By` lines that
-   carry a real name.
+2. **Never set `user.name` / `user.email` in this repo**, and never add
+   `Co-Authored-By` lines that carry a real name.
 3. **Live HQPlayer instances are someone's music system.**
    - **Reads** (`GetInfo`, `Status`, `State`, list commands) are always fine.
-   - **Writes** (any `Set*`, `Volume`, mode, rate) need the operator's OK for that
+   - **Writes** (any `Set*`, `Volume`, mode, rate) need the owner's OK for that
      session, and must follow this protocol:
      1. snapshot `State`;
      2. apply;
@@ -52,10 +46,11 @@ to reach the session that did the groundwork.
 - **Say what you did not verify.** The fact base labels measured versus inferred;
   keep that discipline in code comments and PRs.
 - **Commit with an explicit pathspec** (`git commit -m "…" -- path …`). Other
-  sessions may share this working tree's index.
-- **Licence:** MIT, confirmed by the operator 2026-10-02; `LICENSE` added.
-- **README must keep the non-affiliation notice.** Don't use "HQPlayer" as the leading
-  brand word in any app or package name.
+  sessions may share the working tree's index.
+- **Licence:** MIT (`LICENSE`); third-party notices in `THIRD_PARTY_NOTICES.md`.
+- **Don't copy HQPlayer's manual** (its EULA forbids it): paraphrase and cite sections.
+- **README must keep the non-affiliation notices.** Don't use "HQPlayer" or "Roon"
+  as the leading brand word in any app or package name.
 
 ## Tools
 

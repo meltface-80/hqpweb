@@ -54,7 +54,6 @@
   });
   let volDraft = $state<number | null>(null);
   let settings: Settings;
-  /** Consecutive status readings with playback below 0.9× real time. */
   // Local, so a re-render can't snap it shut; Settings only sets the starting state.
   let advancedOpen = $state(prefs.advancedOpen);
   // Speed vs real time: the server fits Status position over 30 s (no access to
@@ -79,6 +78,7 @@
       : `HQPlayer is processing at ${speed.toFixed(3)}× real time over the last 30 s. Below 1.0 it can't keep up and audio will drop. Brief dips during a change are normal.`,
   );
   let offlineSince = $state<Date | null>(null);
+  const slow = $derived((snap?.health?.latencyMs ?? 0) > 1500);
   const dotTitle = $derived(
     online === "unreachable"
       ? `Not responding${offlineSince ? ` since ${offlineSince.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}: ${offlineReason}`
@@ -88,7 +88,6 @@
           ? "Lost connection to the app's server"
           : "Connecting…",
   );
-  const slow = $derived((snap?.health?.latencyMs ?? 0) > 1500);
 
   /** Load the instance list; keep the selection if it still exists. */
   async function refreshInstances() {
@@ -294,7 +293,8 @@
     }
   }
 
-  const RISKY: (keyof Change)[] = ["mode", "rate", "filterNx", "filter1x", "shaper"];
+  // Same list as the server's RISKY (instance.ts): changes that can stop playback.
+  const RISKY: (keyof Change)[] = ["mode", "rate", "filterNx", "filter1x", "shaper", "convolution", "matrixProfile"];
   const apply = (change: Change) => {
     const risky = (Object.keys(change) as (keyof Change)[]).some((k) => RISKY.includes(k));
     const label = risky && snap?.status.state === 2 ? "Applying and checking playback" : "Applying";
@@ -311,6 +311,7 @@
   let roonZone = $state<RoonZone | null>(null);
   // Roon drives the card only while it's the source (or HQPlayer is idle); when
   // HQPlayer plays something else, its own playlist say, HQPlayer's controls apply.
+  const fromRoon = $derived(snap?.status.source?.song === "Roon");
   const viaRoon = $derived(roonZone && (fromRoon || snap?.status.state === 0) ? roonZone : null);
   const playing = $derived(viaRoon ? viaRoon.state === "playing" : snap?.status.state === 2);
   let seekBase = $state<{ seek: number; at: number } | null>(null);
@@ -351,7 +352,6 @@
    * Next don't reach Roon, so after a pause only Roon can resume. With Roon as the
    * source, leave transport to Roon.
    */
-  const fromRoon = $derived(snap?.status.source?.song === "Roon");
   const ROON_NOTE = "Playing from Roon: Stop stops HQPlayer; play, skip and resume are in Roon (or connect Roon in Settings → Roon)";
   // With a Roon zone, controls go to Roon (HQPlayer-side play/next don't reach Roon).
   const allowed = (a: "play" | "pause" | "previous" | "next") => (viaRoon ? viaRoon.allowed[a] : !fromRoon);
@@ -656,7 +656,7 @@
       </details>
 
     {/if}
-  {:else if online === "connecting"}
+  {:else if online === "connecting" && instances.length}
     <p class="muted">Connecting…</p>
   {/if}
 </main>
@@ -700,7 +700,7 @@
   .muted { color: var(--text-dim); }
 
   .now { padding: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
-  .headline { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0 !important; }
+  .headline { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0; }
   .sub { display: flex; align-items: center; gap: 8px; }
   .side { grid-template-columns: auto auto; text-align: right; font-size: 0.9rem; }
   .transport { display: flex; align-items: center; gap: 6px; }
@@ -721,7 +721,6 @@
   .speed.ok { color: var(--ok); }
   .speed.warn { color: var(--warn); }
   .speed.bad { color: var(--danger); font-weight: 600; }
-  .headline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .state { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--bg-elev-2); color: var(--text-dim); align-self: center; }
   .state.s2 { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
   .state.s3 { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }

@@ -1,5 +1,5 @@
 // MOO: the message framing of Roon's extension API, one message per WebSocket
-// binary frame. Written from Roon's Apache-2.0 node-roon-api (moo.js):
+// binary frame. Protocol as in Roon's Apache-2.0 node-roon-api (moo.js); no code copied:
 //
 //   MOO/1 REQUEST com.roonlabs.transport:2/control
 //   Request-Id: 7

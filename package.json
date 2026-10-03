@@ -1,5 +1,12 @@
 {
   "name": "hqpweb",
+  "version": "0.1.0-alpha.1",
+  "description": "A web controller for Signalyst HQPlayer",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/statelycurmudgeon/hqpweb.git"
+  },
+  "license": "MIT",
   "private": true,
   "type": "module",
   "engines": {
@@ -20,6 +27,5 @@
     "@types/node": "^24.19.1",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
-  },
-  "license": "MIT"
+  }
 }

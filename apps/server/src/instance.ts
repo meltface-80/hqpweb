@@ -57,10 +57,10 @@ export interface Change {
 }
 export type Field = keyof Change;
 
-/** Fields whose change can stop playback or overload the machine. */
 /** Settings whose meaning depends on the mode they were chosen in. */
 const MODE_BOUND = ["rate", "filterNx", "filter1x", "shaper"] as const;
 
+/** Fields whose change can stop playback or overload the machine. */
 const RISKY: readonly Field[] = ["mode", "rate", "filterNx", "filter1x", "shaper", "convolution", "matrixProfile"];
 
 export interface RateOption extends Rate {

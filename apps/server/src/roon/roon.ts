@@ -2,15 +2,16 @@
 // HQPlayer. Off unless the user switches it on in Settings; nothing else in the
 // app depends on it.
 //
-// Protocol written from Roon's Apache-2.0 node-roon-api (lib.js, moo.js,
-// node-roon-api-transport). Measured against a real core: discovery, the port
-// (9330) and that HQPlayer zones carry a source control named "HQPlayer".
-// Not yet measured: the register reply on first approval, and control results.
+// Protocol as in Roon's Apache-2.0 node-roon-api (lib.js, moo.js,
+// node-roon-api-transport); no code copied. Measured against a real core
+// (2.73): discovery, the port (9330), approval and token reuse, HQPlayer zones
+// carrying a source control named "HQPlayer", transport control and seek.
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
 import { decode, encode, type MooMessage } from "./moo.ts";
 import { HttpError } from "../instance.ts";
+import { VERSION } from "../version.ts";
 
 export const ROON_ACTIONS = ["play", "pause", "playpause", "previous", "next"] as const;
 export type RoonAction = (typeof ROON_ACTIONS)[number];
@@ -81,7 +82,7 @@ interface RawZone {
 const newInstallId = () => randomBytes(4).toString("hex");
 const extensionName = (installId: string) => `hqpweb ${installId.slice(0, 4)}`;
 const EXTENSION = {
-  display_version: "0.1",
+  display_version: VERSION,
   publisher: "hqpweb",
   email: "",
   website: "https://github.com/statelycurmudgeon/hqpweb",

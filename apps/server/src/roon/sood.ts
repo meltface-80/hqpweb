@@ -1,7 +1,7 @@
 // SOOD: how Roon Cores are found on the LAN. UDP to port 9003, multicast
-// 239.255.90.90 plus broadcast; cores answer the sender directly. Written from
-// Roon's Apache-2.0 node-roon-api (sood.js). Like HQPlayer discovery, it doesn't
-// cross VLANs or routed subnets; then enter the core's address instead.
+// 239.255.90.90 plus broadcast; cores answer the sender directly. Protocol as in
+// Roon's Apache-2.0 node-roon-api (sood.js); no code copied. Like HQPlayer
+// discovery, it doesn't cross VLANs or routed subnets: enter the address instead.
 import { createSocket } from "node:dgram";
 import { randomUUID } from "node:crypto";
 

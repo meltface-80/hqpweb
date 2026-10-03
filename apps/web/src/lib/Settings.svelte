@@ -129,10 +129,10 @@
       <h3>Settings</h3>
       <button class="close" onclick={() => dialog.close()} aria-label="Close">✕</button>
     </header>
-    <nav class="tabs" role="tablist">
+    <div class="tabs" role="tablist">
       <button role="tab" aria-selected={tab === "general"} class:on={tab === "general"} onclick={() => (tab = "general")}>General</button>
       <button role="tab" aria-selected={tab === "roon"} class:on={tab === "roon"} onclick={() => ((tab = "roon"), roon.refresh())}>Roon</button>
-    </nav>
+    </div>
 
     <div class="body" hidden={tab !== "roon"}>
       <RoonSettings bind:this={roon} {instances} />
@@ -235,10 +235,13 @@
 
       <h4>About</h4>
       <p class="help">
-        hqpweb: a web controller for HQPlayer, pre-alpha. Not affiliated with, endorsed by, or supported by Signalyst. HQPlayer
-        is a trademark of its owner, used here only to identify compatible software.
+        hqpweb {__APP_VERSION__}: a web controller for HQPlayer, alpha.
+        <a href="https://github.com/statelycurmudgeon/hqpweb" target="_blank" rel="noopener noreferrer">Source and issues</a>.
       </p>
-      <p class="help">Colour themes adapted from MusicD Remote by Lewis Menzies (MIT).</p>
+      <p class="help">
+        Not affiliated with, endorsed by, or supported by Signalyst or Roon Labs. HQPlayer is a trademark of Signalyst;
+        Roon is a trademark of Roon Labs LLC. Colour themes adapted from MusicD Remote (MIT).
+      </p>
     </div>
   </div>
 </dialog>
