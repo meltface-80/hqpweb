@@ -5,8 +5,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
   python3 "$root/tools/hooks/pii_check.py" push "$local_sha" "$remote_sha" || exit 1
 done
-# Belt and braces: the operator's scanner over the tracked tree, if present.
-scanner="$HOME/homelab-infra/scripts/preflight-public.py"
-if [ -f "$scanner" ]; then
+# Belt and braces: an extra scanner over the tracked tree, if configured locally
+# (git config hqpweb.preflight /path/to/scanner.py). Not set in a fresh clone.
+scanner="$(git config --get hqpweb.preflight || true)"
+if [ -n "$scanner" ] && [ -f "$scanner" ]; then
   python3 "$scanner" $(git ls-files) >/dev/null || { echo "BLOCKED by preflight-public.py"; exit 1; }
 fi
