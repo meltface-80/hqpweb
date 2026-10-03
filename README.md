@@ -12,6 +12,14 @@ are untested.
 > HQPlayer is a trademark of Signalyst and Roon is a trademark of Roon Labs LLC,
 > used here only to identify compatible software.
 
+## Why hqpweb?
+
+Well, HQPlayer is one of the most cherished elements of my audio chain; I've loved
+it for a long time. It does magic. But the interface leaves something to be
+desired. I'm not an audio engineer, I'm a guy who likes usability, so I put a layer
+on top. I hope it's useful, and I hope more people get into HQPlayer. If this makes
+it easier, that's all I'm hoping for!
+
 ## How it fits
 
 ```mermaid
