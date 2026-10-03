@@ -38,3 +38,12 @@ const app = buildApp(config, { allowedHosts, learned, presets, configDir, discov
 const url = await app.listen(port, host);
 console.error(`api on ${url} — instances: ${config.instances.map((i) => `${i.id}=${i.host}:${i.port}`).join(", ")}`);
 if (allowedHosts.length) console.error(`also answering to: ${allowedHosts.join(", ")}`);
+
+// `docker compose down` sends SIGTERM. Node as PID 1 ignores it by default, so
+// without this the container waits 10 s and gets killed.
+for (const signal of ["SIGTERM", "SIGINT"] as const)
+  process.once(signal, () => {
+    const force = setTimeout(() => process.exit(0), 3000);
+    force.unref();
+    void app.close().finally(() => process.exit(0));
+  });

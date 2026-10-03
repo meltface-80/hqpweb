@@ -41,7 +41,7 @@ Pre-alpha: no version numbers yet, so entries are dated and name the commit.
 - **Stop only** when HQPlayer is playing from Roon and the Roon link isn't set up
   (play and next sent to HQPlayer don't reach Roon).
 - **Settings tabs:** General and Roon.
-- **"HQP status"** in the Now card: "Real-time ✓", "Struggling" (below 0.97× for
+- **"Processing"** in the Now card: "Real-time ✓", "Straining" (below 0.97× for
   15 s) or "Falling behind" (below 0.90×), from a 30 s least-squares fit of
   HQPlayer's position; the exact figure is in the tooltip. (Measured: a two-point
   8 s difference swung 0.91–1.07 during normal playback; the fit stayed 0.99–1.00.)

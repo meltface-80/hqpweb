@@ -32,7 +32,7 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 - **Checked and reversible:** every change is read back from HQPlayer. If one stops
   playback or HQPlayer can't keep up, the app puts the old settings back, remembers
   the combination, and warns you next time. Undo is one tap.
-- **HQP status:** whether HQPlayer is processing in real time.
+- **Processing:** whether HQPlayer is processing in real time.
 - **Volume safety:** never raised by more than 6 dB at once; undo and rollback
   never raise it.
 - **Roon (optional):** track, cover art, seek and working play/pause/skip for the

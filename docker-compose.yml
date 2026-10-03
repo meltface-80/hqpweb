@@ -10,6 +10,8 @@ services:
     image: hqpweb:local
     container_name: hqpweb
     restart: unless-stopped
+    # A tiny init as PID 1: forwards signals and reaps processes.
+    init: true
     ports:
       # BIND_ADDRESS limits which interface publishes it (e.g. 127.0.0.1 behind a local proxy).
       - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-4380}:${PORT:-4380}"

@@ -72,7 +72,7 @@
   const speedClass = $derived(
     speed == null ? "" : speed < 0.9 ? "bad" : slowSince !== null && (snap ? Date.now() : 0) - slowSince >= 15_000 ? "warn" : "ok",
   );
-  const SPEED_LABEL: Record<string, string> = { ok: "Real-time ✓", warn: "Struggling", bad: "Falling behind" };
+  const SPEED_LABEL: Record<string, string> = { ok: "Real-time ✓", warn: "Straining", bad: "Falling behind" };
   const speedTitle = $derived(
     speed == null
       ? "Shown while playing, after about 30 s of a track."
@@ -521,7 +521,7 @@
       <dl class="side">
         <dt>Source</dt>
         <dd>{snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}</dd>
-        <dt title={speedTitle}>HQP status</dt>
+        <dt title={speedTitle}>Processing</dt>
         <dd class="speed {speedClass}" title={speedTitle}>{speed == null ? "—" : SPEED_LABEL[speedClass]}</dd>
       </dl>
       {#if caps}
