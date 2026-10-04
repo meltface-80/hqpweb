@@ -254,6 +254,22 @@ describe("volume safety", () => {
     expect((await change({ volume: -16 })).json().results[0].applied).toBe(true);
   });
 
+  it("a rollback restores the filter but never raises the volume (design §7: no implicit raise)", async () => {
+    await setup({ speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) });
+    const body = (await change({ filter1x: "poly-sinc-gauss-long", volume: -30 })).json();
+    expect(body.rolledBack.results).toContainEqual(expect.objectContaining({ field: "filter1x", actual: "poly-sinc-gauss-xla" }));
+    expect(body.rolledBack.results).toContainEqual(
+      expect.objectContaining({ field: "volume", applied: false, actual: -30, note: expect.stringMatching(/never raises/) }),
+    );
+    expect(fake.volume).toBe(-30);
+  });
+
+  it("a rollback still lowers a volume the change raised", async () => {
+    await setup({ speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) });
+    await change({ filter1x: "poly-sinc-gauss-long", volume: -18 });
+    expect(fake.volume).toBe(-22);
+  });
+
   it("clamps to VolumeRange.max and says so", async () => {
     await setup();
     fake.volume = -5;

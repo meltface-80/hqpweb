@@ -49,16 +49,16 @@ Two problems that line counts don't show:
 
 ## Gates
 
-| Gate                                                   | Starts as                                                                                     | Tightens to                                   |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| **Browser smoke tests** (Playwright, against the fake) | 6–8 key flows, with screenshots                                                               | A flow added for every new screen or warning  |
-| **ESLint**, a curated set (see below)                  | Blocking on new and changed code; old code fixed as each file is refactored                   | Blocking everywhere                           |
-| **File length**                                        | Fails above 600 lines; reports above 400                                                      | Fails above 400                               |
-| **Function size and complexity**                       | Reported                                                                                      | Fails above 60 lines or a complexity of 15    |
-| **Volume-safety properties** (fast-check)              | Volume never rises more than 6 dB in one step; undo and rollback never raise it               | More invariants as the change engine is split |
-| **Mutation testing** (Stryker), on demand              | A baseline score recorded for the ratio rules and the change engine                           | The score never drops below that baseline     |
-| **Fake contract tests**                                | Each fake behaviour that matters is checked against a recorded reply or a cited measurement   | Unlabelled fake behaviour isn't allowed       |
-| **Live release checklist**                             | Required before every release tag: a short scripted check against a real HQPlayer (see below) | Automated where safe                          |
+| Gate                                                   | Starts as                                                                                                                             | Tightens to                                   |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **Browser smoke tests** (Playwright, against the fake) | 6–8 key flows, with screenshots                                                                                                       | A flow added for every new screen or warning  |
+| **ESLint**, a curated set (see below)                  | Blocking on new and changed code; old code fixed as each file is refactored                                                           | Blocking everywhere                           |
+| **File length**                                        | Fails above 600 lines; reports above 400                                                                                              | Fails above 400                               |
+| **Function size and complexity**                       | Reported                                                                                                                              | Fails above 60 lines or a complexity of 15    |
+| **Volume-safety properties** (fast-check)              | Volume never rises more than 6 dB in one step; rollback never raises it; undo returns to a higher level only if nobody moved it since | More invariants as the change engine is split |
+| **Mutation testing** (Stryker), on demand              | A baseline score recorded for the ratio rules and the change engine                                                                   | The score never drops below that baseline     |
+| **Fake contract tests**                                | Each fake behaviour that matters is checked against a recorded reply or a cited measurement                                           | Unlabelled fake behaviour isn't allowed       |
+| **Live release checklist**                             | Required before every release tag: a short scripted check against a real HQPlayer (see below)                                         | Automated where safe                          |
 
 **The ESLint set** targets bug classes we've actually had or are likely to: promises
 nobody waits for, promises passed where they don't belong, non-exhaustive `switch`

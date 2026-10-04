@@ -25,6 +25,7 @@ import {
 import type { InstanceConfig } from "./config.ts";
 import { LearnedStore, type Combo, type Failure } from "./learned.ts";
 import { DEFAULT_TIMING, MAJOR_TIMING, watchPlayback, type Verdict, type WatchTiming } from "./watch.ts";
+import { decideVolume, VOLUME_EPS } from "./volume.ts";
 
 export class HttpError extends Error {
   readonly status: number;
@@ -34,10 +35,7 @@ export class HttpError extends Error {
   }
 }
 
-/** Largest single volume *raise* accepted, in dB. Lowering is never limited. */
-export const MAX_RAISE_DB = 6;
-/** Volume read-back tolerance, dB. */
-const VOLUME_EPS = 0.01;
+export { MAX_RAISE_DB } from "./volume.ts";
 
 /** A change, by NAME (never index), design §4.3. Every field optional. */
 export interface Change {
@@ -387,7 +385,7 @@ export class Instance {
         await this.recordFailure(playback.detail).catch((e: Error) =>
           console.error(`could not record failed combination: ${e.message}`),
         );
-      // Roll back. Volume follows the undo rule: restored only if nobody moved it.
+      // Roll back. Volume is only ever lowered: nobody asked for a raise (volume.ts).
       // Lenient: restore what can be restored even if a name has vanished (e.g.
       // HQPlayer restarted on its saved settings). Undo is cleared whatever
       // happens, so it can never point at the wrong change.
@@ -396,7 +394,7 @@ export class Instance {
       let back: { results: FieldResult[]; state: State };
       let recovered: PlaybackCheck;
       try {
-        back = await this.applyFields(applied.prev, true, true);
+        back = await this.applyFields(applied.prev, true, true, true);
         recovered = await this.watch(this.timing.major);
       } catch (e) {
         back = { results: [], state: await this.client.state() };
@@ -438,7 +436,7 @@ export class Instance {
   }
 
   /** Apply without watching. Returns read-back results and how to undo, by name. */
-  private async applyFields(change: Change, isUndo: boolean, lenient = false) {
+  private async applyFields(change: Change, isUndo: boolean, lenient = false, rollback = false) {
     const requestedFields = (Object.keys(change) as Field[]).filter((k) => change[k] !== undefined);
     const problems: { field: Field; reason: string }[] = [];
     const caps0 = await this.capabilities(true);
@@ -501,32 +499,16 @@ export class Instance {
           : "no matrix profiles are set up in HQPlayer on this instance",
       });
 
-    // ---- 3. volume guards (design §7) ---------------------------------------
+    // ---- 3. volume guards (design §7; rules in volume.ts) --------------------
     let volume: number | undefined;
     let volumeNote: string | undefined;
     if (change.volume !== undefined) {
-      const vr = caps.volumeRange;
-      if (!vr.enabled) problems.push({ field: "volume", reason: "volume control is disabled on this instance" });
-      else {
-        volume = Math.max(vr.min, Math.min(vr.max, change.volume));
-        if (volume !== change.volume) volumeNote = `clamped to ${volume} dB (range ${vr.min}…${vr.max})`;
-        const raise = volume - before.volume;
-        if (raise > MAX_RAISE_DB + VOLUME_EPS) {
-          // Undo/rollback may return to the level the user was just listening at,
-          // but only if nobody has moved the volume since our change.
-          const untouched = this.lastSetVolume !== null && Math.abs(before.volume - this.lastSetVolume) <= VOLUME_EPS;
-          if (!isUndo) {
-            volume = undefined;
-            problems.push({
-              field: "volume",
-              reason: `refusing to raise volume by ${raise.toFixed(1)} dB in one step (max ${MAX_RAISE_DB} dB)`,
-            });
-          } else if (!untouched) {
-            volume = undefined;
-            volumeNote = `not restored: volume was changed elsewhere, and restoring would raise it by ${raise.toFixed(1)} dB`;
-          }
-        }
-      }
+      const untouched = this.lastSetVolume !== null && Math.abs(before.volume - this.lastSetVolume) <= VOLUME_EPS;
+      const kind = rollback ? "rollback" : isUndo ? "undo" : "change";
+      const d = decideVolume({ requested: change.volume, current: before.volume, range: caps.volumeRange, kind, untouched });
+      volume = d.set;
+      volumeNote = d.note;
+      if (d.problem) problems.push({ field: "volume", reason: d.problem });
     }
 
     if (problems.length && !lenient) {
