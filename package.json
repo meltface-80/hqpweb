@@ -21,11 +21,13 @@
     "dev:server": "node --watch apps/server/src/main.ts",
     "dev:web": "npm run dev -w apps/web",
     "test": "vitest run",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b && tsc -p e2e",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^24.19.1",
     "prettier": "^3.9.9",
     "prettier-plugin-svelte": "^4.1.1",

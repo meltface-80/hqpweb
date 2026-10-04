@@ -24,3 +24,8 @@ config/roon.json
 # Private terms for the PII hooks (tools/hooks). The terms themselves are private.
 pii-denylist.local
 COMMIT
+
+# Browser smoke tests: screenshots and reports are build output, reviewed from CI.
+e2e/screenshots/
+e2e/test-results/
+e2e/report/

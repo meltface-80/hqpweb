@@ -64,3 +64,6 @@ splitting before adding.
 - `tools/probe/hqp.py HOST info|status|state|lists` and `tools/probe/hqp.py discover`
   are read-only, stdlib-only probes. Discovery is UDP multicast and does **not**
   cross VLANs or routed subnets.
+- `npm run test:e2e` runs the browser smoke tests (Playwright) against fake HQPlayers
+  (`e2e/stack.ts`, one fake per flow). First time: `npx playwright install chromium`.
+  Screenshots go to `e2e/screenshots/` (git-ignored; CI uploads them as an artifact).

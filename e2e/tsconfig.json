@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  // Checked on its own (npm run typecheck), not built: it reaches into the server's sources.
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true,
+    "rewriteRelativeImportExtensions": false,
+    "resolveJsonModule": true,
+    "lib": ["es2024", "dom"]
+  },
+  "include": ["*.ts", "../package.json"]
+}
