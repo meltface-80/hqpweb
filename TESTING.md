@@ -1,6 +1,6 @@
 # Testing guide
 
-Thanks for trying hqpweb. It's an alpha: it works on the setups in the README's
+Thanks for trying hqpweb. It's a beta: it works on the setups in the README's
 "Tested with" table, and your setup is exactly what we can't test ourselves.
 
 ## Before you start

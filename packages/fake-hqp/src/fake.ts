@@ -84,6 +84,8 @@ export class FakeHqp {
   feeder: "Roon" | "playlist" = "Roon";
   /** Sample rate of the track being played. Set with setSource(). */
   sourceRate = 44_100;
+  /** Discovery probes to ignore before answering (simulated UDP loss); tests set it. */
+  dropProbes = 0;
   /** Status counters (measured present, always 0 in captures); tests set them. */
   apod = 0;
   clips = 0;
@@ -596,6 +598,7 @@ export class FakeHqp {
     this.udp = udp;
     udp.on("message", (msg, rinfo) => {
       if (!msg.toString().includes("<discover>hqplayer</discover>")) return;
+      if (this.dropProbes > 0) return void this.dropProbes--; // simulated UDP loss
       const reply = this.doc(
         "discover",
         { name: this.profile.info.name, result: "OK", version: this.profile.discover.version },

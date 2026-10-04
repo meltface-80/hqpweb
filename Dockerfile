@@ -1,7 +1,9 @@
 # hqpweb, a web controller for HQPlayer: one small Node process serving the API and the web app.
 
 # ---- build the web app --------------------------------------------------------
-FROM node:24-slim AS build
+# Static files are the same on every architecture, so build them natively (fast)
+# even when the image targets another platform.
+FROM --platform=$BUILDPLATFORM node:24-slim AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 COPY packages/protocol/package.json packages/protocol/

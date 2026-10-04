@@ -2,6 +2,7 @@
 // Kept per instance and engine version, because both change what works.
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { loadList } from "./jsonstore.ts";
+import { SETTINGS_FORMAT } from "./format.ts";
 import { dirname } from "node:path";
 
 export interface Combo {
@@ -57,7 +58,7 @@ export class LearnedStore {
     if (!this.path) return;
     mkdirSync(dirname(this.path), { recursive: true });
     const tmp = `${this.path}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ failures: this.failures }, null, 1) + "\n");
+    writeFileSync(tmp, JSON.stringify({ format: SETTINGS_FORMAT, failures: this.failures }, null, 1) + "\n");
     renameSync(tmp, this.path);
   }
 }

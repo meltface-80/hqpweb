@@ -824,8 +824,7 @@
         {#if apod > 0}
           <dt title={APOD_TITLE}>Apod</dt>
           <dd class="speed {apod > 10 && inUseApodizing !== true ? 'bad' : 'warn'}" title={APOD_TITLE}>
-            {apod}{#if apod > 10 && inUseApodizing === true}
-              · your filter handles this{/if}
+            {apod}{#if apod > 10 && inUseApodizing === true}{" · your filter handles this"}{/if}
           </dd>
         {/if}
         {#if clips > 0}

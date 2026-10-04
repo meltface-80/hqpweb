@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { SETTINGS_FORMAT, checkFormat } from "./format.ts";
 
 export interface InstanceConfig {
   id: string;
@@ -36,6 +37,7 @@ export function loadConfig(dir = process.env.CONFIG_DIR ?? "config"): AppConfig 
     return process.env.NODE_ENV === "production" ? { instances: [] } : structuredClone(DEV_DEFAULT);
   }
   const cfg = JSON.parse(raw) as AppConfig;
+  checkFormat(path, cfg);
   const ids = new Set<string>();
   for (const i of cfg.instances) {
     if (!ID_PATTERN.test(i.id)) throw new Error(`${path}: instance id "${i.id}" must be [a-z0-9-]`);
@@ -49,6 +51,6 @@ export function loadConfig(dir = process.env.CONFIG_DIR ?? "config"): AppConfig 
 export function saveConfig(dir: string, cfg: AppConfig) {
   mkdirSync(dir, { recursive: true });
   const path = join(dir, "instances.json");
-  writeFileSync(`${path}.tmp`, JSON.stringify(cfg, null, 2) + "\n");
+  writeFileSync(`${path}.tmp`, JSON.stringify({ format: SETTINGS_FORMAT, instances: cfg.instances }, null, 2) + "\n");
   renameSync(`${path}.tmp`, path);
 }

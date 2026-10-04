@@ -30,6 +30,13 @@ describe("discover()", () => {
     expect(found).toEqual([{ address: "127.0.0.1", name: "fake-mac", version: "Signalyst HQPlayer Desktop 5" }]);
   });
 
+  it("still finds an instance when the first probes are lost", async () => {
+    const { f, discoveryPort } = await fake();
+    f.dropProbes = 2;
+    const found = await discover({ target: { address: "127.0.0.1", port: discoveryPort }, timeoutMs: 600 });
+    expect(found).toHaveLength(1);
+  });
+
   it("returns nothing when nobody answers", async () => {
     expect(await discover({ target: { address: "127.0.0.1", port: 9 }, timeoutMs: 200 })).toEqual([]);
   });

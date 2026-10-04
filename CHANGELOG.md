@@ -5,6 +5,37 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+## 0.1.0-beta.1 — first beta, and a published image
+
+Beta: the feature set is settled for now, and updates keep your settings (instances,
+presets, learned failures). Bugs and rough edges are still expected.
+
+**Update:** `docker compose pull && docker compose up -d`. Settings are kept.
+
+### Upgrade notes
+
+- **The compose file now runs the published image** (`ghcr.io/statelycurmudgeon/hqpweb`,
+  amd64 and arm64) instead of building. If you installed from a clone and want to keep
+  building from source, use
+  `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
+  Either way the settings volume is the same.
+
+### Added
+
+- **Published image** for each release, with build provenance; `HQPWEB_TAG` pins a
+  version.
+- **Discovery tries harder:** each scan sends its query three times, so a lost UDP
+  packet no longer means "nothing found" (a tester's first scans failed several times).
+- **Settings carry a format number,** and CI loads a set of settings files as
+  earlier versions wrote them, so an update can't silently drop your instances,
+  presets, learned failures or Roon pairing. A file from a newer hqpweb loads with a
+  warning.
+- **README screenshots.**
+
+### Fixed
+
+- "Apod 23· your filter handles this" now has its space.
+
 ## 0.1.0-alpha.2 — filter guide, compatible filters, safety signals
 
 **Update:** `git pull && docker compose up -d --build`. No settings change.

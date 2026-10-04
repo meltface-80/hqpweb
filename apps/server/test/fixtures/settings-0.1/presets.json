@@ -1,0 +1,28 @@
+{
+  "presets": [
+    {
+      "id": "a1b2c3d4",
+      "name": "Evening",
+      "settings": {
+        "filter1x": "poly-sinc-gauss-xla",
+        "filterNx": "poly-sinc-gauss-hires-lp",
+        "shaper": "AHM7EC8B",
+        "volume": -30
+      },
+      "createdAt": "2026-10-03T20:00:00.000Z",
+      "updatedAt": "2026-10-03T20:00:00.000Z"
+    },
+    {
+      "id": "e5f6a7b8",
+      "name": "PCM 384",
+      "settings": {
+        "mode": "PCM",
+        "rate": 384000,
+        "filter1x": "poly-sinc-ext2",
+        "shaper": "NS9"
+      },
+      "createdAt": "2026-10-02T12:00:00.000Z",
+      "updatedAt": "2026-10-04T09:00:00.000Z"
+    }
+  ]
+}

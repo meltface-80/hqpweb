@@ -5,12 +5,17 @@
 **A web controller for HQPlayer.** Change filters, dither/modulator, volume, mode and
 rate from any phone or browser, and see whether HQPlayer is keeping up.
 
-**Status: alpha (0.1.0-alpha.2).** Works with HQPlayer Desktop 5 and HQPlayer 6
+**Status: beta (0.1.0-beta.1).** Works with HQPlayer Desktop 5 and HQPlayer 6
 Embedded. Desktop 6 and Windows are untested.
 
 > Not affiliated with, endorsed by, or supported by Signalyst or Roon Labs.
 > HQPlayer is a trademark of Signalyst and Roon is a trademark of Roon Labs LLC,
 > used here only to identify compatible software.
+
+<p align="center">
+  <img src="docs/images/now.png" width="300" alt="The Now card: output rate, source, HQPlayer's processing speed, the Apod counter, volume, and the filter and dither in use" />
+  <img src="docs/images/filters.png" width="300" alt="The filter picker: star ratings, chips to narrow the list, and details for the selected filter" />
+</p>
 
 ## Why hqpweb?
 
@@ -60,22 +65,27 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 
 ## Install
 
-You need **git** and **Docker** (with Compose) on a machine that can reach HQPlayer on
-TCP 4321.
+You need **Docker** (with Compose) on a machine that can reach HQPlayer on TCP 4321.
+The image runs on amd64 and arm64 (e.g. a Raspberry Pi 4/5, an ARM NAS, Apple
+Silicon).
 
 ```sh
-git clone https://github.com/statelycurmudgeon/hqpweb.git
-cd hqpweb
-docker compose up -d --build
+mkdir hqpweb && cd hqpweb
+curl -fsSLO https://raw.githubusercontent.com/statelycurmudgeon/hqpweb/main/docker-compose.yml
+docker compose up -d
 ```
 
 Open `http://<this machine's IP>:4380`, then **Settings → General → Add** your
 HQPlayer's address (leave the name blank to use HQPlayer's own). On a phone, "Add to
 Home Screen" makes it a full-screen app.
 
-**Update:** read [CHANGELOG.md](CHANGELOG.md), then `git pull && docker compose up -d --build`.
-Your instances and presets are kept. Settings → About shows the version and commit
-you're running; an open app offers to reload when the server has been updated.
+**Update:** read [CHANGELOG.md](CHANGELOG.md), then
+`docker compose pull && docker compose up -d`. Your instances and presets are kept.
+Settings → About shows the version and commit you're running; an open app offers to
+reload when the server has been updated.
+
+**From source** instead: clone the repository and run
+`docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 
 ## Options
 
@@ -83,6 +93,7 @@ Set these in a `.env` file next to `docker-compose.yml`, then `docker compose up
 
 | Variable        | Default   | Use                                                                                                   |
 | --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `HQPWEB_TAG`    | `latest`  | Image version to run, e.g. `0.1.0-beta.1` to stay on a release.                                       |
 | `PORT`          | `4380`    | Port the app listens on.                                                                              |
 | `BIND_ADDRESS`  | `0.0.0.0` | Interface to publish on, e.g. `127.0.0.1` behind a local proxy.                                       |
 | `ALLOWED_HOSTS` | (none)    | Host names you open it by, comma-separated (IP addresses always work). Needed behind a reverse proxy. |

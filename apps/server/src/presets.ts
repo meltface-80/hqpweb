@@ -2,6 +2,7 @@
 // they work across instances and modes. Global; resolved per instance at apply time.
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { loadList } from "./jsonstore.ts";
+import { SETTINGS_FORMAT } from "./format.ts";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { HttpError, type Change } from "./instance.ts";
@@ -79,7 +80,7 @@ export class PresetStore {
   private save() {
     if (!this.path) return;
     mkdirSync(dirname(this.path), { recursive: true });
-    writeFileSync(`${this.path}.tmp`, JSON.stringify({ presets: this.presets }, null, 1) + "\n");
+    writeFileSync(`${this.path}.tmp`, JSON.stringify({ format: SETTINGS_FORMAT, presets: this.presets }, null, 1) + "\n");
     renameSync(`${this.path}.tmp`, this.path);
   }
 }

@@ -1,0 +1,12 @@
+{
+  "installId": "0a1b2c3d",
+  "enabled": false,
+  "host": "192.0.2.20",
+  "port": 9330,
+  "tokens": {
+    "example-core": "example-token"
+  },
+  "zoneFor": {
+    "living-room": "example-zone"
+  }
+}

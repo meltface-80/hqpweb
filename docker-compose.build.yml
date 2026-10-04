@@ -1,0 +1,7 @@
+# Build hqpweb from this checkout instead of pulling the published image:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+# Update: git pull, then the same command. Settings live in the same volume either way.
+services:
+  controller:
+    build: .
+    image: hqpweb:local

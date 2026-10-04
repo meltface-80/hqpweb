@@ -20,6 +20,8 @@ export interface DiscoverOptions {
   timeoutMs?: number;
   /** Where to send the probe. Default: the multicast group. Tests use unicast. */
   target?: { address: string; port: number };
+  /** How many probes to send, spread over the first part of the wait. Default 3. */
+  probes?: number;
 }
 
 export function discover(opts: DiscoverOptions = {}): Promise<Discovered[]> {
@@ -27,7 +29,10 @@ export function discover(opts: DiscoverOptions = {}): Promise<Discovered[]> {
   const found = new Map<string, Discovered>();
   return new Promise((resolve) => {
     const sock = createSocket({ type: "udp4" });
+    let closed = false;
     const done = () => {
+      if (closed) return;
+      closed = true;
       try {
         sock.close();
       } catch {}
@@ -47,10 +52,21 @@ export function discover(opts: DiscoverOptions = {}): Promise<Discovered[]> {
       try {
         sock.setMulticastTTL(2);
       } catch {}
-      sock.send(PROLOG + "<discover>hqplayer</discover>", port, address, (err) => {
-        if (err) done();
-      });
-      setTimeout(done, opts.timeoutMs ?? 2000);
+      // UDP can drop a probe or a reply (a tester's scans failed several times before
+      // one worked), so send a few, spread over the first half of the wait. Replies
+      // are keyed by address, so repeats don't duplicate.
+      const timeoutMs = opts.timeoutMs ?? 2000;
+      const probes = Math.max(1, opts.probes ?? 3);
+      for (let i = 0; i < probes; i++)
+        setTimeout(
+          () =>
+            closed ||
+            sock.send(PROLOG + "<discover>hqplayer</discover>", port, address, (err) => {
+              if (err && i === 0) done();
+            }),
+          (i * timeoutMs) / (2 * probes),
+        );
+      setTimeout(done, timeoutMs);
     });
   });
 }

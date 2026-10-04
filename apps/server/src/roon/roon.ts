@@ -7,6 +7,7 @@
 // (2.73): discovery, the port (9330), approval and token reuse, HQPlayer zones
 // carrying a source control named "HQPlayer", transport control and seek.
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { SETTINGS_FORMAT, checkFormat } from "../format.ts";
 import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
 import { decode, encode, type MooMessage } from "./moo.ts";
@@ -162,6 +163,7 @@ export class RoonLink {
     if (path && existsSync(path)) {
       try {
         const s = JSON.parse(readFileSync(path, "utf8")) as Partial<RoonSettings>;
+        checkFormat(path, s);
         const hasId = typeof s.installId === "string" && /^[0-9a-f]{8}$/.test(s.installId);
         // A newly made install id must survive restarts, or every restart would need re-approval.
         needsSave = !hasId;
@@ -563,7 +565,7 @@ export class RoonLink {
     const tmp = `${this.path}.tmp`;
     // The file holds Roon approval tokens: owner-only, even if a stale tmp exists.
     rmSync(tmp, { force: true });
-    writeFileSync(tmp, JSON.stringify(this.settings, null, 2) + "\n", { mode: 0o600 });
+    writeFileSync(tmp, JSON.stringify({ format: SETTINGS_FORMAT, ...this.settings }, null, 2) + "\n", { mode: 0o600 });
     renameSync(tmp, this.path);
   }
 }

@@ -1,0 +1,15 @@
+{
+  "failures": [
+    {
+      "mode": "SDM (DSD)",
+      "rateHz": 22579200,
+      "filterNx": "poly-sinc-gauss-hires-lp",
+      "filter1x": "poly-sinc-gauss-xla",
+      "shaper": "ASDM7EC-super",
+      "instance": "office",
+      "engine": "5.35.10",
+      "reason": "stopped: playback didn't recover",
+      "at": "2026-10-03T21:00:00.000Z"
+    }
+  ]
+}

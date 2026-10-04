@@ -90,9 +90,10 @@ def main():
         hits = scan(open(sys.argv[2], encoding="utf-8").read(), "commit message", pats)
     elif sys.argv[1] == "push":
         local, remote = sys.argv[2], sys.argv[3]
-        # Only commits GitHub doesn't already have: a new branch shares history with
-        # main, and commits GitHub itself made (PR merges) aren't ours to rewrite.
-        args = [local, "--not", "--remotes"] if set(remote) == {"0"} else [f"{remote}..{local}"]
+        # Only commits GitHub doesn't already have: a branch shares history with main,
+        # and commits GitHub itself made (PR merges, possibly merged back into a
+        # branch) aren't ours to rewrite.
+        args = [local, "--not", "--remotes"] + ([] if set(remote) == {"0"} else [remote])
         commits = subprocess.run(["git", "rev-list", *args], capture_output=True, text=True).stdout.split()
         for c in commits:
             meta = subprocess.run(["git", "log", "-1", "--format=%ae%n%ce", c], capture_output=True, text=True).stdout.split("\n")

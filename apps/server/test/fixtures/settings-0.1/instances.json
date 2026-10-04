@@ -1,0 +1,19 @@
+{
+  "instances": [
+    {
+      "id": "living-room",
+      "name": "Living room",
+      "host": "192.0.2.10",
+      "port": 4321
+    },
+    {
+      "id": "office",
+      "name": "Office",
+      "host": "192.0.2.11",
+      "port": 4321,
+      "limits": {
+        "maxPcmRate": 384000
+      }
+    }
+  ]
+}
