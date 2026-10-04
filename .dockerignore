@@ -2,7 +2,11 @@ node_modules
 **/node_modules
 **/dist
 .tsbuild
-.git
+# Only what's needed to name the commit (build stage only; never in the final image).
+.git/*
+!.git/HEAD
+!.git/refs
+!.git/packed-refs
 config
 *.local.md
 tools

@@ -145,6 +145,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  health: () => call<{ ok: boolean; version: string; commit?: string }>("/api/health"),
   instances: () => call<Inst[]>("/api/instances"),
   addInstance: (body: { name: string; host: string; port?: number }) =>
     call<{ id: string }>("/api/instances", {

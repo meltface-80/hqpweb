@@ -23,3 +23,4 @@ config/roon.json
 
 # Private terms for the PII hooks (tools/hooks). The terms themselves are private.
 pii-denylist.local
+COMMIT

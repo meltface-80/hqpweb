@@ -72,10 +72,33 @@
   // Speed vs real time: the server fits Status position over 30 s (no access to
   // the machine needed). Shown as a state, not a number: amber only after 15 s
   // below 0.97, red below 0.90. The number is in the tooltip.
+  // ---- a newer hqpweb on the server ---------------------------------------------
+  // An installed app (PWA) can stay open for days on old code, with no reload button.
+  // The page knows the commit it was built from; when it comes back to the foreground,
+  // and every 10 minutes, it asks the server. A difference offers a reload.
+  let updated = $state(false);
+  async function checkForUpdate() {
+    // Dev servers bake the commit in at start, so only built apps check.
+    if (import.meta.env.DEV || !__APP_COMMIT__ || updated) return;
+    const h = await api.health().catch(() => null);
+    if (h?.commit && h.commit !== __APP_COMMIT__) updated = true;
+  }
+  $effect(() => {
+    const onVisible = () => document.visibilityState === "visible" && checkForUpdate();
+    document.addEventListener("visibilitychange", onVisible);
+    const t = setInterval(checkForUpdate, 10 * 60_000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(t);
+    };
+  });
+
   const APOD_TITLE =
     "HQPlayer's apodization counter: problems in the recording that an apodizing filter corrects. HQPlayer's manual suggests one once it passes 10 in a track.";
-  // Inferred from the name: every capture so far reads 0, and whether either counter
-  // resets per track is unmeasured.
+  // Apod counts problems detected in the recording (manual §2.6), per track: seen past
+  // 150 on one track, 5 on the next, and still climbing after switching to an
+  // apodizing filter, which corrects them without stopping the count (5.17.2, Linux).
+  // Clips: inferred from the name; never seen above 0.
   const CLIPS_TITLE = "HQPlayer's clip counter (likely samples it had to clip). Lowering the volume gives it headroom.";
   const speed = $derived(snap?.health?.speed ?? null);
   let slowSince = $state<number | null>(null);
@@ -623,6 +646,11 @@
       >
     </button>
   </header>
+  {#if updated}
+    <p class="updated">
+      hqpweb has been updated. <button class="link" onclick={() => location.reload()}>Reload</button>
+    </p>
+  {/if}
 
   <Settings
     bind:this={settings}
@@ -710,6 +738,15 @@
           <button class="link quiet" onclick={dismissJump}>Dismiss</button>
         </p>
       {/if}
+      {#if apod > 10 && inUseApodizing !== true && inUseFilter}
+        <p class="wedge">
+          This recording keeps needing apodization ({apod} so far). {inUseFilter} isn't an apodizing filter{inUseApodizing ===
+          "partial"
+            ? " (only partly)"
+            : ""}.
+          <button class="link" onclick={suggestApodizing}>Choose an apodizing filter…</button>
+        </p>
+      {/if}
       {#if wedge}
         <p class="wedge">
           The next track won't start: {wedge.text}.
@@ -786,10 +823,9 @@
         <dd class="speed {speedClass}" title={speedTitle}>{speedText}</dd>
         {#if apod > 0}
           <dt title={APOD_TITLE}>Apod</dt>
-          <dd class="speed {apod > 10 ? 'bad' : 'warn'}" title={APOD_TITLE}>
-            {apod}{#if apod > 10 && inUseApodizing !== true}<button class="link" onclick={suggestApodizing}
-                >Use an apodizing filter</button
-              >{/if}
+          <dd class="speed {apod > 10 && inUseApodizing !== true ? 'bad' : 'warn'}" title={APOD_TITLE}>
+            {apod}{#if apod > 10 && inUseApodizing === true}
+              · your filter handles this{/if}
           </dd>
         {/if}
         {#if clips > 0}
@@ -1175,6 +1211,14 @@
   .seek input {
     flex: 1;
     accent-color: var(--accent);
+  }
+  .updated {
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--text);
+    font-size: 0.9rem;
   }
   .wedge {
     flex: 1 1 100%;

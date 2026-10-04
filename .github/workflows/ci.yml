@@ -35,8 +35,14 @@ jobs:
       - name: Start it and check health
         run: |
           docker run -d --name wc -p 4380:4380 hqpweb:ci
+          want="$(git rev-parse HEAD | cut -c1-7)"
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:4380/api/health; then exit 0; fi
+            if h="$(curl -fsS http://127.0.0.1:4380/api/health)"; then
+              echo "$h"
+              # The image names the commit it was built from.
+              echo "$h" | grep -q "\"commit\":\"$want\"" && exit 0
+              echo "expected commit $want"; exit 1
+            fi
             sleep 1
           done
           docker logs wc

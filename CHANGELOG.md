@@ -5,6 +5,17 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+## 0.1.0-alpha.2 — filter guide, compatible filters, safety signals
+
+**Update:** `git pull && docker compose up -d --build`. No settings change.
+
+- **Apodization notice.** When HQPlayer's Apod counter passes 10 in a track and the
+  filter in use isn't apodizing, the Now card says so, with "Choose an apodizing
+  filter…". With an apodizing filter, the count shows "your filter handles this".
+  (The counter is per track: seen past 150 on one track, then 5 on the next.)
+- **"hqpweb has been updated. Reload."** An installed app can stay open on old code;
+  it now checks the server when it comes back to the foreground and offers a reload.
+- **Health and About show the build's commit**, so deploys can be told apart.
 - **Filter and modulator descriptions (HQPlayer 6):** each filter shows HQPlayer's
   own rating (stars); tap ⓘ for what it favours (transients, timbre, space) and the
   ratios it works with. Chips narrow the list (5/5, a focus, "works here"), and

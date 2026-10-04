@@ -6,7 +6,7 @@ import { HttpError, Instance, TRANSPORT_ACTIONS, type Change, type TransportActi
 import { LearnedStore } from "./learned.ts";
 import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
-import { VERSION } from "./version.ts";
+import { COMMIT, VERSION } from "./version.ts";
 import { Registry } from "./registry.ts";
 import { PresetStore } from "./presets.ts";
 import { PeerError, type DiscoverOptions } from "@app/protocol";
@@ -315,7 +315,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     }
 
     const path = new URL(req.url ?? "/", "http://x").pathname;
-    if (req.method === "GET" && path === "/api/health") return send(res, 200, { ok: true, version: VERSION });
+    if (req.method === "GET" && path === "/api/health")
+      return send(res, 200, { ok: true, version: VERSION, ...(COMMIT ? { commit: COMMIT } : {}) });
     if (path === "/api/instances") {
       if (req.method === "GET") return send(res, 200, await registry.list());
       if (req.method === "POST") return send(res, 200, await registry.add(parseNewInstance(await readJson(req))));

@@ -340,6 +340,12 @@ From the 6.0.1 SDK source and the release notes:
   with the measurement above, so it isn't used for ratios. Its help also defines the
   Apod counter's use: material is "highest technical quality" when Apod stays below
   10 for a whole track.
+- **The Apod counter measures the recording, not the filter (measured on Desktop
+  5.17.2, Linux).** It climbed past 150 on one track and restarted near 0 on the next
+  (per track), and kept climbing after a switch to an apodizing filter (127 → 130 in
+  6 s with poly-sinc-gauss-xla). The manual (§2.6) says the same: it counts errors
+  detected in the source. So the app treats a high count with an apodizing filter in
+  use as handled, not as a problem.
 
 **Design rule:** everything enumerable is discovered at runtime and cached per
 `(instance, engine version, mode)`. Nothing is hard-coded except the command names.

@@ -279,7 +279,7 @@
 
       <h4>About</h4>
       <p class="help">
-        hqpweb {__APP_VERSION__}: a web controller for HQPlayer, alpha.
+        hqpweb {__APP_VERSION__}{__APP_COMMIT__ ? ` (${__APP_COMMIT__})` : ""}: a web controller for HQPlayer, alpha.
         <a href="https://github.com/statelycurmudgeon/hqpweb" target="_blank" rel="noopener noreferrer">Source and issues</a>.
       </p>
       <p class="help">

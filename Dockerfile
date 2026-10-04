@@ -10,7 +10,8 @@ COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 RUN npm ci
 COPY . .
-RUN npm run build -w apps/web
+RUN npm run build -w apps/web && \
+    node --input-type=module -e "import { buildCommit } from './apps/server/src/commit.ts'; process.stdout.write(buildCommit('.'))" > COMMIT
 
 # ---- runtime: Node runs the TypeScript sources directly (type stripping) ---------
 FROM node:24-slim
@@ -29,6 +30,7 @@ RUN npm ci --omit=dev -w @app/server && npm cache clean --force
 COPY packages/protocol/src packages/protocol/src
 COPY apps/server/src apps/server/src
 COPY --from=build /src/apps/web/dist /app/web
+COPY --from=build /src/COMMIT /app/COMMIT
 RUN mkdir -p /config && chown node:node /config
 USER node
 EXPOSE 4380
