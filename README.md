@@ -5,8 +5,8 @@
 **A web controller for HQPlayer.** Change filters, dither/modulator, volume, mode and
 rate from any phone or browser, and see whether HQPlayer is keeping up.
 
-**Status: alpha (0.1.0-alpha.1).** Works with HQPlayer Desktop 5; HQPlayer 6
-Embedded is partly tested.
+**Status: alpha (0.1.0-alpha.2).** Works with HQPlayer Desktop 5 and HQPlayer 6
+Embedded. Desktop 6 and Windows are untested.
 
 > Not affiliated with, endorsed by, or supported by Signalyst or Roon Labs.
 > HQPlayer is a trademark of Signalyst and Roon is a trademark of Roon Labs LLC,
@@ -43,10 +43,18 @@ control protocol, and to Roon (if you want) through Roon's extension API.
   playback or HQPlayer can't keep up, the app puts the old settings back, remembers
   the combination, and warns you next time. Undo is one tap.
 - **Filter guide:** star ratings, what each filter favours, which ratios it can do,
-  and modulator generations ([where these come from](#where-filter-descriptions-come-from)).
-- **Processing:** whether HQPlayer is processing in real time.
-- **Volume safety:** never raised by more than 6 dB at once; undo and rollback
-  never raise it.
+  which are apodizing, and modulator generations
+  ([where these come from](#where-filter-descriptions-come-from)).
+- **Compatible filters first:** with a fixed output rate, filters that can't do the
+  current conversion are hidden. Pick one anyway and the app offers rates that fit.
+- **Warns before silence:** if the next track can't start with your settings, or Play
+  does nothing, the app says why and how to fix it.
+- **Volume safety:** never raised by more than 6 dB at once; undo and rollback never
+  raise it. If HQPlayer's volume jumps on its own (a restart), the app flags it with
+  one tap back.
+- **Live readouts:** HQPlayer's processing speed (e.g. 3.4×), and its Apod and Clips
+  counters when they're above zero, with a nudge toward an apodizing filter.
+- **Seek** within files HQPlayer plays itself.
 - **Roon (optional):** track, cover art, seek and working play/pause/skip for the
   Roon zone that feeds HQPlayer.
 
@@ -66,7 +74,8 @@ HQPlayer's address (leave the name blank to use HQPlayer's own). On a phone, "Ad
 Home Screen" makes it a full-screen app.
 
 **Update:** read [CHANGELOG.md](CHANGELOG.md), then `git pull && docker compose up -d --build`.
-Your instances and presets are kept.
+Your instances and presets are kept. Settings → About shows the version and commit
+you're running; an open app offers to reload when the server has been updated.
 
 ## Options
 
@@ -129,20 +138,19 @@ shows the product version.
 HQPlayer 6 describes its own filters and modulators to control apps, and hqpweb shows
 that as-is. HQPlayer 5 doesn't, so for v5 hqpweb borrows HQPlayer 6's ratings and
 focus for the same names (v5.17's lists match v6's). Ratio warnings on v5 follow the
-v5 user manual's rules, corrected where we measured otherwise. The few filters and
-modulators v6 dropped are described from the v5 manual, in our own words, without
-ratings. Ratings are Signalyst's; nothing here is our own judgement of sound.
+v5 user manual's rules, corrected where we measured otherwise. Which filters are
+apodizing comes from HQPlayer 6's own filter table. The few filters and modulators v6
+dropped are described from the v5 manual, in our own words, without ratings. Ratings
+are Signalyst's; nothing here is our own judgement of sound.
 
 ## Why can't I switch profiles or endpoints?
 
-HQPlayer's control protocol doesn't offer it. hqpweb can list the configurations you
-saved in HQPlayer, but loading one needs an encrypted handshake whose key only ships
-in Signalyst's own Client, and nothing in the protocol selects the output device or
-NAA. HQPlayer Embedded can switch profiles through its own web page, but Desktop has
-no equivalent, and we'd rather keep one way of doing things for both than build and
-maintain two. Signalyst has said profile switching over the control API is planned;
-when it arrives, hqpweb will use it. Until then, use HQPlayer's Client (or Embedded's
-web page) to change rooms, and hqpweb's presets for filters and dither.
+HQPlayer's control protocol doesn't let other apps do it. Loading a saved
+configuration needs an encrypted handshake whose key only ships in Signalyst's own
+Client, and nothing in the protocol selects the output device or NAA. HQPlayer
+Embedded can switch profiles on its own web page, but that restarts its engine (and
+resets the volume), and Desktop has nothing like it. So use HQPlayer's Client, or
+Embedded's web page, to change rooms, and hqpweb's presets for filters and dither.
 
 ## How this was made
 
