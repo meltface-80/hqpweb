@@ -68,20 +68,33 @@
       else if (slowSince === null) slowSince = Date.now();
     });
   });
+  // HQPlayer 5.17.2+ reports its own processing speed (× real time): when it does,
+  // show that number. Below 1× it can't keep up; under 1.5× there's little headroom.
+  const processSpeed = $derived(snap?.health?.processSpeed ?? null);
+  const fmtX = (v: number) => (v >= 10 ? `${Math.round(v)}×` : `${v.toFixed(1)}×`);
   const speedClass = $derived(
-    speed == null
-      ? ""
-      : speed < 0.9
+    processSpeed != null
+      ? processSpeed < 1
         ? "bad"
-        : slowSince !== null && (snap ? Date.now() : 0) - slowSince >= 15_000
+        : processSpeed < 1.5
           ? "warn"
-          : "ok",
+          : "ok"
+      : speed == null
+        ? ""
+        : speed < 0.9
+          ? "bad"
+          : slowSince !== null && (snap ? Date.now() : 0) - slowSince >= 15_000
+            ? "warn"
+            : "ok",
   );
   const SPEED_LABEL: Record<string, string> = { ok: "Real-time ✓", warn: "Straining", bad: "Falling behind" };
+  const speedText = $derived(processSpeed != null ? fmtX(processSpeed) : speed == null ? "—" : SPEED_LABEL[speedClass]);
   const speedTitle = $derived(
-    speed == null
-      ? "Shown while playing, after about 30 s of a track."
-      : `HQPlayer is processing at ${speed.toFixed(3)}× real time over the last 30 s. Below 1.0 it can't keep up and audio will drop. Brief dips during a change are normal.`,
+    processSpeed != null
+      ? `HQPlayer is processing at ${processSpeed.toFixed(1)}× real time (3-second average): it could run that many times faster than playback needs. Below 1× it can't keep up and audio drops; close to 1× leaves little headroom.`
+      : speed == null
+        ? "Shown while playing, after about 30 s of a track."
+        : `HQPlayer is processing at ${speed.toFixed(3)}× real time over the last 30 s. Below 1.0 it can't keep up and audio will drop. Brief dips during a change are normal.`,
   );
   let offlineSince = $state<Date | null>(null);
   const slow = $derived((snap?.health?.latencyMs ?? 0) > 1500);
@@ -444,9 +457,9 @@
     <p class="banner warn">No HQPlayer instances yet. Open Settings (⚙) to scan the network or add one by address.</p>
   {/if}
 
-  {#if speedClass === "bad" && speed != null}
+  {#if speedClass === "bad" && (processSpeed ?? speed) != null}
     <p class="banner warn">
-      HQPlayer is falling behind real time ({speed.toFixed(2)}×): it may be overloaded.
+      HQPlayer is falling behind real time ({(processSpeed ?? speed)!.toFixed(2)}×): it may be overloaded.
       {#if undoAvailable}Undo the last change below, or pick a lighter filter or modulator.{:else}Try a lighter filter or
         modulator.{/if}
     </p>
@@ -568,7 +581,7 @@
           {snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}
         </dd>
         <dt title={speedTitle}>Processing</dt>
-        <dd class="speed {speedClass}" title={speedTitle}>{speed == null ? "—" : SPEED_LABEL[speedClass]}</dd>
+        <dd class="speed {speedClass}" title={speedTitle}>{speedText}</dd>
       </dl>
       {#if caps}
         <!-- Volume belongs with playback: compact, on the Now card. -->

@@ -39,7 +39,12 @@ export type Status = {
   length: number;
   source: { sampleRate: number; bits: number; channels: number; song: string } | null;
 };
-export type Snapshot = { status: Status; state: State; health?: { latencyMs: number; speed: number | null } };
+export type Snapshot = {
+  status: Status;
+  state: State;
+  /** speed: position fit over 30 s; processSpeed: HQPlayer's own figure (×real time, 3 s average) when reported. */
+  health?: { latencyMs: number; speed: number | null; processSpeed?: number | null };
+};
 export type Failure = {
   mode: string;
   rateHz: number;

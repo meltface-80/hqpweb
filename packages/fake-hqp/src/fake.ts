@@ -179,18 +179,15 @@ export class FakeHqp {
     return this.profile.volumeFormat === "long" ? v.toFixed(17) : String(v);
   }
 
+  /** The simulated machine's speed for the current settings (1 = real time). */
+  private currentSpeed(): number {
+    const f = this.lists.filters.find((x) => x.index === this.filterInUse)?.name ?? "";
+    return this.opts.speed({ modeName: this.mode.name, rateHz: this.activeRateHz, filterName: f, shaperName: this.shaperName });
+  }
+
   private tick() {
     const now = Date.now();
-    if (this.playback === 2) {
-      const f = this.lists.filters.find((x) => x.index === this.filterInUse)?.name ?? "";
-      const speed = this.opts.speed({
-        modeName: this.mode.name,
-        rateHz: this.activeRateHz,
-        filterName: f,
-        shaperName: this.shaperName,
-      });
-      this.position += ((now - this.lastTick) / 1000) * speed;
-    }
+    if (this.playback === 2) this.position += ((now - this.lastTick) / 1000) * this.currentSpeed();
     this.lastTick = now;
   }
 
@@ -314,6 +311,9 @@ export class FakeHqp {
           // Real replies: the track length for files, 0 for a Roon stream (measured).
           length: playing && this.feeder !== "Roon" ? 300 : 0,
           position: pos,
+          // Measured (5.17.2, 6.2.3): processing speed as a multiple of real time, 0
+          // when not playing. Healthy machines show lots of headroom; overloaded < 1.
+          process_speed: this.playback === 2 ? (this.currentSpeed() >= 1 ? 25 : this.currentSpeed()) : 0,
           state: this.playback,
           track: playing ? 1 : 0,
           tracks_total: playing ? 1 : 0,

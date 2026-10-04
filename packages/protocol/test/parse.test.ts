@@ -152,3 +152,16 @@ describe("attribute escaping", () => {
     expect(escapeAttr('a"b<c>&\nd\re\tf')).toBe("a&quot;b&lt;c&gt;&amp;&#10;d&#13;e&#9;f");
   });
 });
+
+describe("process_speed", () => {
+  it("is a number when HQPlayer reports it, null when it doesn't (older versions)", async () => {
+    const { parseDocument } = await import("../src/xml.ts");
+    const { parseStatus } = await import("../src/parse.ts");
+    const withIt = parseDocument(
+      '<Status state="2" active_rate="96000" position="1" process_speed="31.53564763005124405" volume="-20"/>',
+    );
+    const without = parseDocument('<Status state="2" active_rate="96000" position="1" volume="-20"/>');
+    expect(parseStatus(withIt).processSpeed).toBeCloseTo(31.54, 1);
+    expect(parseStatus(without).processSpeed).toBeNull();
+  });
+});

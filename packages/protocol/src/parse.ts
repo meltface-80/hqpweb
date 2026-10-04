@@ -128,6 +128,12 @@ export interface Status {
   position: number;
   /** Track length in seconds; 0 when unknown, e.g. a Roon stream (measured). */
   length: number;
+  /**
+   * HQPlayer's processing speed as a multiple of real time (measured on 5.17.2
+   * and 6.2.3: ~30 while playing light settings, 0 when stopped). Null on older
+   * versions that don't report it (5.13 doesn't).
+   */
+  processSpeed: number | null;
   track: number;
   tracksTotal: number;
   /** From the <metadata> child, present while playing (measured). Decides 1x vs Nx filter. */
@@ -144,6 +150,7 @@ export function parseStatus(el: Element): Status {
     volume: volumeDb(el),
     position: Number(el.attrs.position ?? 0),
     length: Number(el.attrs.length ?? 0) || 0,
+    processSpeed: el.attrs.process_speed === undefined ? null : Number(el.attrs.process_speed) || 0,
     track: Number(el.attrs.track ?? 0),
     tracksTotal: Number(el.attrs.tracks_total ?? 0),
     source: sourceOf(el),

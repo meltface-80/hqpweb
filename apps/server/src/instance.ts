@@ -135,7 +135,11 @@ export interface PresetPreview {
 export interface StatusEvent {
   snapshot?: Snapshot;
   /** speed: playback rate vs real time over ~10 s (1 = keeping up); null = unknown. */
-  health?: { latencyMs: number; speed: number | null };
+  /**
+   * speed: playback position against the clock (30 s fit). processSpeed: HQPlayer's
+   * own processing speed, averaged over ~3 s, when it reports one. Null = unknown.
+   */
+  health?: { latencyMs: number; speed: number | null; processSpeed: number | null };
   error?: string;
 }
 
@@ -638,10 +642,29 @@ export class Instance {
   private listeners = new Set<(e: StatusEvent) => void>();
   private timer: NodeJS.Timeout | null = null;
   private trail: { t: number; pos: number }[] = [];
+  private processTrail: { t: number; v: number }[] = [];
+
+  /**
+   * HQPlayer's reported processing speed, averaged over the last ~3 s while playing.
+   * It's how many times faster than real time HQPlayer processes (headroom), so it
+   * isn't fooled by a slow output the way the position fit can be.
+   */
+  private averageProcessSpeed(status: Status): number | null {
+    if (status.processSpeed === null) return null;
+    const now = Date.now();
+    if (status.state !== 2 || status.processSpeed <= 0) {
+      this.processTrail = [];
+      return null;
+    }
+    this.processTrail.push({ t: now, v: status.processSpeed });
+    this.processTrail = this.processTrail.filter((p) => now - p.t <= 3000);
+    const avg = this.processTrail.reduce((a, p) => a + p.v, 0) / this.processTrail.length;
+    return Math.round(avg * 100) / 100;
+  }
   /** Bumped whenever polling starts or stops, so an in-flight tick from an old chain can't restart it. */
   private pollGen = 0;
 
-  subscribe(fn: (e: StatusEvent) => void, intervalMs = 1500): () => void {
+  subscribe(fn: (e: StatusEvent) => void, intervalMs = 1000): () => void {
     this.listeners.add(fn);
     if (!this.timer) {
       const gen = ++this.pollGen;
@@ -652,12 +675,16 @@ export class Instance {
         try {
           const [status, state] = await Promise.all([this.client.status(), this.client.state()]);
           const latencyMs = Date.now() - t0;
-          event = { snapshot: { status, state }, health: { latencyMs, speed: this.trackSpeed(status) } };
+          event = {
+            snapshot: { status, state },
+            health: { latencyMs, speed: this.trackSpeed(status), processSpeed: this.averageProcessSpeed(status) },
+          };
           // Inferred threshold: normal replies take ~1 ms on a kept-open connection (measured).
           if (latencyMs > 1000) next = Math.min(10_000, latencyMs * 3);
         } catch (e) {
           event = { error: (e as Error).message };
           this.trail = [];
+          this.processTrail = [];
           next = Math.min(10_000, intervalMs * 4);
         }
         if (gen !== this.pollGen) return; // stopped (or restarted) while this tick was in flight
@@ -679,6 +706,7 @@ export class Instance {
         clearTimeout(this.timer);
         this.timer = null;
         this.trail = [];
+        this.processTrail = [];
         this.pollGen++;
       }
     };
