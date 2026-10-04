@@ -24,7 +24,8 @@
     "typecheck": "tsc -b && tsc -p e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:e2e": "playwright test -c e2e/playwright.config.ts"
+    "test:e2e": "playwright test -c e2e/playwright.config.ts",
+    "lint": "lint/node_modules/.bin/eslint -c lint/eslint.config.js --suppressions-location lint/eslint-suppressions.json ."
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

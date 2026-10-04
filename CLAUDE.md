@@ -67,3 +67,7 @@ splitting before adding.
 - `npm run test:e2e` runs the browser smoke tests (Playwright) against fake HQPlayers
   (`e2e/stack.ts`, one fake per flow). First time: `npx playwright install chromium`.
   Screenshots go to `e2e/screenshots/` (git-ignored; CI uploads them as an artifact).
+- `npm run lint` runs the curated ESLint set. It has its own install (`npm ci --prefix lint`)
+  because typescript-eslint needs TypeScript ≤ 6.0. Old violations are recorded in
+  `lint/eslint-suppressions.json` and don't fail; new ones do. After fixing old ones, run
+  `npm run lint -- --prune-suppressions`. Never add to that file to get a change through.

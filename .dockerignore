@@ -15,3 +15,5 @@ docs
 *.local
 pii-denylist.local
 .github
+lint
+e2e

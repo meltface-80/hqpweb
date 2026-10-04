@@ -18,8 +18,14 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            lint/package-lock.json
       - run: npm ci
+      # ESLint has its own install (TypeScript 6.0; see lint/eslint.config.js).
+      - run: npm ci --prefix lint
       - run: npm run format:check
+      - run: npm run lint
       - run: npm run typecheck
       - run: npm run check -w apps/web
       - run: npm test

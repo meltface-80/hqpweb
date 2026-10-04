@@ -1,0 +1,56 @@
+{
+  "apps/server/src/app.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "apps/server/src/instance.ts": {
+    "@typescript-eslint/no-misused-promises": {
+      "count": 2
+    }
+  },
+  "apps/server/src/roon/roon.ts": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "apps/web/src/App.svelte": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 4
+    },
+    "@typescript-eslint/no-misused-promises": {
+      "count": 4
+    },
+    "svelte/no-useless-mustaches": {
+      "count": 1
+    }
+  },
+  "apps/web/src/lib/Picker.svelte": {
+    "svelte/prefer-svelte-reactivity": {
+      "count": 1
+    }
+  },
+  "apps/web/src/lib/Presets.svelte": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "apps/web/src/lib/RoonSettings.svelte": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 2
+    },
+    "@typescript-eslint/no-misused-promises": {
+      "count": 1
+    }
+  },
+  "apps/web/src/lib/Settings.svelte": {
+    "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    }
+  },
+  "packages/fake-hqp/src/cli.ts": {
+    "@typescript-eslint/no-misused-promises": {
+      "count": 2
+    }
+  }
+}

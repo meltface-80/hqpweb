@@ -1,0 +1,15 @@
+{
+  "name": "@app/lint",
+  "version": "0.1.0-beta.1",
+  "private": true,
+  "type": "module",
+  "description": "ESLint and its own TypeScript 6.0: typescript-eslint doesn't support TypeScript 7 yet.",
+  "devDependencies": {
+    "eslint": "^10.0.0",
+    "eslint-plugin-svelte": "^3.23.0",
+    "globals": "^17.0.0",
+    "ts-api-utils": "^2.5.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0"
+  }
+}

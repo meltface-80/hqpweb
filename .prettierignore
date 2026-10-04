@@ -6,3 +6,6 @@ tools/probe/local
 apps/web/public
 packages/protocol/test/replies
 packages/fake-hqp/profiles
+lint/package-lock.json
+# Written by ESLint (--suppress-all, --prune-suppressions).
+lint/eslint-suppressions.json
