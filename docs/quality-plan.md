@@ -107,7 +107,8 @@ one-off check, not a stored baseline.
 1. **Safety net.** Browser smoke tests, the curated ESLint set, the file-length
    tripwire, the volume-safety properties, and a command that re-measures the table
    above. _Done when_ the smoke flows run in CI, ESLint and the length tripwire block
-   on changed code, and the volume properties pass.
+   on changed code, and the volume properties pass. _Done 2026-10-04_ (#17–#20, and a
+   pre-commit hook that runs the fast checks).
 2. **`App.svelte`.** Move decision logic into tested modules under `apps/web/src/lib/`
    (filter and rate hints, the "won't start" check, the update check). Split the view
    into components: the Now card, warning banners, the filters card, Advanced, and the

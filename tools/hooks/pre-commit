@@ -1,0 +1,26 @@
+#!/bin/sh
+# Fast checks before each commit (docs/quality-plan.md, principle 1): formatting of
+# the staged files, then, if code changed, file lengths, types and lint. A few
+# seconds; CI runs these and the tests as the backstop. Files are checked as they
+# are on disk, so a partly staged file is checked whole.
+root="$(git rev-parse --show-toplevel)"
+cd "$root" || exit 1
+
+staged() { git diff --cached --name-only -z --diff-filter=ACMR; }
+[ -z "$(staged | tr -d '\0')" ] && exit 0
+
+fail() {
+  echo "pre-commit: $1" >&2
+  exit 1
+}
+
+staged | xargs -0 npx --no-install prettier --check --ignore-unknown --log-level warn ||
+  fail "formatting: run \`npx prettier --write\` on the files above."
+
+# Docs-only commits stop here.
+staged | tr '\0' '\n' | grep -qE '\.(ts|svelte|js|mjs|cjs)$|(^|/)(package\.json|tsconfig[^/]*\.json)$' || exit 0
+
+npm run -s lines >/dev/null || fail "file length (see above)."
+npm run -s typecheck || fail "types (see above)."
+[ -x lint/node_modules/.bin/eslint ] || fail "ESLint isn't installed: run \`npm ci --prefix lint\`."
+npm run -s lint -- --quiet || fail "lint (see above). Fix it; don't add to lint/eslint-suppressions.json."
