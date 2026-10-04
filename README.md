@@ -13,7 +13,7 @@ Embedded. Desktop 6 and Windows are untested.
 > used here only to identify compatible software.
 
 <p align="center">
-  <img src="docs/images/now.png" width="300" alt="The Now card: output rate, source, HQPlayer's processing speed, the Apod counter, volume, and the filter and dither in use" />
+  <img src="docs/images/now.png" width="300" alt="The Now card: now playing from Roon, output rate, source, HQPlayer's processing speed, the Apod counter, volume, and the filters and dither in use" />
   <img src="docs/images/filters.png" width="300" alt="The filter picker: star ratings, chips to narrow the list, and details for the selected filter" />
 </p>
 
