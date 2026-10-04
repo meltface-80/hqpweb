@@ -71,3 +71,7 @@ splitting before adding.
   because typescript-eslint needs TypeScript ≤ 6.0. Old violations are recorded in
   `lint/eslint-suppressions.json` and don't fail; new ones do. After fixing old ones, run
   `npm run lint -- --prune-suppressions`. Never add to that file to get a change through.
+- `npm run lines` is the file-length tripwire (fails above 600 lines). Files already over it
+  are listed in `tools/quality/length-baseline.json` and may not grow; after splitting one,
+  `npm run lines -- --ratchet`. Never raise or add an entry: split the file.
+  `npm run measure` re-measures the quality plan's table.

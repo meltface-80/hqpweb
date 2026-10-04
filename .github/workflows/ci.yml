@@ -26,6 +26,7 @@ jobs:
       - run: npm ci --prefix lint
       - run: npm run format:check
       - run: npm run lint
+      - run: npm run lines
       - run: npm run typecheck
       - run: npm run check -w apps/web
       - run: npm test

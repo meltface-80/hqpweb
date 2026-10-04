@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // Checked on its own (npm run typecheck), not built.
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true,
+    "rewriteRelativeImportExtensions": false
+  },
+  "include": ["*.ts"]
+}

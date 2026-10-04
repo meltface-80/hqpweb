@@ -15,6 +15,9 @@ is how we keep that from happening. It's a working document: it changes as we le
 | `packages/protocol` |        1,340 | 460 lines, 3 files   | Mostly pure functions; the best-tested part.                                            |
 | `packages/fake-hqp` |        1,011 | 194 lines            | The fake HQPlayer used by tests.                                                        |
 
+Re-measure with `npm run measure`. It also counts config files, so `apps/web` shows
+25 lines more (`vite.config.ts`) than the 3,852 above.
+
 Already enforced in CI: strict TypeScript (including `noUncheckedIndexedAccess`),
 `svelte-check` with warnings as errors, Prettier, unit and integration tests, a Docker
 build with a health check, and CodeQL. **Missing:** a linter, any limit on file or

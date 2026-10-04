@@ -21,11 +21,13 @@
     "dev:server": "node --watch apps/server/src/main.ts",
     "dev:web": "npm run dev -w apps/web",
     "test": "vitest run",
-    "typecheck": "tsc -b && tsc -p e2e",
+    "typecheck": "tsc -b && tsc -p e2e && tsc -p tools/quality",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:e2e": "playwright test -c e2e/playwright.config.ts",
-    "lint": "lint/node_modules/.bin/eslint -c lint/eslint.config.js --suppressions-location lint/eslint-suppressions.json ."
+    "lint": "lint/node_modules/.bin/eslint -c lint/eslint.config.js --suppressions-location lint/eslint-suppressions.json .",
+    "lines": "node tools/quality/measure.ts",
+    "measure": "node tools/quality/measure.ts --table"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

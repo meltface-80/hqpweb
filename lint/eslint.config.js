@@ -15,7 +15,16 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 
 export default tseslint.config(
   {
-    ignores: ["**/node_modules/", "**/dist/", ".tsbuild/", "lint/", "tools/", "e2e/test-results/", "e2e/report/"],
+    ignores: [
+      "**/node_modules/",
+      "**/dist/",
+      ".tsbuild/",
+      "lint/",
+      "tools/*/",
+      "!tools/quality/",
+      "e2e/test-results/",
+      "e2e/report/",
+    ],
   },
   {
     files: ["**/*.ts", "**/*.svelte"],
