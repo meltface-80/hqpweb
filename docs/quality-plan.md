@@ -6,9 +6,16 @@ working when the code grows faster than its structure: files get too big to reas
 about, tests stop proving anything, and each fix starts causing new bugs. This plan
 is how we keep that from happening. It's a working document: it changes as we learn.
 
-**Changes:** 2026-10-04: dropped screenshot comparison and a recorded mutation score
-as gates, and browser tests check outcomes rather than exact wording. The product is
-days old and changing fast; those gates would fail every time it changed on purpose.
+**Changes:**
+
+- 2026-10-04: dropped screenshot comparison and a recorded mutation score as gates, and
+  browser tests check outcomes rather than exact wording. The product is days old and
+  changing fast; those gates would fail every time it changed on purpose.
+- 2026-10-04, after step 1: a review of the principles. None of step 1's gates had
+  caught a real bug yet; the maintainer asking "how do you know it works?" had caught
+  two weak pull requests. So: principle 2 reworded, principle 8 added, the live release
+  checklist moved ahead of the refactors, the `App.svelte` step narrowed, and the pause
+  given an end.
 
 ## Where we are (0.1.0-beta.1)
 
@@ -41,8 +48,10 @@ Two problems that line counts don't show:
 
 1. **Gates must run automatically.** A rule that only lives in a document is ignored
    in a long session. Checks run locally (pre-commit) and in CI.
-2. **Choose gates from real bugs.** When a bug gets through, ask which gate should have
-   caught it, and add that one. Don't add gates for their own sake.
+2. **Gates earn their place.** Add a gate for a bug that got through, or for a bug class
+   that's clearly likely here; not for its own sake. At each release, note which gates
+   caught a real problem. One that has caught nothing over a few releases is
+   reconsidered. (Step 1's gates were chosen up front, so they're on probation.)
 3. **Decision logic lives in plain TypeScript modules with tests.** Components render;
    they don't decide.
 4. **Tests prove behaviour.** A test must fail when the behaviour it describes breaks.
@@ -53,6 +62,10 @@ Two problems that line counts don't show:
 7. **Don't freeze the product.** Gates constrain how the code is written, not what the
    product does or looks like. A gate that fails whenever wording, layout or pixels
    change on purpose costs more than it catches while the product is young.
+8. **Show the evidence.** A green CI run isn't proof. Each pull request says what it
+   changes or catches, what was broken on purpose to show the tests catch it, and what
+   isn't covered ([the template](../.github/pull_request_template.md)). Not a gate: a
+   habit, for the reviewer.
 
 ## Gates
 
@@ -95,7 +108,8 @@ and then, is the check that tests prove something.
   in the commit.
 - **The fake isn't evidence.** A rule the fake applies is also tested against a
   recorded reply or a measurement from design §2, and labelled measured or inferred.
-- **One reason to fail per test,** with a name that says what's being checked.
+- **One reason to fail per unit test,** with a name that says what's being checked. A
+  browser test walks one flow through several steps, so it checks each step.
 - **No tests that can't fail,** such as asserting that a value is merely defined.
 
 ## Refactoring plan
@@ -109,18 +123,24 @@ one-off check, not a stored baseline.
    above. _Done when_ the smoke flows run in CI, ESLint and the length tripwire block
    on changed code, and the volume properties pass. _Done 2026-10-04_ (#17–#20, and a
    pre-commit hook that runs the fast checks).
-2. **`App.svelte`.** Move decision logic into tested modules under `apps/web/src/lib/`
-   (filter and rate hints, the "won't start" check, the update check). Split the view
-   into components: the Now card, warning banners, the filters card, Advanced, and the
-   transport. Picker and the rate sheet share one sheet component. _Done when_ no UI
-   file exceeds the limits, the moved logic has tests, and the smoke flows pass.
-3. **`instance.ts`.** Split into a change engine and a status poller behind a thin
-   facade. Add the fake's contract tests and the live release checklist. _Done when_
-   no server file exceeds the limits, the fake's safety-relevant behaviours cite
-   evidence, and the checklist has run once against a real instance.
+2. **Live release checklist.** A short, scripted check against a real HQPlayer, before
+   each release tag (see the gate above). It comes before the refactors because
+   measuring real instances has found every real behaviour bug so far, and the fake
+   can't. _Done when_ it has run once against a real instance, including the volume
+   rule from #20 (a rollback keeps the volume low).
+3. **`App.svelte`: logic first.** Move decision logic into tested modules under
+   `apps/web/src/lib/` (filter and rate hints, the "won't start" check, the update
+   check): it outlives any redesign. Split the view into components only as far as it
+   takes to get under the file limits; leave further structure until the UI settles.
+   _Done when_ no UI file exceeds the limits, the moved logic has tests, and the smoke
+   flows pass.
+4. **`instance.ts`.** Split into a change engine and a status poller behind a thin
+   facade. Add the fake's contract tests. _Done when_ no server file exceeds the
+   limits and the fake's safety-relevant behaviours cite evidence.
 
-New features pause until all three steps are done, a few working sessions in all.
-Bug fixes continue, each starting with a failing test.
+New features pause until steps 2–4 are done as written here, and no longer: work that
+grows beyond these descriptions waits until after the pause. Bug fixes continue, each
+starting with a failing test.
 
 ## Trade-offs
 
@@ -137,6 +157,7 @@ Bug fixes continue, each starting with a failing test.
 
 - Bug fixes stop causing new bugs, and each bug that does get through leads to a gate
   that would have caught it.
+- Gates are kept for what they catch: each release notes which ones caught something.
 - No source file grows past the limits without being split first.
 - Changing what the product does or looks like means updating the tests of that
   behaviour, never the gates.

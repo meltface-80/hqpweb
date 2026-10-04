@@ -44,6 +44,9 @@ environment. Read it if it exists; never commit anything from it.
 - **Dry-run, or read-only first.** Show what a change will do before making it.
 - **Say what you did not verify.** The fact base labels measured versus inferred;
   keep that discipline in code comments and PRs.
+- **Show the evidence** (quality plan, principle 8). Pull requests follow
+  `.github/pull_request_template.md`: what it does, how you know it works (what you broke
+  on purpose to prove it), and what isn't covered. Do this before calling a PR ready.
 - **Commit with an explicit pathspec** (`git commit -m "…" -- path …`). Other
   sessions may share the working tree's index.
 - **Licence:** MIT (`LICENSE`); third-party notices in `THIRD_PARTY_NOTICES.md`.
