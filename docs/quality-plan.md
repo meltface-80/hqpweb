@@ -6,6 +6,10 @@ working when the code grows faster than its structure: files get too big to reas
 about, tests stop proving anything, and each fix starts causing new bugs. This plan
 is how we keep that from happening. It's a working document: it changes as we learn.
 
+**Changes:** 2026-10-04: dropped screenshot comparison and a recorded mutation score
+as gates, and browser tests check outcomes rather than exact wording. The product is
+days old and changing fast; those gates would fail every time it changed on purpose.
+
 ## Where we are (0.1.0-beta.1)
 
 | Area                | Source lines | Tests                | Notes                                                                                   |
@@ -46,19 +50,22 @@ Two problems that line counts don't show:
    and live checks are the authority.
 6. **Small steps.** One concern per pull request. Refactors keep behaviour identical
    and prove it.
+7. **Don't freeze the product.** Gates constrain how the code is written, not what the
+   product does or looks like. A gate that fails whenever wording, layout or pixels
+   change on purpose costs more than it catches while the product is young.
 
 ## Gates
 
-| Gate                                                   | Starts as                                                                                                                             | Tightens to                                   |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| **Browser smoke tests** (Playwright, against the fake) | 6–8 key flows, with screenshots                                                                                                       | A flow added for every new screen or warning  |
-| **ESLint**, a curated set (see below)                  | Blocking on new and changed code; old code fixed as each file is refactored                                                           | Blocking everywhere                           |
-| **File length**                                        | Fails above 600 lines; reports above 400                                                                                              | Fails above 400                               |
-| **Function size and complexity**                       | Reported                                                                                                                              | Fails above 60 lines or a complexity of 15    |
-| **Volume-safety properties** (fast-check)              | Volume never rises more than 6 dB in one step; rollback never raises it; undo returns to a higher level only if nobody moved it since | More invariants as the change engine is split |
-| **Mutation testing** (Stryker), on demand              | A baseline score recorded for the ratio rules and the change engine                                                                   | The score never drops below that baseline     |
-| **Fake contract tests**                                | Each fake behaviour that matters is checked against a recorded reply or a cited measurement                                           | Unlabelled fake behaviour isn't allowed       |
-| **Live release checklist**                             | Required before every release tag: a short scripted check against a real HQPlayer (see below)                                         | Automated where safe                          |
+| Gate                                                   | Starts as                                                                                                                                                                   | Tightens to                                                  |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Browser smoke tests** (Playwright, against the fake) | 6–8 key flows. They check outcomes (what's applied, what's shown) and key phrases, not exact wording or pixels. Screenshots are saved for people to look at, never compared | A flow for each new warning that protects playback or volume |
+| **ESLint**, a curated set (see below)                  | Blocking on new and changed code; old code fixed as each file is refactored                                                                                                 | Blocking everywhere                                          |
+| **File length**                                        | Fails above 600 lines; reports above 400                                                                                                                                    | Fails above 400                                              |
+| **Function size and complexity**                       | Reported                                                                                                                                                                    | Fails above 60 lines or a complexity of 15                   |
+| **Volume-safety properties** (fast-check)              | Volume never rises more than 6 dB in one step; rollback never raises it; undo returns to a higher level only if nobody moved it since                                       | More invariants as the change engine is split                |
+| **Mutation testing** (Stryker), on demand              | Run now and then on the core logic, to find tests that can't fail. No recorded score, not a gate                                                                            | —                                                            |
+| **Fake contract tests**                                | The fake behaviours the safety rules rely on (stalls, rollback triggers, volume) cite a recorded reply or a measurement                                                     | Extended when a bug shows the fake was wrong                 |
+| **Live release checklist**                             | Required before every release tag: a short scripted check against a real HQPlayer (see below)                                                                               | Automated where safe                                         |
 
 **The ESLint set** targets bug classes we've actually had or are likely to: promises
 nobody waits for, promises passed where they don't belong, non-exhaustive `switch`
@@ -76,8 +83,8 @@ and end by restoring and comparing against the snapshot. It covers what no fake 
 that changes take effect, playback recovers, and the warnings appear when they should.
 
 **Coverage** is reported per package but isn't a gate: a percentage target invites
-tests written to touch lines rather than to prove behaviour. Mutation testing is the
-check that tests prove something.
+tests written to touch lines rather than to prove behaviour. Mutation testing, run now
+and then, is the check that tests prove something.
 
 ## Rules for writing tests
 
@@ -93,8 +100,9 @@ check that tests prove something.
 
 ## Refactoring plan
 
-Each step keeps behaviour identical, shown by the browser smoke tests staying green and
-by screenshot differences a non-developer can review.
+Each step keeps behaviour identical, shown by the browser smoke tests staying green. A
+refactor's pull request can include before-and-after screenshots for review; they're a
+one-off check, not a stored baseline.
 
 1. **Safety net.** Browser smoke tests, the curated ESLint set, the file-length
    tripwire, the volume-safety properties, and a command that re-measures the table
@@ -104,13 +112,11 @@ by screenshot differences a non-developer can review.
    (filter and rate hints, the "won't start" check, the update check). Split the view
    into components: the Now card, warning banners, the filters card, Advanced, and the
    transport. Picker and the rate sheet share one sheet component. _Done when_ no UI
-   file exceeds the limits, the moved logic has tests, the smoke flows and screenshots
-   are unchanged, and a mutation baseline is recorded for the moved logic.
+   file exceeds the limits, the moved logic has tests, and the smoke flows pass.
 3. **`instance.ts`.** Split into a change engine and a status poller behind a thin
    facade. Add the fake's contract tests and the live release checklist. _Done when_
-   no server file exceeds the limits, the fake's important behaviours cite evidence,
-   the checklist has run once against a real instance, and a mutation baseline is
-   recorded for the change engine.
+   no server file exceeds the limits, the fake's safety-relevant behaviours cite
+   evidence, and the checklist has run once against a real instance.
 
 New features pause until all three steps are done, a few working sessions in all.
 Bug fixes continue, each starting with a failing test.
@@ -119,7 +125,7 @@ Bug fixes continue, each starting with a failing test.
 
 - **Speed:** a short pause on features, and a few more minutes per CI run for browser
   tests.
-- **Dependencies:** ESLint, Playwright, Stryker and fast-check are development-only and
+- **Dependencies:** ESLint, Playwright and fast-check (and Stryker, when it's run) are development-only and
   never ship in the image, but they're more to keep up to date.
 - **Refactoring risk:** moving code can break it. The browser tests come first for that
   reason.
@@ -131,4 +137,5 @@ Bug fixes continue, each starting with a failing test.
 - Bug fixes stop causing new bugs, and each bug that does get through leads to a gate
   that would have caught it.
 - No source file grows past the limits without being split first.
-- Mutation scores on the core logic never fall below their baselines.
+- Changing what the product does or looks like means updating the tests of that
+  behaviour, never the gates.

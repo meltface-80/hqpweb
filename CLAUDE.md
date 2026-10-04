@@ -66,7 +66,9 @@ splitting before adding.
   cross VLANs or routed subnets.
 - `npm run test:e2e` runs the browser smoke tests (Playwright) against fake HQPlayers
   (`e2e/stack.ts`, one fake per flow). First time: `npx playwright install chromium`.
-  Screenshots go to `e2e/screenshots/` (git-ignored; CI uploads them as an artifact).
+  Screenshots go to `e2e/screenshots/` (git-ignored; CI uploads them as an artifact), for
+  people to look at; they're never compared. Flows check outcomes and short key phrases,
+  not whole sentences, so rewording the UI doesn't break them.
 - `npm run lint` runs the curated ESLint set. It has its own install (`npm ci --prefix lint`)
   because typescript-eslint needs TypeScript ≤ 6.0. Old violations are recorded in
   `lint/eslint-suppressions.json` and don't fail; new ones do. After fixing old ones, run
