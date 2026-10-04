@@ -287,8 +287,23 @@ From the 6.0.1 SDK source and the release notes:
   control apps.
 - **Version numbering:** `GetInfo.version` is the major version only. `engine` is the
   real engine version.
-- **Inference, untested:** a v5-era client drives a v6 server for everything v5 had.
-  We must detect v6-only commands rather than assume them.
+- **Measured on HQPlayer 6 Embedded (engine 6.2.3, a VM with no audio output):**
+  - every v5 command hqpweb uses works unchanged, including mode switches (with
+    per-mode memory), filter, modulator, volume and toggle changes, matrix profiles;
+  - SDM lists are identical to v5's (77 filters, same order), except two modulators:
+    **AHM5EC5L and AHM7EC5L are gone, AHM5EC4B and AHM7EC4B are new**;
+  - `State` gains `filter_junk`; `GetJunkFilters` lists none, 20k, 30k, 40k, 50k,
+    2x, 4x, 8x; the v5 `Set20kFilter` still works and sets the junk filter to 20k;
+  - `LibraryGetHash` works (v5 answers "Unknown command");
+  - volume uses the long float format (`-20.00000000000000000`), range −60 to 0;
+  - `ConfigurationList` with none saved: the same "path doesn't exist" error as v5.
+  - `Status` gains `process_speed`, `track_serial`, `transport_serial` and
+    `filter_junk`. `process_speed` may be HQPlayer's own real-time measure, which
+    could replace the position fit behind "Processing" on v6; unverified, since it
+    needs playback.
+  - Like v5, a restart (here a VM reboot) brings back the _saved_ settings: changes
+    made over the control API, volume included, are lost (volume returned to −3 dB).
+  - Not measured: playback (no output device), and Embedded's web UI (port 8088).
 
 **Design rule:** everything enumerable is discovered at runtime and cached per
 `(instance, engine version, mode)`. Nothing is hard-coded except the command names.
