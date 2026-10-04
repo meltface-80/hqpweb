@@ -168,7 +168,9 @@ export class HqpClient {
         this.connections++;
         this.sock = sock;
         this.buf = "";
+        let received = 0;
         sock.on("data", (d: string) => {
+          received += d.length;
           // Search only the new chunk for line ends: rescanning the whole buffer
           // on every chunk is quadratic.
           let start = 0;
@@ -187,7 +189,14 @@ export class HqpClient {
         });
         const lost = (e?: Error) => {
           if (this.sock === sock) this.sock = null;
-          const err = Object.assign(e ?? new Error(`connection to ${this.host}:${this.port} closed`), { stale: true });
+          // Accepted, then closed without a byte: measured on unlicensed HQPlayer 6
+          // Embedded once its ~30-minute trial runs out (the port stays open).
+          const closed =
+            received === 0
+              ? `${this.host}:${this.port} accepted the connection but closed it without replying. ` +
+                "An unlicensed (trial) HQPlayer does this after about 30 minutes; restarting it fixes that."
+              : `connection to ${this.host}:${this.port} closed`;
+          const err = Object.assign(e ?? new Error(closed), { stale: true });
           this.failWaiting?.(err);
         };
         sock.on("error", lost);

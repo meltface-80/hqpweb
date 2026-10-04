@@ -66,6 +66,15 @@ describe("HqpClient", () => {
   });
 });
 
+describe("a peer that accepts and closes without replying", () => {
+  it("says so, and names the expired-trial cause", async () => {
+    const port = await peer((_l, sock) => sock.destroy());
+    const c = new HqpClient("127.0.0.1", { port, timeoutMs: 2000 });
+    await expect(c.request("<GetInfo/>")).rejects.toThrow(/without replying.*trial/);
+    c.close();
+  });
+});
+
 describe("rawRequest", () => {
   it("gives up on an endless reply", async () => {
     const port = await peer((_l, sock) => {
