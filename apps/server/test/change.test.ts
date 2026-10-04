@@ -351,6 +351,22 @@ describe("convolution and matrix profiles", () => {
   });
 });
 
+describe("HQPlayer-side seek", () => {
+  it("jumps within HQPlayer's own file, and passes on a refusal for a stream", async () => {
+    await setup();
+    // The fake starts with Roon as the source: a stream, so seeking is refused.
+    const refused = await req("POST", "/api/instances/mac/seek", { body: { seconds: 120 } });
+    expect(refused.status).toBe(409);
+    expect(refused.json().error).toMatch(/can't seek/);
+    // HQPlayer playing its own file: the seek lands.
+    fake.feeder = "playlist";
+    const ok = await req("POST", "/api/instances/mac/seek", { body: { seconds: 120 } });
+    expect(ok.status).toBe(200);
+    expect(ok.json().status.position).toBeGreaterThanOrEqual(120);
+    expect((await req("POST", "/api/instances/mac/seek", { body: { seconds: -1 } })).status).toBe(400);
+  });
+});
+
 describe("live health in the status stream", () => {
   async function events(n: number, pred: (d: any) => boolean) {
     const ctl = new AbortController();

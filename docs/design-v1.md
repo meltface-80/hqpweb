@@ -301,6 +301,17 @@ From the 6.0.1 SDK source and the release notes:
     `filter_junk`. `process_speed` may be HQPlayer's own real-time measure, which
     could replace the position fit behind "Processing" on v6; unverified, since it
     needs playback.
+  - **`process_speed` calibration (measured on Desktop 5.17.2 and 6.2.3):** it's
+    processing speed as a multiple of real time, independent of how fast the output
+    drains. On a real instance, settings at 1.00× just held real time and 0.92× fell
+    behind, matching the position-based measurements; everyday settings showed
+    1.3–3.5×. 5.13 doesn't report it.
+  - **`Seek position="N"`** works on local files (measured on 5.17.2: playback jumps
+    and continues, `result="OK"`); on a non-seekable source (an HTTP server without
+    range support) it returns `result="Error"` naming the stream reader.
+  - **A bare `<Status/>` subscribes the connection:** HQPlayer then pushes further
+    Status lines unasked, so a client reading one reply per request falls out of
+    step. Send `subscribe="0"` (hqpweb always does).
   - Like v5, a restart (here a VM reboot) brings back the _saved_ settings: changes
     made over the control API, volume included, are lost (volume returned to −3 dB).
   - Not measured: playback (no output device), and Embedded's web UI (port 8088).

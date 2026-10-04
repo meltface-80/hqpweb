@@ -464,6 +464,13 @@ export class FakeHqp {
       if (this.playback === 2) this.playback = 1;
       return this.ok("Pause");
     },
+    // Measured (5.17.2): Seek jumps within a local file; an unseekable stream (Roon,
+    // or HTTP without range support) replies with an error naming the stream reader.
+    Seek: (req) => {
+      if (this.feeder === "Roon") return this.doc("Seek", { result: "Error" }, "stream is not seekable");
+      this.position = Math.min(Math.max(0, Number(req.attrs.position ?? 0)), 300);
+      return this.ok("Seek");
+    },
     // Inferred: Previous/Next move one track and restart the position.
     Previous: () => {
       this.position = 0;

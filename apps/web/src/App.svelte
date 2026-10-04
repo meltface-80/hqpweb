@@ -69,14 +69,15 @@
     });
   });
   // HQPlayer 5.17.2+ reports its own processing speed (× real time): when it does,
-  // show that number. Below 1× it can't keep up; under 1.5× there's little headroom.
+  // show that number. Calibrated on a real instance: 1.00× just holds, 0.92× falls
+  // behind, so red below 1×, amber below 1.15× (little headroom), green above.
   const processSpeed = $derived(snap?.health?.processSpeed ?? null);
   const fmtX = (v: number) => (v >= 10 ? `${Math.round(v)}×` : `${v.toFixed(1)}×`);
   const speedClass = $derived(
     processSpeed != null
       ? processSpeed < 1
         ? "bad"
-        : processSpeed < 1.5
+        : processSpeed < 1.15
           ? "warn"
           : "ok"
       : speed == null
@@ -360,6 +361,18 @@
     return Math.min(len, p);
   });
   const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  let hqSeekDraft = $state<number | null>(null);
+  async function hqSeekTo(seconds: number) {
+    if (!selected) return;
+    try {
+      const r = await api.seek(selected, seconds);
+      if (snap) snap = { ...snap, status: r.status };
+    } catch (e) {
+      message = { kind: "error", text: (e as Error).message };
+    } finally {
+      hqSeekDraft = null;
+    }
+  }
   async function seekTo(seconds: number) {
     if (!selected) return;
     try {
@@ -504,12 +517,22 @@
         {/if}
       {/if}
       {#if !viaRoon && snap.status.state !== 0 && snap.status.position > 0}
-        <!-- HQPlayer's own position: read-only. Length is 0 for streams such as Roon's. -->
+        <!-- HQPlayer's own position. Length is 0 for streams such as Roon's, so no slider then;
+             with a length, dragging seeks (HQPlayer refuses on unseekable sources, and says so). -->
         <div class="seek">
-          <span>{mmss(snap.status.position)}</span>
+          <span>{mmss(hqSeekDraft ?? snap.status.position)}</span>
           {#if snap.status.length > 0}
-            <progress max={snap.status.length} value={Math.min(snap.status.position, snap.status.length)} aria-label="Position"
-            ></progress>
+            <input
+              type="range"
+              min="0"
+              max={snap.status.length}
+              step="1"
+              value={hqSeekDraft ?? Math.min(snap.status.position, snap.status.length)}
+              disabled={busy}
+              oninput={(e) => (hqSeekDraft = Number(e.currentTarget.value))}
+              onchange={(e) => hqSeekTo(Number(e.currentTarget.value))}
+              aria-label="Position"
+            />
             <span>{mmss(snap.status.length)}</span>
           {/if}
         </div>
@@ -940,13 +963,9 @@
     color: var(--text-dim);
     font-variant-numeric: tabular-nums;
   }
-  .seek input,
-  .seek progress {
+  .seek input {
     flex: 1;
     accent-color: var(--accent);
-  }
-  .seek progress {
-    height: 6px;
   }
   .mismatch {
     flex: 1 1 100%;

@@ -28,6 +28,8 @@ export const cmd = {
   // Transport (SDK source). With Roon driving, these act on HQPlayer underneath Roon.
   play: () => element("Play", { last: 0 }),
   pause: () => element("Pause"),
+  /** Seconds into the current track (SDK: `Seek position`). Works on local files, not on unseekable streams (measured). */
+  seek: (seconds: number) => element("Seek", { position: Math.max(0, Math.round(seconds)) }),
   stop: () => element("Stop"),
   previous: () => element("Previous"),
   next: () => element("Next"),

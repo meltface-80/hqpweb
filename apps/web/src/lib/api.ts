@@ -196,6 +196,12 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ zone }),
     }),
+  seek: (id: string, seconds: number) =>
+    call<{ status: Status }>(`/api/instances/${id}/seek`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ seconds }),
+    }),
   roonSeek: (id: string, seconds: number) =>
     call<RoonZone>(`/api/instances/${id}/roonseek`, {
       method: "POST",

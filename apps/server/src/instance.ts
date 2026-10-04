@@ -573,6 +573,19 @@ export class Instance {
     });
   }
 
+  /**
+   * Jump within the current track. HQPlayer refuses on an unseekable source (a Roon
+   * stream, or HTTP without range support) with a real error, which is passed on.
+   */
+  seek(seconds: number): Promise<{ status: Status }> {
+    return this.exclusive(async () => {
+      const reply = await this.client.send(cmd.seek(seconds));
+      if (reply.kind === "error") throw new HttpError(409, `HQPlayer can't seek here: ${reply.message}`);
+      await new Promise((r) => setTimeout(r, 300));
+      return { status: await this.client.status() };
+    });
+  }
+
   /** Current settings, by name: what "save current as preset" captures. */
   async currentSettings(): Promise<Required<Change>> {
     const [caps, state] = await Promise.all([this.capabilities(true), this.client.state()]);

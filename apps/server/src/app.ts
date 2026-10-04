@@ -234,6 +234,18 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         throw new HttpError(400, `action must be one of ${TRANSPORT_ACTIONS.join(", ")}`);
       return i.transport(body.action as TransportAction);
     },
+    "POST seek": async (q, _r, i) => {
+      const body = (await readJson(q)) as { seconds?: unknown };
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        typeof body.seconds !== "number" ||
+        !Number.isFinite(body.seconds) ||
+        body.seconds < 0
+      )
+        throw new HttpError(400, "seconds must be a number ≥ 0");
+      return i.seek(body.seconds);
+    },
     "GET learned": async (_q, _r, i) => i.learnedFailures(),
     "DELETE learned": async (_q, _r, i) => i.forgetFailures(),
     "GET events": events,
