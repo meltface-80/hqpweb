@@ -51,6 +51,14 @@ environment. Read it if it exists; never commit anything from it.
 - **README must keep the non-affiliation notices.** Don't use "HQPlayer" or "Roon"
   as the leading brand word in any app or package name.
 
+## Code quality
+
+[docs/quality-plan.md](docs/quality-plan.md) is binding: its gates, its rules for
+writing tests, and (while it lasts) its pause on new features. In short: decision logic
+goes in tested `.ts` modules, not components; a bug fix starts with a failing test; never
+weaken a test to make it pass; the fake isn't evidence; keep files under the limits,
+splitting before adding.
+
 ## Tools
 
 - `tools/probe/hqp.py HOST info|status|state|lists` and `tools/probe/hqp.py discover`
