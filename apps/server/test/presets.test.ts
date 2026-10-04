@@ -119,7 +119,7 @@ describe("previews", () => {
     await setup();
     await save({ name: "sinc-M at 192k", settings: { filter1x: "sinc-M", rate: 192000 } });
     const [p] = await previews("linux"); // PCM, 44.1 kHz source, 1x slot
-    expect(p.preview.predicted).toMatchObject({ level: "hard", text: expect.stringMatching(/whole-number/) });
+    expect(p.preview.predicted).toMatchObject({ level: "hard", text: expect.stringMatching(/power-of-two/) });
   });
 });
 

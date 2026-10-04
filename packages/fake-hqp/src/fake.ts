@@ -84,6 +84,9 @@ export class FakeHqp {
   feeder: "Roon" | "playlist" = "Roon";
   /** Sample rate of the track being played. Set with setSource(). */
   sourceRate = 44_100;
+  /** Status counters (measured present, always 0 in captures); tests set them. */
+  apod = 0;
+  clips = 0;
   private prepared = new Set<string>();
   private lastTick = Date.now();
   private timers = new Set<NodeJS.Timeout>();
@@ -306,7 +309,8 @@ export class FakeHqp {
           active_mode: this.mode.name,
           active_rate: this.activeRateHz,
           active_shaper: this.shaperName,
-          clips: 0,
+          apod: this.apod,
+          clips: this.clips,
           filter_20k: this.filter20k,
           // Real replies: the track length for files, 0 for a Roon stream (measured).
           length: playing && this.feeder !== "Roon" ? 300 : 0,
@@ -488,6 +492,19 @@ export class FakeHqp {
       if (req.attrs.start === "1") this.feeder = "playlist";
       return this.ok("PlaylistAdd");
     },
+    // Measured (6.2.3): items carry the track's rate even when it can't start. The
+    // fake's tracks all play at sourceRate.
+    PlaylistGet: () =>
+      this.doc(
+        "PlaylistGet",
+        { album: 0 },
+        undefined,
+        this.playlist
+          .map((uri, i) =>
+            element("PlaylistItem", { index: i + 1, rate: this.sourceRate, length: 300, song: uri.split("/").pop() ?? "" }),
+          )
+          .join(""),
+      ),
     PlaylistClear: () => {
       this.playlist = [];
       return this.ok("PlaylistClear");

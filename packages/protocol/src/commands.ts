@@ -16,6 +16,7 @@ export const cmd = {
   getFilters: () => element("GetFilters"),
   getShapers: () => element("GetShapers"),
   getRates: () => element("GetRates"),
+  playlistGet: () => element("PlaylistGet"),
   volumeRange: () => element("VolumeRange"),
   configurationList: () => element("ConfigurationList"),
   // Matrix profiles: syntax from the MIT SDK source (hqp-control 6.0.1). Reported

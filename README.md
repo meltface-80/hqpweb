@@ -42,6 +42,8 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 - **Checked and reversible:** every change is read back from HQPlayer. If one stops
   playback or HQPlayer can't keep up, the app puts the old settings back, remembers
   the combination, and warns you next time. Undo is one tap.
+- **Filter guide:** star ratings, what each filter favours, which ratios it can do,
+  and modulator generations ([where these come from](#where-filter-descriptions-come-from)).
 - **Processing:** whether HQPlayer is processing in real time.
 - **Volume safety:** never raised by more than 6 dB at once; undo and rollback
   never raise it.
@@ -110,16 +112,26 @@ authenticating proxy in front. Never expose it to the internet. To report a secu
 
 ## Tested with
 
-| HQPlayer                        | Platform                | Status                                                                    |
-| ------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
-| Desktop 5.17.2 (engine 5.35.10) | Linux (container, CUDA) | works (PCM)                                                               |
-| Desktop 5.17.2 (engine 5.35.10) | Linux (VM)              | reads and Roon verified; changes not yet                                  |
-| Desktop 5.17.2 (engine 5.35.10) | macOS (Apple Silicon)   | reads verified; changes tested on 5.15 (engine 5.32.5), SDM up to DSD1024 |
-| Embedded 6 (engine 6.2.3)       | Linux (VM, no audio)    | reads and changes verified; playback untested                             |
-| Desktop 6, Windows              | —                       | **untested**: reports welcome ([TESTING.md](TESTING.md))                  |
+| HQPlayer                        | Platform                | Status                                                            |
+| ------------------------------- | ----------------------- | ----------------------------------------------------------------- |
+| Desktop 5.17.2 (engine 5.35.10) | Linux (container, CUDA) | works (PCM)                                                       |
+| Desktop 5.17.2 (engine 5.35.10) | Linux (VM)              | reads and Roon verified; changes not yet                          |
+| Desktop 5.17.2 (engine 5.35.10) | macOS (Apple Silicon)   | works: changes and playback verified (PCM, and SDM up to DSD1024) |
+| Embedded 6 (engine 6.2.3)       | macOS (Apple Silicon)   | works: reads, changes and playback to a DAC over NAA              |
+| Embedded 6 (engine 6.2.3)       | Linux (container, CUDA) | works: reads, changes and playback to a DAC over NAA              |
+| Desktop 6, Windows              | —                       | **untested**: reports welcome ([TESTING.md](TESTING.md))          |
 
 hqpweb shows the _engine_ version (Settings → General); HQPlayer's own Help → About
 shows the product version.
+
+## Where filter descriptions come from
+
+HQPlayer 6 describes its own filters and modulators to control apps, and hqpweb shows
+that as-is. HQPlayer 5 doesn't, so for v5 hqpweb borrows HQPlayer 6's ratings and
+focus for the same names (v5.17's lists match v6's). Ratio warnings on v5 follow the
+v5 user manual's rules, corrected where we measured otherwise. The few filters and
+modulators v6 dropped are described from the v5 manual, in our own words, without
+ratings. Ratings are Signalyst's; nothing here is our own judgement of sound.
 
 ## Why can't I switch profiles or endpoints?
 

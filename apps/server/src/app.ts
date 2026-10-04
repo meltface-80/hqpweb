@@ -38,6 +38,10 @@ export interface AppOptions {
   timing?: { quick: WatchTiming; major: WatchTiming };
   /** Live playback-speed window (default 30 s). */
   speedWindowMs?: number;
+  /** Playlist re-read interval while stopped (default 5 s). */
+  queueEveryMs?: number;
+  /** How long Play may take before "didn't start" (default 5 s). */
+  playWaitMs?: number;
   /** Optional Roon link. Default: off, in memory only. */
   roon?: RoonLink;
 }
@@ -174,6 +178,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         learned,
         ...(opts.timing ? { timing: opts.timing } : {}),
         ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
+        ...(opts.queueEveryMs ? { queueEveryMs: opts.queueEveryMs } : {}),
+        ...(opts.playWaitMs ? { playWaitMs: opts.playWaitMs } : {}),
       }),
   });
   const roon = opts.roon ?? new RoonLink(null);
@@ -228,6 +234,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     "GET capabilities": (_q, _r, i) => i.capabilities(),
     "POST change": async (q, _r, i) => i.applyChange(parseChange(await readJson(q))),
     "POST undo": (_q, _r, i) => i.undo(),
+    "POST dismissjump": async (_q, _r, i) => i.dismissVolumeJump(),
     "POST transport": async (q, _r, i) => {
       const body = (await readJson(q)) as { action?: unknown };
       if (typeof body !== "object" || body === null || !TRANSPORT_ACTIONS.includes(body.action as TransportAction))

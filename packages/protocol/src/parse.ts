@@ -134,10 +134,31 @@ export interface Status {
    * versions that don't report it (5.13 doesn't).
    */
   processSpeed: number | null;
+  /**
+   * HQPlayer's apodization counter: how often the recording needed what an
+   * apodizing filter corrects. The v5 manual (§4.6) advises an apodizing filter
+   * once it passes 10 in a track. Present on 5.17.2 and 6.2.3 (measured, 0 so far).
+   */
+  apod: number;
+  /** HQPlayer's clip counter (inferred: overs it had to clip). 0 so far in every capture. */
+  clips: number;
   track: number;
   tracksTotal: number;
   /** From the <metadata> child, present while playing (measured). Decides 1x vs Nx filter. */
   source: { sampleRate: number; bits: number; channels: number; song: string } | null;
+}
+
+/**
+ * Sample rate of the track HQPlayer would play next from its own playlist: the
+ * current entry (Status `track`, 1-based) or else the first. Measured on 6.2.3:
+ * a track that can't start leaves Status with state 0, track 0 and no metadata,
+ * while PlaylistGet still lists it with its rate. Null when the playlist is empty.
+ */
+export function queuedRate(el: Element, track: number): number | null {
+  const items = el.children.filter((c) => c.name === "PlaylistItem");
+  const it = items.find((c) => Number(c.attrs.index) === track) ?? items[0];
+  const r = it ? Number(it.attrs.rate) : NaN;
+  return Number.isFinite(r) && r > 0 ? r : null;
 }
 
 export function parseStatus(el: Element): Status {
@@ -151,6 +172,8 @@ export function parseStatus(el: Element): Status {
     position: Number(el.attrs.position ?? 0),
     length: Number(el.attrs.length ?? 0) || 0,
     processSpeed: el.attrs.process_speed === undefined ? null : Number(el.attrs.process_speed) || 0,
+    apod: Number(el.attrs.apod ?? 0) || 0,
+    clips: Number(el.attrs.clips ?? 0) || 0,
     track: Number(el.attrs.track ?? 0),
     tracksTotal: Number(el.attrs.tracks_total ?? 0),
     source: sourceOf(el),
@@ -171,11 +194,15 @@ export interface Filter {
    * have arg=1 (measured). Kept for later investigation against the SDK source.
    */
   arg: number;
+  /** HQPlayer 6: a short description meant for control apps, e.g. "5/5 timbre ⥮ Any". */
+  description?: string;
 }
 export interface Shaper {
   index: number;
   name: string;
   value: number;
+  /** HQPlayer 6, SDM modulators: the design generation, e.g. "Gen8". */
+  description?: string;
 }
 export interface Rate {
   index: number;
@@ -194,10 +221,16 @@ export const parseFilters = (el: Element): Filter[] =>
     name: c.attrs.name ?? "",
     value: num(c, "value"),
     arg: Number(c.attrs.arg ?? 0),
+    ...(c.attrs.description ? { description: c.attrs.description } : {}),
   }));
 
 export const parseShapers = (el: Element): Shaper[] =>
-  kids(el, "ShapersItem").map((c) => ({ index: num(c, "index"), name: c.attrs.name ?? "", value: num(c, "value") }));
+  kids(el, "ShapersItem").map((c) => ({
+    index: num(c, "index"),
+    name: c.attrs.name ?? "",
+    value: num(c, "value"),
+    ...(c.attrs.description ? { description: c.attrs.description } : {}),
+  }));
 
 export const parseRates = (el: Element): Rate[] =>
   kids(el, "RatesItem").map((c) => ({ index: num(c, "index"), rate: num(c, "rate") }));

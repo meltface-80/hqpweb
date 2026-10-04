@@ -3,6 +3,42 @@
 Versions follow [semantic versioning](https://semver.org). Before 1.0, any release
 may change behaviour; upgrade notes say what you need to do.
 
+## Unreleased
+
+- **Filter and modulator descriptions (HQPlayer 6):** each filter shows HQPlayer's
+  own rating (stars); tap ⓘ for what it favours (transients, timbre, space) and the
+  ratios it works with. Chips narrow the list (5/5, a focus, "works here"), and
+  Settings can group the list by rating. Modulators show their generation (Gen1–8).
+- **Ratio warnings use HQPlayer 6's own rule** when it gives one. On v5 we follow
+  the v5 manual, except where measured otherwise: on Desktop 5.17.2 sinc-M needs a
+  power-of-two ratio (it refuses 3×, and 2× down plays), not "whole-number". FFT
+  allows power-of-two either way, and the ext2 variants are covered.
+- **v5 instances get the same guide:** ratings and focus borrowed from HQPlayer 6 by
+  name; v5-only filters and modulators described from the v5 manual.
+- **Compatible filters first.** When the output rate is fixed, filters that can't do
+  the current conversion ratio are hidden by a "compatible" chip (on by default; "Show
+  all" lists them struck through). Picking one offers the output rates that fit, marks
+  the closest, offers Auto, or applies anyway; the filter and rate change together.
+- **"The next track won't start."** When HQPlayer is stopped and the track queued in
+  its playlist can't play with the current filter and fixed rate, the Now card says
+  why, with a fix: rates that fit, Auto, or another filter. (HQPlayer itself just
+  ignores Play.) With a fixed rate, a note under the filters also warns about source
+  rates the next album might use.
+- **Volume jumps are flagged.** If HQPlayer's volume rises 10 dB or more without
+  hqpweb (a restart brings it back at its saved level; v6 at −3 dB, measured), the Now
+  card says so, with a button to go back to the previous level, and Dismiss.
+- **"HQPlayer didn't start."** HQPlayer replies OK to Play even when nothing can start.
+  After a Play from hqpweb, if nothing starts within a few seconds, the app says so,
+  and why when a rule explains it; otherwise it points at the output (an NAA in use
+  elsewhere, a DAC that's off).
+- **Apod and clip counters.** HQPlayer's apodization counter appears once it's above
+  0 (amber; red past 10, where HQPlayer's manual suggests an apodizing filter, with a
+  link that opens the filter list narrowed to apodizing filters). The clip counter
+  appears once above 0, with a hint to lower the volume. Filters carry an "apodizing"
+  chip, from HQPlayer 6's own filter table (yes, no or partly).
+- **"Processing" shows HQPlayer's processing speed** (e.g. 32×) on 5.17.2 and 6.x.
+- **Seek** within files HQPlayer plays itself.
+
 ## 0.1.0-alpha.1 — first public release
 
 **Install:** see the README. **Update:** `git pull && docker compose up -d --build`.

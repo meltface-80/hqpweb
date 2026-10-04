@@ -12,7 +12,8 @@ export type Inst = {
   product?: string;
   engine?: string;
 };
-export type Named = { index: number; name: string };
+/** description: HQPlayer 6 only (filters: "5/5 timbre ⥮ Any"; modulators: "Gen8"). */
+export type Named = { index: number; name: string; description?: string };
 export type State = {
   mode: number;
   rate: number;
@@ -38,12 +39,19 @@ export type Status = {
   position: number;
   length: number;
   source: { sampleRate: number; bits: number; channels: number; song: string } | null;
+  /** HQPlayer's apodization and clip counters (0 when not reported). */
+  apod?: number;
+  clips?: number;
 };
 export type Snapshot = {
   status: Status;
   state: State;
   /** speed: position fit over 30 s; processSpeed: HQPlayer's own figure (×real time, 3 s average) when reported. */
   health?: { latencyMs: number; speed: number | null; processSpeed?: number | null };
+  /** While stopped: the rate of the track HQPlayer's playlist would play next (null if none known). */
+  queuedRate?: number | null;
+  /** The volume rose sharply without hqpweb, e.g. HQPlayer restarted at its saved level. */
+  volumeJump?: { from: number; to: number; at: string; restarted: boolean };
 };
 export type Failure = {
   mode: string;
@@ -160,12 +168,13 @@ export const api = {
       body: JSON.stringify(change),
     }),
   transport: (id: string, action: "play" | "pause" | "stop" | "previous" | "next") =>
-    call<{ reply: unknown; status: Status }>(`/api/instances/${id}/transport`, {
+    call<{ reply: unknown; status: Status; notStarted?: { explained?: string } }>(`/api/instances/${id}/transport`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action }),
     }),
   undo: (id: string) => call<ApplyResult>(`/api/instances/${id}/undo`, { method: "POST" }),
+  dismissVolumeJump: (id: string) => call<{ ok: boolean }>(`/api/instances/${id}/dismissjump`, { method: "POST" }),
   presets: (id: string) => call<PresetView[]>(`/api/instances/${id}/presets`),
   savePreset: (body: { name: string; fromInstance: string; includeVolume: boolean }) =>
     call<Preset>("/api/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),

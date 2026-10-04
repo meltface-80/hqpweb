@@ -16,10 +16,12 @@ export interface Prefs {
   /** dB per tap of the volume buttons. */
   volumeStep: 0.5 | 1 | 2;
   advancedOpen: boolean;
+  /** Filter lists: HQPlayer's own order, or grouped by HQPlayer 6's rating. */
+  filterOrder: "hqplayer" | "rating";
 }
 
 const KEY = "prefs-v1";
-const DEFAULTS: Prefs = { theme: "system", volumeStep: 1, advancedOpen: false };
+const DEFAULTS: Prefs = { theme: "system", volumeStep: 1, advancedOpen: false, filterOrder: "hqplayer" };
 
 function load(): Prefs {
   try {

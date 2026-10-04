@@ -165,3 +165,16 @@ describe("process_speed", () => {
     expect(parseStatus(without).processSpeed).toBeNull();
   });
 });
+
+describe("queuedRate (PlaylistGet)", () => {
+  it("takes the current entry's rate, else the first; null when empty (shape measured on 6.2.3)", async () => {
+    const { queuedRate } = await import("../src/parse.ts");
+    const parseXml = parseDocument;
+    const el = parseXml(
+      '<PlaylistGet album="0"><PlaylistItem index="1" rate="44100" length="600"/><PlaylistItem index="2" rate="96000" length="300"/></PlaylistGet>',
+    );
+    expect(queuedRate(el, 0)).toBe(44_100);
+    expect(queuedRate(el, 2)).toBe(96_000);
+    expect(queuedRate(parseXml('<PlaylistGet album="0"/>'), 0)).toBeNull();
+  });
+});

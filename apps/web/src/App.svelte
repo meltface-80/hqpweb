@@ -1,12 +1,25 @@
 <script lang="ts">
   // Live "Now" card, quick changes, Advanced (mode and rate), undo. Changes that
   // can disturb playback are checked by the server and rolled back if they fail.
-  import { untrack } from "svelte";
+  import { tick, untrack } from "svelte";
   import Picker from "./lib/Picker.svelte";
   import Settings from "./lib/Settings.svelte";
   import Presets from "./lib/Presets.svelte";
+  import RateSwitch, { type RateSwitchRequest } from "./lib/RateSwitch.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
-  import { RECOMMENDED_MAX_VOLUME_DB, ditherHint, filterSlot, modulatorHint, ratioHint, type Hint } from "@app/protocol/compat";
+  import {
+    MODULATOR_NOTE,
+    isApodizing,
+    compatibleRates,
+    RECOMMENDED_MAX_VOLUME_DB,
+    ditherHint,
+    filterNotes,
+    filterSlot,
+    modulatorGen,
+    modulatorHint,
+    ratioHint,
+    type Hint,
+  } from "@app/protocol/compat";
   import {
     api,
     formatRate,
@@ -59,6 +72,11 @@
   // Speed vs real time: the server fits Status position over 30 s (no access to
   // the machine needed). Shown as a state, not a number: amber only after 15 s
   // below 0.97, red below 0.90. The number is in the tooltip.
+  const APOD_TITLE =
+    "HQPlayer's apodization counter: problems in the recording that an apodizing filter corrects. HQPlayer's manual suggests one once it passes 10 in a track.";
+  // Inferred from the name: every capture so far reads 0, and whether either counter
+  // resets per track is unmeasured.
+  const CLIPS_TITLE = "HQPlayer's clip counter (likely samples it had to clip). Lowering the volume gives it headroom.";
   const speed = $derived(snap?.health?.speed ?? null);
   let slowSince = $state<number | null>(null);
   $effect(() => {
@@ -219,30 +237,170 @@
     warn: rule?.level === "hard" ? `won't play: ${rule.text}` : learned,
     note: [note, rule?.level === "soft" ? rule.text : undefined].filter(Boolean).join(" · ") || undefined,
   });
-  const source = $derived(snap?.status.source?.sampleRate ?? 0);
-  const outRate = $derived(snap?.status.activeRate ?? 0);
+  // The source: what's playing, or else the track HQPlayer's playlist would play next.
+  // A track that can't start leaves Status blank (measured), so the queue is the only clue.
+  const source = $derived(snap?.status.source?.sampleRate || snap?.queuedRate || 0);
   /** Rate is fixed (not auto): only then can a filter choice make the ratio impossible. */
   const fixedRate = $derived((snap?.state.rate ?? 0) !== 0);
+  // The configured rate when fixed (active_rate can be stale while stopped), else what's active.
+  const outRate = $derived(
+    (fixedRate ? caps?.rates.find((r) => r.index === snap?.state.rate)?.rate : 0) || snap?.status.activeRate || 0,
+  );
+  // HQPlayer 6 describes each filter (rating, focus, ratio rule); its ratio rule
+  // wins over our table from the manual. v5 describes nothing: see filterNotes.
+  const described = $derived((caps?.filters ?? []).some((f) => f.description));
+  const shapersDescribed = $derived((caps?.shapers ?? []).some((s) => s.description));
+  // A filter that can't do the current ratio is "blocked" rather than warned: the
+  // picker hides it by default, and picking it offers rates that fit (RateSwitch).
   const filterItems = (slot: "1x" | "Nx") =>
-    (caps?.filters ?? []).map((f) =>
-      decorate(
-        f,
-        source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm) : undefined,
-        warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name),
-      ),
-    );
+    (caps?.filters ?? []).map((f) => {
+      const info = filterNotes(f.name, f.description, isSdm, described);
+      const rule =
+        source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm, info?.ratio) : undefined;
+      return {
+        ...decorate(f, rule?.level === "hard" ? undefined : rule, warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name)),
+        // The row already shows the name: "needs a power-of-two ratio; 44.1k → 192k is 4.35×".
+        ...(rule?.level === "hard" ? { blocked: rule.text.replace(`${f.name} `, "") } : {}),
+        ...(info ? { rating: info.rating, tags: info.tags, ratioText: info.ratioText } : {}),
+        apodizing: isApodizing(f.name),
+      };
+    });
+  const ratioLabel = $derived(
+    source && outRate ? `${formatRate(source, "PCM")} → ${formatRate(outRate, caps?.mode.name ?? "")}` : "",
+  );
+
+  // ---- incompatible filter or rate: offer output rates that fit -----------------
+  // One sheet at a time: a picker closes before the rate sheet opens, and the rate
+  // sheet closes before "Choose another…" opens a picker.
+  const ratioOf = (name: string) =>
+    caps ? filterNotes(name, caps.filters.find((f) => f.name === name)?.description, isSdm, described)?.ratio : undefined;
+  function rateOptions(filter: string) {
+    if (!caps) return { options: [], auto: false };
+    const options = compatibleRates({
+      filter,
+      sourceRate: source,
+      rates: caps.rates.filter((r) => r.allowed).map((r) => r.rate),
+      sdm: isSdm,
+      shaper: shaperName,
+      currentRate: outRate,
+      given: ratioOf(filter),
+    }).map((o) => ({ label: formatRate(o.rate, caps!.mode.name), rate: o.rate, nearest: o.nearest }));
+    return { options, auto: caps.rates.some((r) => r.rate === 0 && r.allowed) && fixedRate };
+  }
+  type Slot = "filter1x" | "filterNx";
+  let rateSwitch = $state<(RateSwitchRequest & { field: Slot | null }) | null>(null);
+  function pickFilter(field: Slot, item: { name: string; blocked?: string }) {
+    if (!item.blocked || !caps) return apply({ [field]: item.name });
+    rateSwitch = {
+      kind: "pick",
+      field,
+      filter: item.name,
+      title: `${item.name} can't play at this rate`,
+      reason: `${item.name} ${item.blocked}`,
+      playing: snap?.status.state === 2,
+      ...rateOptions(item.name),
+    };
+  }
+  function chooseRate(rate: number | null) {
+    const r = rateSwitch;
+    rateSwitch = null;
+    if (!r) return;
+    if (r.kind === "wedge") return rate === null ? undefined : apply({ rate });
+    apply(rate === null ? { [r.field!]: r.filter } : { [r.field!]: r.filter, rate });
+  }
+
+  // ---- a queued track that can't start (guard 1) ------------------------------
+  // Measured (6.2.3): Play is accepted, nothing happens, and Status shows plain idle.
+  // Fixing the rate doesn't start it by itself; Play then works. So: say why, offer
+  // rates, and leave Play to the user (no surprise playback).
+  const wedge = $derived.by(() => {
+    if (!caps || !snap || snap.status.state === 2 || snap.status.source || !snap.queuedRate || !fixedRate) return null;
+    const slot: Slot = filterSlot(snap.queuedRate) === "1x" ? "filter1x" : "filterNx";
+    const filter = nameAt(caps.filters, snap.state[slot]);
+    const r = ratioHint(filter, snap.queuedRate, outRate, isSdm, ratioOf(filter));
+    if (r?.level === "hard") return { slot, filter, text: r.text, cause: "filter" as const };
+    const m = isSdm ? modulatorHint(shaperName, outRate) : undefined;
+    if (m?.level === "hard") return { slot, filter, text: m.text, cause: "modulator" as const };
+    return null;
+  });
+  let picker1x = $state<Picker>();
+  let pickerNx = $state<Picker>();
+  let shaperPicker = $state<Picker>();
+  function fixWedge() {
+    if (!wedge) return;
+    rateSwitch = {
+      kind: "wedge",
+      field: null,
+      filter: wedge.filter,
+      title: "The next track won't start",
+      reason: wedge.text,
+      playing: false,
+      alternative: wedge.cause === "filter" ? "Choose another filter" : `Choose another ${isSdm ? "modulator" : "dither"}`,
+      ...rateOptions(wedge.filter),
+    };
+  }
+  async function chooseAlternative() {
+    const w = wedge;
+    rateSwitch = null;
+    await tick();
+    // Let the sheet finish closing before the picker opens.
+    setTimeout(() => (w?.cause === "modulator" ? shaperPicker : w?.slot === "filter1x" ? picker1x : pickerNx)?.open(), 0);
+  }
+
+  // ---- volume jumped without hqpweb (e.g. HQPlayer restarted at −3 dB) ---------
+  let hiddenJump = $state("");
+  const jump = $derived(snap?.volumeJump && snap.volumeJump.at !== hiddenJump ? snap.volumeJump : null);
+  async function dismissJump() {
+    if (!jump || !selected) return;
+    hiddenJump = jump.at;
+    await api.dismissVolumeJump(selected).catch(() => undefined);
+  }
+
+  // ---- HQPlayer's apodization and clip counters ---------------------------------
+  // HQPlayer's manual and filter table: an apodizing filter suits a track whose counter passes 10.
+  const apod = $derived(snap?.status.apod ?? 0);
+  const clips = $derived(snap?.status.clips ?? 0);
+  function suggestApodizing() {
+    const slot = source && filterSlot(source) === "Nx" ? pickerNx : picker1x;
+    slot?.open({ chips: ["apodizing"] });
+  }
+
+  // ---- other source rates at a fixed output rate (guard 2) ---------------------
+  // The next album may be a different rate family. Typical source rates per slot.
+  const SOURCES = { filter1x: [44_100, 48_000], filterNx: [88_200, 96_000, 176_400, 192_000] } as const;
+  const otherSourceNotes = $derived.by(() => {
+    if (!caps || !snap || !fixedRate || !outRate) return [];
+    return (["filter1x", "filterNx"] as const).flatMap((slot) => {
+      const name = nameAt(caps!.filters, snap!.state[slot]);
+      // The source playing or queued is covered by the picker and the banner; this is about the others.
+      const bad = SOURCES[slot].filter(
+        (src) => src !== source && ratioHint(name, src, outRate, isSdm, ratioOf(name))?.level === "hard",
+      );
+      return bad.length ? [`${name} won't play ${bad.map((b) => `${b / 1000}k`).join(", ")} sources`] : [];
+    });
+  });
   const shaperItems = $derived(
-    (caps?.shapers ?? []).map((s) =>
-      decorate(s, isSdm ? modulatorHint(s.name, outRate) : ditherHint(s.name, outRate), warnFor("shaper", s.name)),
-    ),
+    (caps?.shapers ?? []).map((s) => ({
+      ...decorate(
+        s,
+        isSdm ? modulatorHint(s.name, outRate) : ditherHint(s.name, outRate),
+        warnFor("shaper", s.name),
+        isSdm ? MODULATOR_NOTE[s.name] : undefined,
+      ),
+      ...(isSdm && modulatorGen(s.name, s.description, shapersDescribed) !== undefined
+        ? { gen: modulatorGen(s.name, s.description, shapersDescribed)! }
+        : {}),
+    })),
   );
   const inUseFilter = $derived(
     caps && snap && source ? nameAt(caps.filters, filterSlot(source) === "1x" ? snap.state.filter1x : snap.state.filterNx) : "",
   );
   const shaperName = $derived(caps && snap ? nameAt(caps.shapers, snap.state.shaper) : "");
+  const inUseApodizing = $derived(inUseFilter ? isApodizing(inUseFilter) : undefined);
+  const inUseRatio = $derived(ratioOf(inUseFilter));
   const rateItems = $derived(
     (caps?.rates ?? []).map((r) => {
-      const ratio = r.rate && source ? ratioHint(inUseFilter, source, r.rate, isSdm) : undefined;
+      const ratio = r.rate && source ? ratioHint(inUseFilter, source, r.rate, isSdm, inUseRatio) : undefined;
       const mod = r.rate ? (isSdm ? modulatorHint(shaperName, r.rate) : ditherHint(shaperName, r.rate)) : undefined;
       const rule = ratio?.level === "hard" ? ratio : mod;
       return {
@@ -409,6 +567,14 @@
       else {
         const r = await api.transport(selected, action);
         if (snap) snap = { ...snap, status: r.status };
+        // Measured: HQPlayer says OK to Play even when nothing can start.
+        if (r.notStarted)
+          message = {
+            kind: "warn",
+            text: r.notStarted.explained
+              ? `HQPlayer didn't start: ${r.notStarted.explained}.`
+              : "HQPlayer didn't start, and its settings don't explain it. Its output may be unavailable: an NAA in use by another HQPlayer, or a DAC that's off.",
+          };
       }
     } catch (e) {
       message = { kind: "error", text: (e as Error).message };
@@ -537,6 +703,19 @@
           {/if}
         </div>
       {/if}
+      {#if jump}
+        <p class="wedge">
+          Volume jumped from {jump.from} to {jump.to} dB{jump.restarted ? " (HQPlayer probably restarted)" : ""}.
+          <button class="link" onclick={() => apply({ volume: jump!.from })} disabled={busy}>Back to {jump.from} dB</button>
+          <button class="link quiet" onclick={dismissJump}>Dismiss</button>
+        </p>
+      {/if}
+      {#if wedge}
+        <p class="wedge">
+          The next track won't start: {wedge.text}.
+          <button class="link" onclick={fixWedge} disabled={busy}>Fix…</button>
+        </p>
+      {/if}
       {#if mismatchTicks >= 3 && roonZone}
         <p class="mismatch">
           Roon is playing in “{roonZone.name}”, but this HQPlayer is stopped. If that zone isn't fed by this HQPlayer, pick
@@ -605,6 +784,18 @@
         </dd>
         <dt title={speedTitle}>Processing</dt>
         <dd class="speed {speedClass}" title={speedTitle}>{speedText}</dd>
+        {#if apod > 0}
+          <dt title={APOD_TITLE}>Apod</dt>
+          <dd class="speed {apod > 10 ? 'bad' : 'warn'}" title={APOD_TITLE}>
+            {apod}{#if apod > 10 && inUseApodizing !== true}<button class="link" onclick={suggestApodizing}
+                >Use an apodizing filter</button
+              >{/if}
+          </dd>
+        {/if}
+        {#if clips > 0}
+          <dt title={CLIPS_TITLE}>Clips</dt>
+          <dd class="speed warn" title={CLIPS_TITLE}>{clips} · lower the volume</dd>
+        {/if}
       </dl>
       {#if caps}
         <!-- Volume belongs with playback: compact, on the Now card. -->
@@ -639,26 +830,44 @@
       <!-- Most frequent jobs, kept above the fold: filters, then dither/modulator, then presets. -->
       <section class="card list quick" title="1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.">
         <Picker
+          bind:this={picker1x}
           label="1x filter"
           hint={inUse === "1x" ? "in use" : ""}
           active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
           items={filterItems("1x")}
+          groupByRating={prefs.filterOrder === "rating"}
           current={nameAt(caps.filters, snap.state.filter1x)}
           disabled={busy}
-          onpick={(i) => apply({ filter1x: i.name })}
+          {ratioLabel}
+          onpick={(i) => pickFilter("filter1x", i)}
         />
         <Picker
+          bind:this={pickerNx}
           label="Nx filter"
           hint={inUse === "Nx" ? "in use" : ""}
           active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
           items={filterItems("Nx")}
+          groupByRating={prefs.filterOrder === "rating"}
           current={nameAt(caps.filters, snap.state.filterNx)}
           disabled={busy}
-          onpick={(i) => apply({ filterNx: i.name })}
+          {ratioLabel}
+          onpick={(i) => pickFilter("filterNx", i)}
         />
       </section>
+      {#if otherSourceNotes.length}
+        <p class="card-note">
+          At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
+        </p>
+      {/if}
+      <RateSwitch
+        request={rateSwitch}
+        onchoose={chooseRate}
+        onalternative={chooseAlternative}
+        oncancel={() => (rateSwitch = null)}
+      />
       <section class="card list quick">
         <Picker
+          bind:this={shaperPicker}
           label={isSdm ? "Modulator" : "Dither"}
           active={snap.status.state === 2 ? snap.status.activeShaper === nameAt(caps.shapers, snap.state.shaper) : null}
           items={shaperItems}
@@ -966,6 +1175,31 @@
   .seek input {
     flex: 1;
     accent-color: var(--accent);
+  }
+  .wedge {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--warn);
+  }
+  .link.quiet {
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  .link {
+    background: none;
+    border: 0;
+    padding: 0 0 0 4px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent-text);
+    cursor: pointer;
+  }
+  .card-note {
+    margin: 2px 20px 16px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--warn);
   }
   .mismatch {
     flex: 1 1 100%;
