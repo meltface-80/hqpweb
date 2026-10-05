@@ -70,6 +70,12 @@ if (process.argv.includes("--table")) {
   const next = ratchet(counts, baseline);
   writeFileSync(baselinePath, JSON.stringify(next, null, 2) + "\n");
   console.log(`baseline: ${JSON.stringify(baseline)} → ${JSON.stringify(next)}`);
+  // Ratcheting never raises an entry, so a file that grew is still over: say so, and fail.
+  const { failures } = judge(counts, next);
+  if (failures.length) {
+    console.error(`\nStill failing after the ratchet:\n  ${failures.join("\n  ")}`);
+    process.exit(1);
+  }
 } else {
   const { failures, reports } = judge(counts, baseline);
   if (reports.length) console.log(`Over ${LIMITS.report} lines (reported):\n  ${reports.join("\n  ")}`);

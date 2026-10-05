@@ -1,6 +1,6 @@
 import { describe as group, expect, it } from "vitest";
 import type { ApplyResult, FieldResult } from "./api.ts";
-import { describe } from "./result.ts";
+import { describe, notStartedMessage } from "./result.ts";
 
 const show = (_f: unknown, v: string | number | boolean) => String(v);
 const field = (f: FieldResult["field"], actual: string | number | boolean, applied = true): FieldResult =>
@@ -56,5 +56,18 @@ group("after a rollback", () => {
   it("explains a rule-based stop as HQPlayer's rule", () => {
     const m = describe(rollback({ kind: "playing" }, { level: "hard", text: "sinc-M needs a power-of-two ratio" }), show, false);
     expect(m.text).toMatch(/^Rolled back: sinc-M needs a power-of-two ratio\..*That's an HQPlayer rule/);
+  });
+});
+
+group("after Play", () => {
+  it("says nothing when HQPlayer started", () => {
+    expect(notStartedMessage(undefined)).toBeNull();
+  });
+
+  it("explains a start that HQPlayer said OK to but didn't make, with the rule when one applies", () => {
+    expect(notStartedMessage({ explained: "sinc-M needs a power-of-two ratio" })?.text).toBe(
+      "HQPlayer didn't start: sinc-M needs a power-of-two ratio.",
+    );
+    expect(notStartedMessage({})?.text).toMatch(/output may be unavailable/);
   });
 });

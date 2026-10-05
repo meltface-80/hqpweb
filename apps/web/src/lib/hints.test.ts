@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { Capabilities, Failure, Snapshot } from "./api.ts";
-import { context, filterItems, otherSourceNotes, rateItems, rateOptions, shaperItems, wedge } from "./hints.ts";
+import {
+  apodization,
+  context,
+  filterItems,
+  inUseSlot,
+  otherSourceNotes,
+  rateItems,
+  rateOptions,
+  shaperItems,
+  wedge,
+} from "./hints.ts";
 
 // A small PCM instance (names as HQPlayer 5 lists them) and a snapshot builder.
 const named = (names: string[]) => names.map((name, index) => ({ index, name }));
@@ -153,5 +163,22 @@ describe("modulator and output-rate pickers", () => {
     expect(items.find((r) => r.rate === 192_000)!.warn).toMatch(/^won't play: FFT needs a power-of-two ratio/);
     expect(items.find((r) => r.rate === 176_400)!.warn).toBeUndefined();
     expect(items.find((r) => r.rate === 88_200)!.disabled).toBe(true);
+  });
+});
+
+describe("the filter slot in use", () => {
+  it("follows the source: 1x below 50 kHz, Nx above; none while stopped", () => {
+    expect(inUseSlot(snap({ source: 48_000 }))).toBe("1x");
+    expect(inUseSlot(snap({ source: 88_200 }))).toBe("Nx");
+    expect(inUseSlot(snap({ playing: false }))).toBeNull();
+  });
+});
+
+describe("the apodization counter (manual §2.6)", () => {
+  it("suggests an apodizing filter once it passes 10 in a track, unless the filter in use is one", () => {
+    expect(apodization(10, false)).toBeNull();
+    expect(apodization(11, false)).toBe("suggest");
+    expect(apodization(11, "partial")).toBe("suggest");
+    expect(apodization(11, true)).toBe("handled");
   });
 });

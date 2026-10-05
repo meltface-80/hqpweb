@@ -11,6 +11,17 @@ export interface ResultMessage {
 /** Formats a value for display, e.g. a rate in Hz as "176.4 kHz". */
 export type Show = (field: keyof Change, v: string | number | boolean) => string;
 
+/** After Play: measured, HQPlayer says OK even when nothing can start. Null when it started. */
+export function notStartedMessage(n: { explained?: string } | undefined): ResultMessage | null {
+  if (!n) return null;
+  return {
+    kind: "warn",
+    text: n.explained
+      ? `HQPlayer didn't start: ${n.explained}.`
+      : "HQPlayer didn't start, and its settings don't explain it. Its output may be unavailable: an NAA in use by another HQPlayer, or a DAC that's off.",
+  };
+}
+
 /** `fromRoon`: Roon was the source when the change was made. */
 export function describe(r: ApplyResult, show: Show, fromRoon: boolean): ResultMessage {
   const base = describeCore(r, show, fromRoon);

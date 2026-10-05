@@ -59,7 +59,7 @@ export interface Change {
 export type Field = keyof Change;
 
 /** Fields whose change can stop playback or overload the machine. */
-const RISKY: readonly Field[] = ["mode", "rate", "filterNx", "filter1x", "shaper", "convolution", "matrixProfile"];
+export const RISKY: readonly Field[] = ["mode", "rate", "filterNx", "filter1x", "shaper", "convolution", "matrixProfile"];
 
 export interface RateOption extends Rate {
   /** False when above this instance's configured limit. */

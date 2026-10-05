@@ -7,9 +7,10 @@
   import Presets from "./lib/Presets.svelte";
   import RateSwitch, { type RateSwitchRequest } from "./lib/RateSwitch.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
-  import { describe, type ResultMessage } from "./lib/result.ts";
+  import { describe, notStartedMessage, type ResultMessage } from "./lib/result.ts";
+  import { control, isRisky, stepVolume, zoneMismatch } from "./lib/control.ts";
   import * as hints from "./lib/hints.ts";
-  import { speedClass as speedClassOf, speedText as speedTextOf, speedTitle as speedTitleOf } from "./lib/speed.ts";
+  import * as speedRules from "./lib/speed.ts";
   import { nameAt } from "./lib/hints.ts";
   import { isApodizing, RECOMMENDED_MAX_VOLUME_DB, filterSlot } from "@app/protocol/compat";
   import {
@@ -57,9 +58,6 @@
   let settings: Settings;
   // Local, so a re-render can't snap it shut; Settings only sets the starting state.
   let advancedOpen = $state(prefs.advancedOpen);
-  // Speed vs real time: the server fits Status position over 30 s (no access to
-  // the machine needed). Shown as a state, not a number: amber only after 15 s
-  // below 0.97, red below 0.90. The number is in the tooltip.
   // ---- a newer hqpweb on the server ---------------------------------------------
   // An installed app (PWA) can stay open for days on old code, with no reload button.
   // The page knows the commit it was built from; when it comes back to the foreground,
@@ -91,7 +89,7 @@
   const speed = $derived(snap?.health?.speed ?? null);
   let slowSince = $state<number | null>(null);
   $effect(() => {
-    const low = speed != null && speed < 0.97;
+    const low = speedRules.isSlow(speed);
     untrack(() => {
       if (!low) slowSince = null;
       else if (slowSince === null) slowSince = Date.now();
@@ -99,11 +97,13 @@
   });
   const processSpeed = $derived(snap?.health?.processSpeed ?? null);
   // `snap` in the clock term re-evaluates on each update, so "slow for 15 s" can turn amber.
-  const speedClass = $derived(speedClassOf(processSpeed, speed, slowSince === null ? null : (snap ? Date.now() : 0) - slowSince));
-  const speedText = $derived(speedTextOf(processSpeed, speed, speedClass));
-  const speedTitle = $derived(speedTitleOf(processSpeed, speed));
+  const speedClass = $derived(
+    speedRules.speedClass(processSpeed, speed, slowSince === null ? null : (snap ? Date.now() : 0) - slowSince),
+  );
+  const speedText = $derived(speedRules.speedText(processSpeed, speed, speedClass));
+  const speedTitle = $derived(speedRules.speedTitle(processSpeed, speed));
   let offlineSince = $state<Date | null>(null);
-  const slow = $derived((snap?.health?.latencyMs ?? 0) > 1500);
+  const slow = $derived(speedRules.answersSlowly(snap?.health?.latencyMs));
   const dotTitle = $derived(
     online === "unreachable"
       ? `Not responding${offlineSince ? ` since ${offlineSince.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}: ${offlineReason}`
@@ -193,13 +193,7 @@
   const otherSourceNotes = $derived(ctx ? hints.otherSourceNotes(ctx) : []);
   const shaperItems = $derived(ctx ? hints.shaperItems(ctx) : []);
   const rateItems = $derived(ctx ? hints.rateItems(ctx) : []);
-  // Measured: a 44.1/48 kHz source uses the 1x filter, higher rates the Nx filter.
-  const inUse = $derived.by(() => {
-    if (!snap || snap.status.state === 0) return null;
-    const sr = snap.status.source?.sampleRate;
-    if (sr) return filterSlot(sr); // manual §4.6: 1x below 50 kHz
-    return snap.state.filterInUse === snap.state.filter1x ? "1x" : "Nx";
-  });
+  const inUse = $derived(snap ? hints.inUseSlot(snap) : null);
 
   const show = (field: keyof Change, v: string | number | boolean) =>
     field === "rate" ? formatRate(Number(v), caps?.mode.name ?? "") : field === "volume" ? `${v} dB` : String(v);
@@ -236,10 +230,8 @@
     apply(rate === null ? { [r.field!]: r.filter } : { [r.field!]: r.filter, rate });
   }
 
-  // ---- a queued track that can't start (guard 1) ------------------------------
-  // Measured (6.2.3): Play is accepted, nothing happens, and Status shows plain idle.
-  // Fixing the rate doesn't start it by itself; Play then works. So: say why, offer
-  // rates, and leave Play to the user (no surprise playback).
+  // ---- a queued track that can't start (guard 1; the rule is hints.wedge) -----------
+  // Say why and offer rates, but leave Play to the user: no surprise playback.
   let picker1x = $state<Picker>();
   let pickerNx = $state<Picker>();
   let shaperPicker = $state<Picker>();
@@ -274,9 +266,9 @@
   }
 
   // ---- HQPlayer's apodization and clip counters ---------------------------------
-  // HQPlayer's manual and filter table: an apodizing filter suits a track whose counter passes 10.
   const apod = $derived(snap?.status.apod ?? 0);
   const clips = $derived(snap?.status.clips ?? 0);
+  const apodState = $derived(hints.apodization(apod, inUseApodizing));
   function suggestApodizing() {
     const slot = source && filterSlot(source) === "Nx" ? pickerNx : picker1x;
     slot?.open({ chips: ["apodizing"] });
@@ -302,11 +294,8 @@
     }
   }
 
-  // Same list as the server's RISKY (instance.ts): changes that can stop playback.
-  const RISKY: (keyof Change)[] = ["mode", "rate", "filterNx", "filter1x", "shaper", "convolution", "matrixProfile"];
   const apply = (change: Change) => {
-    const risky = (Object.keys(change) as (keyof Change)[]).some((k) => RISKY.includes(k));
-    const label = risky && snap?.status.state === 2 ? "Applying and checking playback" : "Applying";
+    const label = isRisky(change) && snap?.status.state === 2 ? "Applying and checking playback" : "Applying";
     return run(label, () => api.change(selected!, change));
   };
   /** Apply a switch, then show what HQPlayer actually reports (it can say OK and not change). */
@@ -318,11 +307,11 @@
   let tbusy = $state(false);
   // Roon's zone for this instance, when Roon is on and a zone is mapped.
   let roonZone = $state<RoonZone | null>(null);
-  // Roon drives the card only while it's the source (or HQPlayer is idle); when
-  // HQPlayer plays something else, its own playlist say, HQPlayer's controls apply.
-  const fromRoon = $derived(snap?.status.source?.song === "Roon");
-  const viaRoon = $derived(roonZone && (fromRoon || snap?.status.state === 0) ? roonZone : null);
-  const playing = $derived(viaRoon ? viaRoon.state === "playing" : snap?.status.state === 2);
+  // Who controls playback, HQPlayer or Roon: the measured rules are in lib/control.ts.
+  const ctl = $derived(control(snap, roonZone));
+  const fromRoon = $derived(ctl.fromRoon);
+  const viaRoon = $derived(ctl.viaRoon);
+  const playing = $derived(ctl.playing);
   let seekBase = $state<{ seek: number; at: number } | null>(null);
   let clock = $state(Date.now());
   let seekDraft = $state<number | null>(null);
@@ -365,35 +354,23 @@
   let mismatchTicks = $state(0);
   $effect(() => {
     // Counts HQPlayer status polls (~1.5 s), not Roon's once-a-second seek updates.
-    const m = snap?.status.state === 0 && untrack(() => roonZone?.state === "playing");
+    const zone = untrack(() => roonZone);
+    const m = zoneMismatch(snap, zone);
     mismatchTicks = m ? untrack(() => mismatchTicks) + 1 : 0;
   });
-  /**
-   * Measured 2026-10-02: a Pause sent to HQPlayer pauses the Roon zone, but Play and
-   * Next don't reach Roon, so after a pause only Roon can resume. With Roon as the
-   * source, leave transport to Roon.
-   */
   const ROON_NOTE =
     "Playing from Roon: Stop stops HQPlayer; play, skip and resume are in Roon (or connect Roon in Settings → Roon)";
-  // With a Roon zone, controls go to Roon (HQPlayer-side play/next don't reach Roon).
-  const allowed = (a: "play" | "pause" | "previous" | "next") => (viaRoon ? viaRoon.allowed[a] : !fromRoon);
+  const allowed = (a: "play" | "pause" | "previous" | "next") => ctl.allowed(a);
   async function transport(action: "play" | "pause" | "stop" | "previous" | "next") {
     if (!selected) return;
     tbusy = true;
     try {
       // The event stream brings the new state; the reply can predate the change.
-      if (viaRoon && action !== "stop") await api.roonTransport(selected, action);
+      if (ctl.route(action) === "roon") await api.roonTransport(selected, action as Exclude<typeof action, "stop">);
       else {
         const r = await api.transport(selected, action);
         if (snap) snap = { ...snap, status: r.status };
-        // Measured: HQPlayer says OK to Play even when nothing can start.
-        if (r.notStarted)
-          message = {
-            kind: "warn",
-            text: r.notStarted.explained
-              ? `HQPlayer didn't start: ${r.notStarted.explained}.`
-              : "HQPlayer didn't start, and its settings don't explain it. Its output may be unavailable: an NAA in use by another HQPlayer, or a DAC that's off.",
-          };
+        message = notStartedMessage(r.notStarted) ?? message;
       }
     } catch (e) {
       message = { kind: "error", text: (e as Error).message };
@@ -429,8 +406,8 @@
   const vol = $derived(volDraft ?? snap?.state.volume ?? 0);
   const step = (d: number) => {
     if (!snap || !caps) return;
-    const v = Math.min(caps.volumeRange.max, Math.max(caps.volumeRange.min, snap.state.volume + d));
-    if (v !== snap.state.volume) apply({ volume: v });
+    const v = stepVolume(snap.state.volume, d, caps.volumeRange);
+    if (v !== null) apply({ volume: v });
   };
 </script>
 
@@ -550,7 +527,7 @@
           <button class="link quiet" onclick={dismissJump}>Dismiss</button>
         </p>
       {/if}
-      {#if apod > 10 && inUseApodizing !== true && inUseFilter}
+      {#if apodState === "suggest" && inUseFilter}
         <p class="wedge">
           This recording keeps needing apodization ({apod} so far). {inUseFilter} isn't an apodizing filter{inUseApodizing ===
           "partial"
@@ -579,7 +556,7 @@
         </span>
       </div>
       <div class="transport">
-        {#if fromRoon && !viaRoon}
+        {#if ctl.stopOnly}
           <!-- Roon is the source and the Roon link isn't set up: HQPlayer-side play and
                next don't reach Roon (measured), so offer only Stop. -->
           <button
@@ -635,8 +612,8 @@
         <dd class="speed {speedClass}" title={speedTitle}>{speedText}</dd>
         {#if apod > 0}
           <dt title={APOD_TITLE}>Apod</dt>
-          <dd class="speed {apod > 10 && inUseApodizing !== true ? 'bad' : 'warn'}" title={APOD_TITLE}>
-            {apod}{#if apod > 10 && inUseApodizing === true}{" · your filter handles this"}{/if}
+          <dd class="speed {apodState === 'suggest' ? 'bad' : 'warn'}" title={APOD_TITLE}>
+            {apod}{#if apodState === "handled"}{" · your filter handles this"}{/if}
           </dd>
         {/if}
         {#if clips > 0}

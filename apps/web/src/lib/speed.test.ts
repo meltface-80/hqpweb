@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { speedClass, speedText } from "./speed.ts";
+import { answersSlowly, isSlow, speedClass, speedText } from "./speed.ts";
 
 describe("Processing, from HQPlayer's own figure (5.17.2+, calibrated on a real instance)", () => {
   it("is red below 1× (can't keep up), amber below 1.15× (little headroom), green above", () => {
@@ -32,5 +32,19 @@ describe("Processing, from hqpweb's 30 s position fit (older HQPlayer)", () => {
   it("shows nothing until there's a figure", () => {
     expect(speedClass(null, null, null)).toBe("");
     expect(speedText(null, null, "")).toBe("—");
+  });
+});
+
+describe("slow signals", () => {
+  it("counts the position fit as slow below 0.97", () => {
+    expect(isSlow(0.969)).toBe(true);
+    expect(isSlow(0.97)).toBe(false);
+    expect(isSlow(null)).toBe(false);
+  });
+
+  it("calls replies over 1.5 s slow (normal is about 1 ms, measured)", () => {
+    expect(answersSlowly(1501)).toBe(true);
+    expect(answersSlowly(1500)).toBe(false);
+    expect(answersSlowly(undefined)).toBe(false);
   });
 });

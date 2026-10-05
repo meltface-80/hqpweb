@@ -2,6 +2,11 @@
 
 export type SpeedClass = "" | "ok" | "warn" | "bad";
 
+/** hqpweb's position fit below this is "slow"; amber once it lasts 15 s (see speedClass). */
+export const isSlow = (speed: number | null) => speed != null && speed < 0.97;
+/** Normal replies take ~1 ms on a kept-open connection (measured); over 1.5 s, HQPlayer may be overloaded. */
+export const answersSlowly = (latencyMs: number | undefined) => (latencyMs ?? 0) > 1500;
+
 /**
  * HQPlayer 5.17.2+ reports its own processing speed (× real time): when it does, judge
  * that. Calibrated on a real instance: 1.00× just holds, 0.92× falls behind, so red below

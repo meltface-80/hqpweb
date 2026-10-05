@@ -104,6 +104,24 @@ export function filterItems(c: Ctx, slot: "1x" | "Nx") {
   });
 }
 
+/**
+ * HQPlayer's apodization counter (manual §2.6, its filter table): an apodizing filter
+ * suits a track whose counter passes 10. "suggest" when the filter in use isn't one
+ * (or only partly), "handled" when it is, null below 10.
+ */
+export function apodization(apod: number, inUseApodizing: boolean | "partial" | undefined): "suggest" | "handled" | null {
+  if (apod <= 10) return null;
+  return inUseApodizing === true ? "handled" : "suggest";
+}
+
+/** The filter slot HQPlayer is using (1x below 50 kHz, manual §4.6), from the source, else from State; null when stopped. */
+export function inUseSlot(snap: Snapshot): "1x" | "Nx" | null {
+  if (snap.status.state === 0) return null;
+  const sr = snap.status.source?.sampleRate;
+  if (sr) return filterSlot(sr);
+  return snap.state.filterInUse === snap.state.filter1x ? "1x" : "Nx";
+}
+
 export const ratioLabel = (c: Ctx) =>
   c.source && c.outRate ? `${formatRate(c.source, "PCM")} → ${formatRate(c.outRate, c.caps.mode.name)}` : "";
 
