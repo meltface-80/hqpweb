@@ -8,28 +8,17 @@
   import RateSwitch, { type RateSwitchRequest } from "./lib/RateSwitch.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
   import { describe, type ResultMessage } from "./lib/result.ts";
-  import {
-    MODULATOR_NOTE,
-    isApodizing,
-    compatibleRates,
-    RECOMMENDED_MAX_VOLUME_DB,
-    ditherHint,
-    filterNotes,
-    filterSlot,
-    modulatorGen,
-    modulatorHint,
-    ratioHint,
-    type Hint,
-  } from "@app/protocol/compat";
+  import * as hints from "./lib/hints.ts";
+  import { speedClass as speedClassOf, speedText as speedTextOf, speedTitle as speedTitleOf } from "./lib/speed.ts";
+  import { nameAt } from "./lib/hints.ts";
+  import { isApodizing, RECOMMENDED_MAX_VOLUME_DB, filterSlot } from "@app/protocol/compat";
   import {
     api,
     formatRate,
     PLAYBACK,
-    knownBad,
     type ApplyResult,
     type Capabilities,
     type Change,
-    type Combo,
     type Inst,
     type RoonZone,
     type Snapshot,
@@ -108,35 +97,11 @@
       else if (slowSince === null) slowSince = Date.now();
     });
   });
-  // HQPlayer 5.17.2+ reports its own processing speed (× real time): when it does,
-  // show that number. Calibrated on a real instance: 1.00× just holds, 0.92× falls
-  // behind, so red below 1×, amber below 1.15× (little headroom), green above.
   const processSpeed = $derived(snap?.health?.processSpeed ?? null);
-  const fmtX = (v: number) => (v >= 10 ? `${Math.round(v)}×` : `${v.toFixed(1)}×`);
-  const speedClass = $derived(
-    processSpeed != null
-      ? processSpeed < 1
-        ? "bad"
-        : processSpeed < 1.15
-          ? "warn"
-          : "ok"
-      : speed == null
-        ? ""
-        : speed < 0.9
-          ? "bad"
-          : slowSince !== null && (snap ? Date.now() : 0) - slowSince >= 15_000
-            ? "warn"
-            : "ok",
-  );
-  const SPEED_LABEL: Record<string, string> = { ok: "Real-time ✓", warn: "Straining", bad: "Falling behind" };
-  const speedText = $derived(processSpeed != null ? fmtX(processSpeed) : speed == null ? "—" : SPEED_LABEL[speedClass]);
-  const speedTitle = $derived(
-    processSpeed != null
-      ? `HQPlayer is processing at ${processSpeed.toFixed(1)}× real time (3-second average): it could run that many times faster than playback needs. Below 1× it can't keep up and audio drops; close to 1× leaves little headroom.`
-      : speed == null
-        ? "Shown while playing, after about 30 s of a track."
-        : `HQPlayer is processing at ${speed.toFixed(3)}× real time over the last 30 s. Below 1.0 it can't keep up and audio will drop. Brief dips during a change are normal.`,
-  );
+  // `snap` in the clock term re-evaluates on each update, so "slow for 15 s" can turn amber.
+  const speedClass = $derived(speedClassOf(processSpeed, speed, slowSince === null ? null : (snap ? Date.now() : 0) - slowSince));
+  const speedText = $derived(speedTextOf(processSpeed, speed, speedClass));
+  const speedTitle = $derived(speedTitleOf(processSpeed, speed));
   let offlineSince = $state<Date | null>(null);
   const slow = $derived((snap?.health?.latencyMs ?? 0) > 1500);
   const dotTitle = $derived(
@@ -214,10 +179,20 @@
       .catch((e) => (message = { kind: "error", text: e.message }));
   });
 
-  const nameAt = (list: { index: number; name: string }[] | undefined, i: number | undefined) =>
-    list?.find((x) => x.index === i)?.name ?? "";
-
-  const isSdm = $derived(caps?.mode.name.startsWith("SDM") ?? false);
+  // The rules behind every hint live in lib/hints.ts; these are thin views of them.
+  const ctx = $derived(caps && snap ? hints.context(caps, snap) : null);
+  const isSdm = $derived(ctx?.isSdm ?? false);
+  const source = $derived(ctx?.source ?? 0);
+  const outRate = $derived(ctx?.outRate ?? 0);
+  const inUseFilter = $derived(ctx?.inUseFilter ?? "");
+  const inUseApodizing = $derived(inUseFilter ? isApodizing(inUseFilter) : undefined);
+  const filterItems = (slot: "1x" | "Nx") => (ctx ? hints.filterItems(ctx, slot) : []);
+  const ratioLabel = $derived(ctx ? hints.ratioLabel(ctx) : "");
+  const rateOptions = (filter: string) => (ctx ? hints.rateOptions(ctx, filter) : { options: [], auto: false });
+  const wedge = $derived(ctx ? hints.wedge(ctx) : null);
+  const otherSourceNotes = $derived(ctx ? hints.otherSourceNotes(ctx) : []);
+  const shaperItems = $derived(ctx ? hints.shaperItems(ctx) : []);
+  const rateItems = $derived(ctx ? hints.rateItems(ctx) : []);
   // Measured: a 44.1/48 kHz source uses the 1x filter, higher rates the Nx filter.
   const inUse = $derived.by(() => {
     if (!snap || snap.status.state === 0) return null;
@@ -236,79 +211,9 @@
   const takenFor = (slot: "1x" | "Nx", name: string) =>
     snap?.status.state === 2 && inUse === slot ? snap.status.activeFilter === name : null;
 
-  /** The combination in use now, by name, for matching known failures. */
-  const combo = $derived.by((): Combo | null => {
-    if (!snap || !caps) return null;
-    return {
-      mode: caps.mode.name,
-      rateHz: snap.status.activeRate,
-      filterNx: nameAt(caps.filters, snap.state.filterNx),
-      filter1x: nameAt(caps.filters, snap.state.filter1x),
-      shaper: nameAt(caps.shapers, snap.state.shaper),
-    };
-  });
-  /** Warning text if switching `field` to `value` gives a combination that failed here before. */
-  const warnFor = (field: keyof Combo, value: string | number) => {
-    if (!combo || !caps) return undefined;
-    const f = knownBad(caps.knownBad, { ...combo, [field]: value });
-    return f ? `failed here before at these settings (${f.reason})` : undefined;
-  };
-  /** Rule hints (manual) first, then learned failures. Hard → warning, soft → note. */
-  const decorate = <T extends { name: string }>(i: T, rule: Hint | undefined, learned: string | undefined, note?: string) => ({
-    ...i,
-    warn: rule?.level === "hard" ? `won't play: ${rule.text}` : learned,
-    note: [note, rule?.level === "soft" ? rule.text : undefined].filter(Boolean).join(" · ") || undefined,
-  });
-  // The source: what's playing, or else the track HQPlayer's playlist would play next.
-  // A track that can't start leaves Status blank (measured), so the queue is the only clue.
-  const source = $derived(snap?.status.source?.sampleRate || snap?.queuedRate || 0);
-  /** Rate is fixed (not auto): only then can a filter choice make the ratio impossible. */
-  const fixedRate = $derived((snap?.state.rate ?? 0) !== 0);
-  // The configured rate when fixed (active_rate can be stale while stopped), else what's active.
-  const outRate = $derived(
-    (fixedRate ? caps?.rates.find((r) => r.index === snap?.state.rate)?.rate : 0) || snap?.status.activeRate || 0,
-  );
-  // HQPlayer 6 describes each filter (rating, focus, ratio rule); its ratio rule
-  // wins over our table from the manual. v5 describes nothing: see filterNotes.
-  const described = $derived((caps?.filters ?? []).some((f) => f.description));
-  const shapersDescribed = $derived((caps?.shapers ?? []).some((s) => s.description));
-  // A filter that can't do the current ratio is "blocked" rather than warned: the
-  // picker hides it by default, and picking it offers rates that fit (RateSwitch).
-  const filterItems = (slot: "1x" | "Nx") =>
-    (caps?.filters ?? []).map((f) => {
-      const info = filterNotes(f.name, f.description, isSdm, described);
-      const rule =
-        source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm, info?.ratio) : undefined;
-      return {
-        ...decorate(f, rule?.level === "hard" ? undefined : rule, warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name)),
-        // The row already shows the name: "needs a power-of-two ratio; 44.1k → 192k is 4.35×".
-        ...(rule?.level === "hard" ? { blocked: rule.text.replace(`${f.name} `, "") } : {}),
-        ...(info ? { rating: info.rating, tags: info.tags, ratioText: info.ratioText } : {}),
-        apodizing: isApodizing(f.name),
-      };
-    });
-  const ratioLabel = $derived(
-    source && outRate ? `${formatRate(source, "PCM")} → ${formatRate(outRate, caps?.mode.name ?? "")}` : "",
-  );
-
   // ---- incompatible filter or rate: offer output rates that fit -----------------
   // One sheet at a time: a picker closes before the rate sheet opens, and the rate
   // sheet closes before "Choose another…" opens a picker.
-  const ratioOf = (name: string) =>
-    caps ? filterNotes(name, caps.filters.find((f) => f.name === name)?.description, isSdm, described)?.ratio : undefined;
-  function rateOptions(filter: string) {
-    if (!caps) return { options: [], auto: false };
-    const options = compatibleRates({
-      filter,
-      sourceRate: source,
-      rates: caps.rates.filter((r) => r.allowed).map((r) => r.rate),
-      sdm: isSdm,
-      shaper: shaperName,
-      currentRate: outRate,
-      given: ratioOf(filter),
-    }).map((o) => ({ label: formatRate(o.rate, caps!.mode.name), rate: o.rate, nearest: o.nearest }));
-    return { options, auto: caps.rates.some((r) => r.rate === 0 && r.allowed) && fixedRate };
-  }
   type Slot = "filter1x" | "filterNx";
   let rateSwitch = $state<(RateSwitchRequest & { field: Slot | null }) | null>(null);
   function pickFilter(field: Slot, item: { name: string; blocked?: string }) {
@@ -335,16 +240,6 @@
   // Measured (6.2.3): Play is accepted, nothing happens, and Status shows plain idle.
   // Fixing the rate doesn't start it by itself; Play then works. So: say why, offer
   // rates, and leave Play to the user (no surprise playback).
-  const wedge = $derived.by(() => {
-    if (!caps || !snap || snap.status.state === 2 || snap.status.source || !snap.queuedRate || !fixedRate) return null;
-    const slot: Slot = filterSlot(snap.queuedRate) === "1x" ? "filter1x" : "filterNx";
-    const filter = nameAt(caps.filters, snap.state[slot]);
-    const r = ratioHint(filter, snap.queuedRate, outRate, isSdm, ratioOf(filter));
-    if (r?.level === "hard") return { slot, filter, text: r.text, cause: "filter" as const };
-    const m = isSdm ? modulatorHint(shaperName, outRate) : undefined;
-    if (m?.level === "hard") return { slot, filter, text: m.text, cause: "modulator" as const };
-    return null;
-  });
   let picker1x = $state<Picker>();
   let pickerNx = $state<Picker>();
   let shaperPicker = $state<Picker>();
@@ -386,57 +281,6 @@
     const slot = source && filterSlot(source) === "Nx" ? pickerNx : picker1x;
     slot?.open({ chips: ["apodizing"] });
   }
-
-  // ---- other source rates at a fixed output rate (guard 2) ---------------------
-  // The next album may be a different rate family. Typical source rates per slot.
-  const SOURCES = { filter1x: [44_100, 48_000], filterNx: [88_200, 96_000, 176_400, 192_000] } as const;
-  const otherSourceNotes = $derived.by(() => {
-    if (!caps || !snap || !fixedRate || !outRate) return [];
-    return (["filter1x", "filterNx"] as const).flatMap((slot) => {
-      const name = nameAt(caps!.filters, snap!.state[slot]);
-      // The source playing or queued is covered by the picker and the banner; this is about the others.
-      const bad = SOURCES[slot].filter(
-        (src) => src !== source && ratioHint(name, src, outRate, isSdm, ratioOf(name))?.level === "hard",
-      );
-      return bad.length ? [`${name} won't play ${bad.map((b) => `${b / 1000}k`).join(", ")} sources`] : [];
-    });
-  });
-  const shaperItems = $derived(
-    (caps?.shapers ?? []).map((s) => ({
-      ...decorate(
-        s,
-        isSdm ? modulatorHint(s.name, outRate) : ditherHint(s.name, outRate),
-        warnFor("shaper", s.name),
-        isSdm ? MODULATOR_NOTE[s.name] : undefined,
-      ),
-      ...(isSdm && modulatorGen(s.name, s.description, shapersDescribed) !== undefined
-        ? { gen: modulatorGen(s.name, s.description, shapersDescribed)! }
-        : {}),
-    })),
-  );
-  const inUseFilter = $derived(
-    caps && snap && source ? nameAt(caps.filters, filterSlot(source) === "1x" ? snap.state.filter1x : snap.state.filterNx) : "",
-  );
-  const shaperName = $derived(caps && snap ? nameAt(caps.shapers, snap.state.shaper) : "");
-  const inUseApodizing = $derived(inUseFilter ? isApodizing(inUseFilter) : undefined);
-  const inUseRatio = $derived(ratioOf(inUseFilter));
-  const rateItems = $derived(
-    (caps?.rates ?? []).map((r) => {
-      const ratio = r.rate && source ? ratioHint(inUseFilter, source, r.rate, isSdm, inUseRatio) : undefined;
-      const mod = r.rate ? (isSdm ? modulatorHint(shaperName, r.rate) : ditherHint(shaperName, r.rate)) : undefined;
-      const rule = ratio?.level === "hard" ? ratio : mod;
-      return {
-        ...decorate(
-          { index: r.index, name: formatRate(r.rate, caps!.mode.name) },
-          rule,
-          r.rate ? warnFor("rateHz", r.rate) : undefined,
-          r.note,
-        ),
-        rate: r.rate,
-        disabled: !r.allowed,
-      };
-    }),
-  );
 
   async function run(label: string, fn: () => Promise<ApplyResult>) {
     if (!selected || busy) return;
