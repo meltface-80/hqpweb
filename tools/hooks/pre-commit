@@ -22,5 +22,6 @@ staged | tr '\0' '\n' | grep -qE '\.(ts|svelte|js|mjs|cjs)$|(^|/)(package\.json|
 
 npm run -s lines >/dev/null || fail "file length (see above)."
 npm run -s typecheck || fail "types (see above)."
+npm run -s check -w apps/web >/dev/null 2>&1 || fail "web types: run \`npm run check -w apps/web\` to see them."
 [ -x lint/node_modules/.bin/eslint ] || fail "ESLint isn't installed: run \`npm ci --prefix lint\`."
 npm run -s lint -- --quiet || fail "lint (see above). Fix it; don't add to lint/eslint-suppressions.json."

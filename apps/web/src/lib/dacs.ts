@@ -6,7 +6,9 @@
 // - A row goes in only when its chip or design and its DSD handling are confirmed
 //   from a source we opened: the maker first, else a review or measurement. A row we
 //   can't confirm is left out, never guessed.
-// - Signalyst's advice (Jussi Laako's posts) is cited post by post, paraphrased.
+// - Signalyst's advice (Jussi Laako's posts) is cited post by post, paraphrased, with
+//   what it's about. Modulator advice keeps the principle (order, rate, 512+fs), never
+//   an older-series modulator's name: newer modulators may suit better (isDated).
 // - `ourReading` marks an answer that is our judgement, not Signalyst's or the maker's.
 // - Corrections arrive as GitHub issues, from .github/ISSUE_TEMPLATE/dac-table.md
 //   (link: …/issues/new?template=dac-table.md), with a link to the spec sheet.
@@ -39,7 +41,22 @@ export interface Advice {
   url: string;
   /** "YYYY-MM" of the post. */
   date: string;
+  /**
+   * What it's about. Only modulator advice ages with new modulators (see isDated);
+   * a fact about the hardware, or dither and DAC Bits advice, doesn't.
+   */
+  about: "modulator" | "dither" | "hardware";
 }
+
+/**
+ * HQPlayer Desktop 5.11.0 (2025-02-03) reworked the EC-ul, -light and -super
+ * modulators and added EC-fast (Signalyst's release notes). Modulator advice from
+ * before then may predate a better choice; Signalyst said as much about older posts.
+ */
+export const CURRENT_MODULATORS_SINCE = "2025-02";
+
+/** Modulator advice from before the current modulators: show it, marked as possibly dated. */
+export const isDated = (a: Advice): boolean => a.about === "modulator" && a.date < CURRENT_MODULATORS_SINCE;
 
 export interface ChipFamily {
   id: string;
@@ -70,10 +87,11 @@ export interface DacModel {
   sources: Source[];
 }
 
-export const jussi = (topicPost: string, date: string, text: string): Advice => ({
+export const jussi = (topicPost: string, date: string, about: Advice["about"], text: string): Advice => ({
   text,
   url: `https://community.roonlabs.com/t/${topicPost}`,
   date,
+  about,
 });
 export const src = (url: string, kind: Source["kind"], seen: Source["seen"] = "opened"): Source => ({ url, kind, seen });
 /** A source seen only in search results, with no page we can link yet: a gap to fill. */
@@ -88,8 +106,18 @@ export const CHIP_FAMILIES: ChipFamily[] = [
     dsd: "older-ess",
     pcm: "delta-sigma",
     advice: [
-      jussi("261032/1422", "2026-09", "Up to the ES9038PRO, fifth order; from the ES9039 on, seventh. A guide, not absolute."),
-      jussi("261032/848", "2025-03", "The ES9068 is the older generation, so fifth order, though seventh is also fine."),
+      jussi(
+        "261032/1422",
+        "2026-09",
+        "modulator",
+        "Up to the ES9038PRO, fifth order; from the ES9039 on, seventh. A guide, not absolute.",
+      ),
+      jussi(
+        "261032/848",
+        "2025-03",
+        "modulator",
+        "The ES9068 is the older generation, so fifth order, though seventh is also fine.",
+      ),
     ],
   },
   {
@@ -97,14 +125,14 @@ export const CHIP_FAMILIES: ChipFamily[] = [
     chips: "ESS ES9039 (Pro, SPro, MSPro, Q2M) and newer",
     dsd: "native",
     pcm: "delta-sigma",
-    advice: [jussi("261032/1422", "2026-09", "From the ES9039 on, seventh order.")],
+    advice: [jussi("261032/1422", "2026-09", "modulator", "From the ES9039 on, seventh order.")],
   },
   {
     id: "akm",
     chips: "AKM AK4490, AK4493, AK4497, AK4499",
     dsd: "native",
     pcm: "delta-sigma",
-    advice: [jussi("160210/676", "2022-02", "AKM converts with several elements, so seventh order suits it.")],
+    advice: [jussi("160210/676", "2022-02", "modulator", "AKM converts with several elements, so seventh order suits it.")],
   },
   {
     id: "akm-split",
@@ -113,8 +141,8 @@ export const CHIP_FAMILIES: ChipFamily[] = [
     pcm: "delta-sigma",
     note: "Direct DSD only at DSD128 or DSD256, and only where the maker implemented it correctly; otherwise the AK4191 re-modulates DSD.",
     advice: [
-      jussi("244358/725", "2024-02", "These DACs take direct DSD only at DSD128 or DSD256."),
-      jussi("321542/67", "2026-06", "Gustard A26, with current firmware, passes direct DSD correctly (measured)."),
+      jussi("244358/725", "2024-02", "hardware", "These DACs take direct DSD only at DSD128 or DSD256."),
+      jussi("321542/67", "2026-06", "hardware", "Gustard A26, with current firmware, passes direct DSD correctly (measured)."),
     ],
   },
   {
@@ -123,7 +151,9 @@ export const CHIP_FAMILIES: ChipFamily[] = [
     dsd: "native",
     pcm: "delta-sigma",
     note: "When the DAC accepts DSD, it reaches the chip untouched. Some PCM179x DACs are PCM-only.",
-    advice: [jussi("160210/676", "2022-02", "Burr-Brown converts with several elements, so seventh order suits it.")],
+    advice: [
+      jussi("160210/676", "2022-02", "modulator", "Burr-Brown converts with several elements, so seventh order suits it."),
+    ],
   },
   {
     id: "ladder-dsd",
@@ -145,6 +175,8 @@ export const CHIP_FAMILIES: ChipFamily[] = [
     dsd: "converts",
     pcm: "delta-sigma",
     note: "Chord, Weiss, Mola Mola.",
-    advice: [jussi("239948/18", "2023-04", "Chord DACs convert DSD to 705.6 or 768 kHz PCM, so sending DSD doesn't help.")],
+    advice: [
+      jussi("239948/18", "2023-04", "hardware", "Chord DACs convert DSD to 705.6 or 768 kHz PCM, so sending DSD doesn't help."),
+    ],
   },
 ];

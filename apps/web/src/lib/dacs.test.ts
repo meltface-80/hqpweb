@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { DAC_MODELS } from "./dac-models.ts";
-import { CHIP_FAMILIES } from "./dacs.ts";
+import { CHIP_FAMILIES, isDated, type Advice } from "./dacs.ts";
+
+describe("Find your DAC: which advice may be dated", () => {
+  const at = (date: string, about: Advice["about"]): Advice => ({ text: "", url: "", date, about });
+
+  it("marks modulator advice from before HQPlayer 5.11's modulators (Feb 2025)", () => {
+    expect(isDated(at("2025-01", "modulator"))).toBe(true);
+  });
+
+  it("doesn't mark modulator advice from February 2025 on", () => {
+    expect(isDated(at("2025-02", "modulator"))).toBe(false);
+  });
+
+  it("doesn't mark old advice about dither, or facts about the hardware", () => {
+    expect([isDated(at("2016-01", "dither")), isDated(at("2016-01", "hardware"))]).toEqual([false, false]);
+  });
+});
 
 const advice = [...CHIP_FAMILIES, ...DAC_MODELS].flatMap((r) => (r.advice ?? []).map((a) => ({ id: r.id, ...a })));
 
@@ -38,6 +54,17 @@ describe("Find your DAC: the table's own rules", () => {
       return ["18", "28", "38", "68"].includes(ess) !== (m.dsd === "older-ess");
     });
     expect(disagree.map((m) => `${m.id}: ${m.chip} → ${m.dsd}`)).toEqual([]);
+  });
+
+  it("never names an older-series modulator in advice, only the principle (order, rate, 512+fs)", () => {
+    // ASDM7EC, ASDM7ECv2, ASDM7, DSD7 and the like, but not ASDM7EC-fast or DSD512.
+    const older = /\b(ASDM[57](EC(v\d)?)?|DSD[57](v2)?)\b(?!-)/;
+    expect(advice.filter((a) => older.test(a.text)).map((a) => `${a.id}: ${a.text}`)).toEqual([]);
+  });
+
+  it("says what every piece of advice is about", () => {
+    const odd = advice.filter((a) => !["modulator", "dither", "hardware"].includes(a.about));
+    expect(odd.map((a) => `${a.id}: ${String(a.about)}`)).toEqual([]);
   });
 
   it("never lists a model as both covered and excluded by the same row", () => {

@@ -29,9 +29,10 @@ export const DAC_MODELS: DacModel[] = [
       jussi(
         "107054/4",
         "2020-05",
+        "dither",
         "Qutest: send 705.6 or 768 kHz PCM, DSD content included, with LNS15 and DAC Bits at default.",
       ),
-      jussi("169369/27", "2023-03", "Chord DACs convert DSD to PCM before their own modulator."),
+      jussi("169369/27", "2023-03", "hardware", "Chord DACs convert DSD to PCM before their own modulator."),
     ],
     sources: [
       src("https://chordelectronics.co.uk/product/qutest/", "maker"),
@@ -47,8 +48,8 @@ export const DAC_MODELS: DacModel[] = [
     pcm: "ladder",
     dsdMax: "DSD1024 (USB)",
     advice: [
-      jussi("6061/2315", "2022-02", "His own Ares II plays up to 1.5 MHz PCM and DSD1024."),
-      jussi("166213/354", "2022-08", "He hadn't yet worked out how Denafrips converts DSD; his advice is PCM first."),
+      jussi("6061/2315", "2022-02", "hardware", "His own Ares II plays up to 1.5 MHz PCM and DSD1024."),
+      jussi("166213/354", "2022-08", "hardware", "He hadn't yet worked out how Denafrips converts DSD; his advice is PCM first."),
     ],
     sources: [
       src(
@@ -70,11 +71,8 @@ export const DAC_MODELS: DacModel[] = [
     pcm: "ladder",
     dsdMax: "DSD1024 (USB)",
     advice: [
-      jussi(
-        "244185/42",
-        "2023-02",
-        "PCM at the highest rate, DAC Bits 16 to 20, with LNS15, NS9 or NS5. DSD only at DSD512 or DSD1024, seventh order.",
-      ),
+      jussi("244185/42", "2023-02", "dither", "PCM at the highest rate, DAC Bits 16 to 20, with LNS15, NS9 or NS5."),
+      jussi("244185/42", "2023-02", "modulator", "DSD only at DSD512 or DSD1024, seventh order."),
     ],
     sources: [
       src(
@@ -101,7 +99,7 @@ export const DAC_MODELS: DacModel[] = [
     dsd: "older-ess",
     pcm: "delta-sigma",
     dsdMax: "DSD512 (USB)",
-    advice: [jussi("261032/848", "2025-03", "The ES9068 is the older generation: fifth order.")],
+    advice: [jussi("261032/848", "2025-03", "modulator", "The ES9068 is the older generation: fifth order.")],
     sources: [
       src("https://www.linsoul.com/products/gustard-dac-x16", "retailer", "search"),
       src("https://headfonics.com/gustard-x16-review/", "review", "search"),
@@ -132,7 +130,7 @@ export const DAC_MODELS: DacModel[] = [
     pcm: "ladder",
     dsdMax: "DSD512 (USB), DSD1024 (I2S)",
     ourReading: true,
-    advice: [jussi("234151/4", "2023-02", "To an owner with hiss: try ASDM5ECv2 at DSD256, or ASDM7 at DSD512.")],
+    advice: [jussi("234151/4", "2023-02", "modulator", "To an owner with hiss: fifth order at DSD256, or seventh at DSD512.")],
     sources: [src("https://hifigo.com/products/gustard-dac-r26-discrete-r2r", "retailer")],
   },
   {
@@ -144,8 +142,8 @@ export const DAC_MODELS: DacModel[] = [
     pcm: "ladder",
     dsdMax: "DSD1024 (USB)",
     advice: [
-      jussi("132298/2084", "2024-08", "Seventh order is a good choice for DSD."),
-      jussi("6061/1489", "2021-06", "For PCM, DAC Bits 20: measured on a Spring 2, advised for the May too."),
+      jussi("132298/2084", "2024-08", "modulator", "Seventh order is a good choice for DSD."),
+      jussi("6061/1489", "2021-06", "dither", "For PCM, DAC Bits 20: measured on a Spring 2, advised for the May too."),
     ],
     sources: [
       src(
@@ -163,7 +161,7 @@ export const DAC_MODELS: DacModel[] = [
     pcm: "ladder",
     dsdMax: "DSD1024 (USB)",
     note: "No DAC Bits advice from Signalyst for these two yet.",
-    advice: [jussi("132298/2084", "2024-08", "For Holo DACs, seventh order is a good choice for DSD.")],
+    advice: [jussi("132298/2084", "2024-08", "modulator", "For Holo DACs, seventh order is a good choice for DSD.")],
     sources: [
       src(
         "https://www.audiophonics.fr/en/dac-without-volume/holo-audio-spring-3-level-2-balanced-r2r-dac-32bit-1536khz-dsd1024-p-15776.html",
@@ -240,7 +238,7 @@ export const DAC_MODELS: DacModel[] = [
     dsd: "native",
     pcm: "ladder",
     dsdMax: "DSD1024",
-    advice: [jussi("132298/39", "2021-02", "For PCM, DAC Bits 14 or 15, with a noise shaper at the highest rate.")],
+    advice: [jussi("132298/39", "2021-02", "dither", "For PCM, DAC Bits 14 or 15, with a noise shaper at the highest rate.")],
     sources: [src("https://headfonics.com/musician-audio-pegasus-r2r-dac-review/", "review")],
   },
   {
@@ -251,7 +249,7 @@ export const DAC_MODELS: DacModel[] = [
     dsd: "older-ess",
     pcm: "delta-sigma",
     dsdMax: "DSD256",
-    advice: [jussi("260730/3", "2023-12", "Start with fifth order (ASDM5EC-light or -super); seventh is worth a try.")],
+    advice: [jussi("260730/3", "2023-12", "modulator", "Start with fifth order; seventh is worth a try.")],
     sources: [
       src(
         "https://www.audiophonics.fr/en/devices-hifi-audio-dac/mytek-brooklyn-dac-es9028pro-dac-headphone-amplifier-phono-preamplifier-32bit-384khz-dsd256-mqa-p-14849.html",
@@ -279,7 +277,7 @@ export const DAC_MODELS: DacModel[] = [
     chip: "FPGA; converts everything to DSD",
     dsd: "native",
     pcm: "delta-sigma",
-    advice: [jussi("6061/2566", "2022-04", "Fairly confident seventh order is fine; it should be measured.")],
+    advice: [jussi("6061/2566", "2022-04", "modulator", "Fairly confident seventh order is fine; it should be measured.")],
     sources: [src("https://www.psaudio.com/products/directstream-dac-mk2", "maker")],
   },
   {
@@ -292,8 +290,8 @@ export const DAC_MODELS: DacModel[] = [
     dsdMax: "DSD256",
     note: "Units with no letter at the end of the serial (AK4490) or a B (AK4493).",
     advice: [
-      jussi("241411/37", "2023-05", "The purest setup is DSD Direct mode at DSD256."),
-      jussi("160210/676", "2022-02", "With its AK4493, fifth or seventh order makes little difference."),
+      jussi("241411/37", "2023-05", "hardware", "The purest setup is DSD Direct mode at DSD256."),
+      jussi("160210/676", "2022-02", "modulator", "With its AK4493, fifth or seventh order makes little difference."),
     ],
     sources: [src("https://forum.rme-audio.de/viewtopic.php?id=32506", "maker")],
   },
@@ -329,7 +327,7 @@ export const DAC_MODELS: DacModel[] = [
     dsd: "converts",
     pcm: "ladder",
     note: "PCM only.",
-    advice: [jussi("6210/64", "2016-01", "No DSD: upsample PCM to the highest rate it takes.")],
+    advice: [jussi("6210/64", "2016-01", "hardware", "No DSD: upsample PCM to the highest rate it takes.")],
     sources: [src("https://www.schiit.com/products/bifrost", "maker"), src("https://www.schiit.com/products/yggdrasil", "maker")],
   },
   {
@@ -396,7 +394,7 @@ export const DAC_MODELS: DacModel[] = [
     pcm: "delta-sigma",
     dsdMax: "DSD512 (DAC 8 DSD), DSD1024 (DAC 200)",
     advice: [
-      jussi("271710/2", "2024-04", "DAC 200: ASDM7EC-ul, -light or -super, the 512+fs version at DSD512; DAC Bits at default."),
+      jussi("271710/2", "2024-04", "modulator", "DAC 200: seventh order, the 512+fs version at DSD512; DAC Bits at default."),
     ],
     sources: [src("https://www.ta-hifi.de/en/audiosystems/series-200/dac-200-d-a-converter/", "maker")],
   },
@@ -477,7 +475,7 @@ export const DAC_MODELS: DacModel[] = [
     dsdMax: "DSD512 (USB)",
     note: "No working DSD Direct: the AK4191 re-modulates DSD.",
     ourReading: true,
-    advice: [jussi("244358/723", "2024-02", "Doubts it supports DSD Direct, at least correctly.")],
+    advice: [jussi("244358/723", "2024-02", "hardware", "Doubts it supports DSD Direct, at least correctly.")],
     sources: [
       src("https://www.topping.store/products/topping-e70-velvet-with-ak4499ex-high-performance-dac", "maker"),
       src("https://www.euphonicreview.com/blog/lets-settle-this-dsd-bypass-mode-on-akm-chipsets-once-and-for-all", "review"),
