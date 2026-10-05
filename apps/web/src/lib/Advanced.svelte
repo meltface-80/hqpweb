@@ -1,6 +1,6 @@
 <script lang="ts">
   // Advanced: mode, output rate, convolution and matrix, and the options. These can stop
-  // playback; the server checks that it recovers and rolls back if it doesn't.
+  // playback; the server checks that it recovers and tries to roll back if it doesn't.
   import Picker from "./Picker.svelte";
   import { formatRate, type ApplyResult, type Capabilities, type Change, type Snapshot } from "./api.ts";
   import type { rateItems as rateItemsOf } from "./hints.ts";
@@ -36,7 +36,7 @@
 
 <details class="advanced" bind:open>
   <summary>Advanced</summary>
-  <p class="help">These can stop playback. The app checks that playback recovers and rolls back if it doesn't.</p>
+  <p class="help">These can stop playback. The app checks that playback recovers, and tries to roll back if it doesn't.</p>
   <section class="card list">
     <Picker
       label="Mode"

@@ -44,9 +44,10 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 - **Quick changes:** 1x and Nx filters, dither or modulator, volume, presets.
 - **Advanced:** mode, output rate, convolution, matrix profile, polarity, 20 kHz
   filter, adaptive volume.
-- **Checked and reversible:** every change is read back from HQPlayer. If one stops
-  playback or HQPlayer can't keep up, the app puts the old settings back, remembers
-  the combination, and warns you next time. Undo is one tap.
+- **Checked, with a safety net:** every change is read back from HQPlayer. If one stops
+  playback or HQPlayer can't keep up, the app tries to put the old settings back,
+  remembers the combination, and warns you next time. An overloaded HQPlayer can stop
+  answering altogether; then only restarting it helps. Undo is one tap.
 - **Filter guide:** star ratings, what each filter favours, which ratios it can do,
   which are apodizing, and modulator generations
   ([where these come from](#where-filter-descriptions-come-from)).
