@@ -11,6 +11,15 @@ export type Inst = {
   error?: string;
   product?: string;
   engine?: string;
+  /** The listener's setup answers (server: config.ts, InstanceSetup). Absent: none answered. */
+  setup?: Setup;
+};
+/** What the modulator and dither advice needs to know, and HQPlayer can't tell us. */
+export type Setup = {
+  dsd?: "older-ess" | "native" | "converts";
+  pcm?: "delta-sigma" | "ladder";
+  link?: "usb" | "spdif";
+  volume?: "hqplayer" | "elsewhere";
 };
 /** description: HQPlayer 6 only (filters: "5/5 timbre ⥮ Any"; modulators: "Gen8"). */
 export type Named = { index: number; name: string; description?: string };
@@ -37,6 +46,8 @@ export type Status = {
   activeRate: number;
   activeFilter: string;
   activeShaper: string;
+  /** Bits per sample of the output stream (32 in PCM, 1 in SDM): not the DAC Bits setting. */
+  activeBits: number;
   volume: number;
   position: number;
   length: number;
@@ -160,6 +171,13 @@ export const api = {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name }),
+    }),
+  /** Set (a value) or clear (null) setup answers. A discovered instance is saved first: `savedNow`. */
+  saveSetup: (id: string, change: { [K in keyof Setup]?: Setup[K] | null }) =>
+    call<{ instance: { id: string; setup?: Setup }; savedNow: boolean }>(`/api/instances/${id}/setup`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(change),
     }),
   removeInstance: (id: string) => call<{ ok: true }>(`/api/instances/${id}`, { method: "DELETE" }),
   discover: () => call<Inst[]>("/api/discover", { method: "POST" }),

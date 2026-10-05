@@ -66,6 +66,10 @@ describe("volume is a float in dB", () => {
     expect(parseState(doc("stateLinux")).volume).toBe(-28);
     expect(parseStatus(doc("statusLinux")).volume).toBe(-28);
   });
+
+  it("reads the output stream's bits per sample (32 in PCM, as recorded)", () => {
+    expect(parseStatus(doc("statusLinux")).activeBits).toBe(32);
+  });
   it("reads both VolumeRange maxima (-3 on Mac, 0 on Linux)", () => {
     expect(parseVolumeRange(doc("vrMac"))).toEqual({ min: -60, max: -3, enabled: true, adaptive: false });
     expect(parseVolumeRange(doc("vrLinux")).max).toBe(0);

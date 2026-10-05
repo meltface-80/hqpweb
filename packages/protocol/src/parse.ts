@@ -123,6 +123,12 @@ export interface Status {
   activeRate: number;
   activeFilter: string;
   activeShaper: string;
+  /**
+   * Bits per sample of the output stream: measured 32 in PCM (Linux, 5.35.10) and 1 in
+   * SDM (macOS). The width of the output word, not the "DAC Bits" setting (the dither
+   * level), which no control command reads. 0 when absent.
+   */
+  activeBits: number;
   volume: number;
   /** Seconds, float. */
   position: number;
@@ -168,6 +174,7 @@ export function parseStatus(el: Element): Status {
     activeRate: num(el, "active_rate"),
     activeFilter: el.attrs.active_filter ?? "",
     activeShaper: el.attrs.active_shaper ?? "",
+    activeBits: Number(el.attrs.active_bits ?? 0) || 0,
     volume: volumeDb(el),
     position: Number(el.attrs.position ?? 0),
     length: Number(el.attrs.length ?? 0) || 0,

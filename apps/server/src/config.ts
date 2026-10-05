@@ -13,6 +13,23 @@ export interface InstanceConfig {
    * these are a second line of defence. Rates above them are never offered.
    */
   limits?: { maxPcmRate?: number; maxDsdRate?: number };
+  /** The listener's answers about this instance's DAC and use (setup.ts). Absent: not answered. */
+  setup?: InstanceSetup;
+}
+
+/**
+ * What the modulator and dither advice needs to know, and HQPlayer can't tell us.
+ * Each answer is optional: unanswered questions keep the advice that needs them off.
+ */
+export interface InstanceSetup {
+  /** How the DAC takes DSD (apps/web/src/lib/dacs.ts, DsdPath). */
+  dsd?: "older-ess" | "native" | "converts";
+  /** How the DAC converts PCM. */
+  pcm?: "delta-sigma" | "ladder";
+  /** How the signal reaches the DAC: USB or network (NAA), or S/PDIF, AES or optical. */
+  link?: "usb" | "spdif";
+  /** Whether HQPlayer is the volume control, or stays near 0 dB with the level set elsewhere. */
+  volume?: "hqplayer" | "elsewhere";
 }
 
 export interface AppConfig {

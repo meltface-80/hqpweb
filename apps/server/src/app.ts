@@ -8,6 +8,7 @@ import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
 import { COMMIT, VERSION } from "./version.ts";
 import { Registry } from "./registry.ts";
+import { parseSetupChange } from "./setup.ts";
 import { PresetStore } from "./presets.ts";
 import { PeerError, type DiscoverOptions } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
@@ -396,6 +397,10 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         return send(res, 200, await inst.applyPreset(presets.get(decodeURIComponent(ipm[2])).settings));
       throw new HttpError(404, "not found");
     }
+
+    const setupRoute = /^\/api\/instances\/([^/]+)\/setup$/.exec(path);
+    if (setupRoute && req.method === "PUT")
+      return send(res, 200, await registry.saveSetup(decodeURIComponent(setupRoute[1]!), parseSetupChange(await readJson(req))));
 
     const one = /^\/api\/instances\/([^/]+)$/.exec(path);
     if (one && req.method === "PATCH") {

@@ -4,7 +4,8 @@
 import { lookup } from "node:dns/promises";
 import { HqpClient, discover, type DiscoverOptions, type Discovered } from "@app/protocol";
 import { HttpError, Instance } from "./instance.ts";
-import { ID_PATTERN, saveConfig, type AppConfig, type InstanceConfig } from "./config.ts";
+import { ID_PATTERN, saveConfig, type AppConfig, type InstanceConfig, type InstanceSetup } from "./config.ts";
+import { applySetupChange, type SetupChange } from "./setup.ts";
 
 export interface InstanceView {
   id: string;
@@ -20,6 +21,8 @@ export interface InstanceView {
   error?: string;
   product?: string;
   engine?: string;
+  /** The listener's setup answers; only configured instances have them. */
+  setup?: InstanceSetup;
 }
 
 interface Health {
@@ -220,6 +223,7 @@ export class Registry {
       reachable: h.reachable,
       ...(h.error ? { error: h.error } : {}),
       ...(h.product ? { product: h.product, engine: h.engine } : {}),
+      ...(c.setup ? { setup: c.setup } : {}),
     }));
     const discovered = this.discoveredOnly();
     const checks = await Promise.all(discovered.map((d) => this.check(d)));
@@ -279,6 +283,26 @@ export class Registry {
     cfg.name = n;
     this.persist();
     return cfg;
+  }
+
+  /**
+   * Changes an instance's setup answers. Answers belong to a saved instance, so a
+   * discovered-only one is saved first, under the id it already has (so the app's
+   * selection, Roon zone and learned failures stay with it); `savedNow` says so.
+   */
+  async saveSetup(id: string, change: SetupChange): Promise<{ instance: InstanceConfig; savedNow: boolean }> {
+    let cfg = this.config.instances.find((i) => i.id === id);
+    const savedNow = !cfg;
+    if (!cfg) {
+      const d = this.discoveredOnly().find((i) => i.id === id);
+      if (!d) throw new HttpError(404, "no such instance");
+      cfg = await this.add({ name: d.name, host: d.host, port: d.port, id: d.id });
+    }
+    const setup = applySetupChange(cfg.setup, change);
+    if (setup) cfg.setup = setup;
+    else delete cfg.setup;
+    this.persist();
+    return { instance: cfg, savedNow };
   }
 
   remove(id: string) {
