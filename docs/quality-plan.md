@@ -137,10 +137,12 @@ one-off check, not a stored baseline.
    flows pass. _Done 2026-10-04_ (#28, #29, #30: App.svelte 1,471 → 509 lines).
 4. **`instance.ts`.** Split into a change engine and a status poller behind a thin
    facade. Add the fake's contract tests. _Done when_ no server file exceeds the
-   limits and the fake's safety-relevant behaviours cite evidence.
+   limits and the fake's safety-relevant behaviours cite evidence. _Done 2026-10-04_
+   (#32, #33, #34: instance.ts 790 → 305 lines; no file in the repo over 600).
 
 New features pause until steps 2–4 are done as written here, and no longer: work that
-grows beyond these descriptions waits until after the pause. Bug fixes continue, each
+grows beyond these descriptions waits until after the pause. _All four steps were done on
+2026-10-04, so the pause is over._ Bug fixes continue, each
 starting with a failing test.
 
 ## Trade-offs
