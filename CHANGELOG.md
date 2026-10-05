@@ -5,6 +5,10 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+## 0.1.0-beta.2 — safer rollback, Restart playback
+
+**Update:** `docker compose pull && docker compose up -d`. Settings are kept.
+
 ### Changed
 
 - **A rollback never raises the volume.** If a change that also lowered the volume
@@ -15,6 +19,11 @@ may change behaviour; upgrade notes say what you need to do.
   playback** (if HQPlayer was playing from its own playlist), or tells you to resume in
   Roon. It no longer says HQPlayer "may need a restart". Restarting HQPlayer is the
   fallback if playback still won't come back; check its volume afterwards.
+
+### Fixed
+
+- In PCM mode, results named the dither "Modulator"; they now say "Dither", as the
+  picker does.
 
 ### For developers
 
