@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compare, type Named } from "../tools/release-check/settings.ts";
+import { compare, type Named } from "../settings.ts";
 
 const start: Named = {
   mode: "PCM",

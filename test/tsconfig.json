@@ -1,6 +1,6 @@
 {
-  "extends": "../../tsconfig.base.json",
-  // Checked on its own (npm run typecheck), not built.
+  "extends": "../tsconfig.base.json",
+  // The cross-cutting tests at the root: checked on their own (npm run typecheck), not built.
   "compilerOptions": {
     "composite": false,
     "declaration": false,
@@ -8,5 +8,5 @@
     "noEmit": true,
     "rewriteRelativeImportExtensions": false
   },
-  "include": ["*.ts", "test/*.ts"]
+  "include": ["*.ts"]
 }

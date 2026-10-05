@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { judge, ratchet } from "../tools/quality/length.ts";
+import { judge, ratchet } from "../length.ts";
 
 const limits = { fail: 600, report: 400 };
 

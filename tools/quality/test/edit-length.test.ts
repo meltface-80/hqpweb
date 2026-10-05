@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { judgeEdit, lines, project } from "../tools/quality/edit-length.ts";
+import { judgeEdit, lines, project } from "../edit-length.ts";
 
 const limits = { fail: 600, warn: 500 };
 const text = (n: number) => "x\n".repeat(n);

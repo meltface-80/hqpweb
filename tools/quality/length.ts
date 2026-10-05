@@ -22,7 +22,7 @@ export interface Verdict {
  * when the limit came in) and may not grow. A baseline entry that's out of date
  * (the file shrank, or is gone) also fails, so the allowance only ever tightens.
  */
-export function judge(counts: Counts, baseline: Counts, limits = LIMITS): Verdict {
+export function judge(counts: Counts, baseline: Counts, limits: { fail: number; report: number } = LIMITS): Verdict {
   const failures: string[] = [];
   const reports: string[] = [];
   for (const [file, n] of Object.entries(counts).sort()) {
@@ -45,7 +45,7 @@ export function judge(counts: Counts, baseline: Counts, limits = LIMITS): Verdic
 }
 
 /** The baseline brought up to date: entries only shrink or disappear, never grow or appear. */
-export function ratchet(counts: Counts, baseline: Counts, limits = LIMITS): Counts {
+export function ratchet(counts: Counts, baseline: Counts, limits: { fail: number } = LIMITS): Counts {
   const next: Counts = {};
   for (const [file, allowed] of Object.entries(baseline)) {
     const n = counts[file];

@@ -21,7 +21,7 @@
     "dev:server": "node --watch apps/server/src/main.ts",
     "dev:web": "npm run dev -w apps/web",
     "test": "vitest run",
-    "typecheck": "tsc -b && tsc -p e2e && tsc -p tools/quality && tsc -p tools/release-check",
+    "typecheck": "tsc -b && tsc -p e2e && tsc -p tools/quality && tsc -p tools/release-check && tsc -p test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:e2e": "playwright test -c e2e/playwright.config.ts",

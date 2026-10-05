@@ -34,8 +34,8 @@ export default tseslint.config(
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        // Root-level files that no tsconfig includes.
-        projectService: { allowDefaultProject: ["vitest.config.ts", "test/*.ts"] },
+        // Root-level files that no tsconfig includes (test/ has its own).
+        projectService: { allowDefaultProject: ["vitest.config.ts"] },
         tsconfigRootDir: root,
         extraFileExtensions: [".svelte"],
       },
