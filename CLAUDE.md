@@ -54,6 +54,16 @@ environment. Read it if it exists; never commit anything from it.
 - **README must keep the non-affiliation notices.** Don't use "HQPlayer" or "Roon"
   as the leading brand word in any app or package name.
 
+## Releasing
+
+1. In a pull request: bump `version` in every `package.json` (root, `apps/*`,
+   `packages/*`, `lint/`) and turn the changelog's "Unreleased" into the new version.
+2. Before tagging, run the live release check (`docs/release-checklist.md`) against a
+   real HQPlayer, with its owner's OK for that session, and add a row to its results.
+   A failure there blocks the release until it's understood.
+3. After the merge, push an annotated tag `vX.Y.Z[-beta.N]` on main; the `release`
+   workflow publishes the image.
+
 ## Code quality
 
 [docs/quality-plan.md](docs/quality-plan.md) is binding: its gates, its rules for

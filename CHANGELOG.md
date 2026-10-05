@@ -5,6 +5,23 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+### Changed
+
+- **A rollback never raises the volume.** If a change that also lowered the volume
+  (a preset, say) stops playback and is rolled back, the other settings go back but
+  the volume stays where you put it. Undo, which you press yourself, can still return
+  to the level you were at, if nobody moved it since.
+- **When a rollback leaves HQPlayer stopped,** hqpweb says so and offers **Restart
+  playback** (if HQPlayer was playing from its own playlist), or tells you to resume in
+  Roon. It no longer says HQPlayer "may need a restart". Restarting HQPlayer is the
+  fallback if playback still won't come back; check its volume afterwards.
+
+### For developers
+
+- Browser tests (`npm run test:e2e`), a curated ESLint set, a file-length limit,
+  volume-safety property tests, a pre-commit hook, and a live release check against a
+  real HQPlayer (`npm run release-check`). See `docs/quality-plan.md`.
+
 ## 0.1.0-beta.1 — first beta, and a published image
 
 Beta: the feature set is settled for now, and updates keep your settings (instances,
