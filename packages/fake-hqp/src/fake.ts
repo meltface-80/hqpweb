@@ -397,7 +397,7 @@ export class FakeHqp {
       const i = this.intArg(req);
       if (i !== null && this.lists.shapers.some((s) => s.index === i)) {
         this.rem.shaper = i;
-        // Inferred: a bad shaper for the current rate stalls just like a bad rate.
+        // Inferred, not measured: a bad shaper stalls like a bad rate (hqpweb rolls back either way).
         this.checkCombo();
       }
       return this.ok("SetShaping");

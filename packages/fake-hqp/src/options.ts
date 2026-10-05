@@ -12,8 +12,8 @@ export interface FakeOptions {
   incompatible?: (c: { modeName: string; rateHz: number; shaperName: string; filterName: string; sourceRate: number }) => boolean;
   /**
    * Simulated CPU/GPU load: playback speed (1 = real time) for the settings in
-   * use. Default: never overloaded. Inferred model: an overloaded instance keeps
-   * state 2 but its position falls behind real time. Not yet measured.
+   * use. Default: never overloaded. Measured (design §2.3: ASDM7EC at 0.53×): an
+   * overloaded instance keeps state 2 while its position falls behind real time.
    */
   speed?: (c: { modeName: string; rateHz: number; filterName: string; shaperName: string }) => number;
   /** Matrix profiles configured in HQPlayer. Measured on both instances: none. */
