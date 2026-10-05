@@ -1,5 +1,6 @@
 // How a fake HQPlayer is set up: timing, which settings stop playback, simulated load.
-import { predictedStop } from "@app/protocol";
+import { stopsByTable, type Combination } from "./stops.ts";
+export { slotFor } from "./stops.ts";
 
 export interface FakeOptions {
   /** Multiplies every measured delay. 1 = realistic, 0 = instant (tests). */
@@ -9,7 +10,7 @@ export interface FakeOptions {
   /**
    * Whether the settings in use stop playback. Default: defaultIncompatible.
    */
-  incompatible?: (c: { modeName: string; rateHz: number; shaperName: string; filterName: string; sourceRate: number }) => boolean;
+  incompatible?: (c: Combination) => boolean;
   /**
    * Simulated CPU/GPU load: playback speed (1 = real time) for the settings in
    * use. Default: never overloaded. Measured (design §2.3: ASDM7EC at 0.53×): an
@@ -24,14 +25,7 @@ export interface FakeOptions {
 }
 
 /**
- * Default: what the manual's rules predict (integer-ratio filters, the AHM
- * modulator floor; see @app/protocol compat.ts). The AHM floor is also measured.
+ * Default: the fake's own table of what stops playback (stops.ts), each rule with its
+ * evidence. Not the app's predictions, so tests of those can't agree with themselves.
  */
-export const defaultIncompatible: NonNullable<FakeOptions["incompatible"]> = (c) =>
-  predictedStop({
-    mode: c.modeName,
-    filter: c.filterName,
-    shaper: c.shaperName,
-    sourceRate: c.sourceRate,
-    outputRate: c.rateHz,
-  }) !== undefined;
+export const defaultIncompatible: NonNullable<FakeOptions["incompatible"]> = stopsByTable;

@@ -108,6 +108,10 @@ and then, is the check that tests prove something.
   in the commit.
 - **The fake isn't evidence.** A rule the fake applies is also tested against a
   recorded reply or a measurement from design §2, and labelled measured or inferred.
+- **The fake never asks the app what to do.** Its rules (what stops playback, which
+  filter plays a source) are its own table, with evidence cited, not calls into the
+  app's code; otherwise a test of the app's predictions agrees with itself. The
+  contract test checks that the app predicts every stop the fake knows.
 - **One reason to fail per unit test,** with a name that says what's being checked. A
   browser test walks one flow through several steps, so it checks each step.
 - **No tests that can't fail,** such as asserting that a value is merely defined.

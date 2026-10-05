@@ -4,8 +4,8 @@
 // so client code that copes with the fake should cope with the real thing.
 import { createServer, type Server, type Socket } from "node:net";
 import { createSocket, type Socket as UdpSocket } from "node:dgram";
-import { element, filterSlot, parseDocument, type AttrValue, type Element } from "@app/protocol";
-import { defaultIncompatible, type FakeOptions } from "./options.ts";
+import { element, parseDocument, type AttrValue, type Element } from "@app/protocol";
+import { defaultIncompatible, slotFor, type FakeOptions } from "./options.ts";
 import type { ModeLists, Profile, Remembered } from "./profile.ts";
 
 const DELAY = {
@@ -134,7 +134,7 @@ export class FakeHqp {
    */
   get filterInUse() {
     const active = this.playback !== 0 || this.stalled;
-    return active && filterSlot(this.sourceRate) === "Nx" ? this.rem.filterNx : this.rem.filter1x;
+    return active && slotFor(this.sourceRate) === "Nx" ? this.rem.filterNx : this.rem.filter1x;
   }
   get comboBad() {
     const filterName = this.lists.filters.find((f) => f.index === this.filterInUse)?.name ?? "";

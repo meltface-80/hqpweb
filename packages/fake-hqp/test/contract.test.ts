@@ -5,8 +5,9 @@
 //    fake goes beyond what was measured, its code says "Inferred".
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseDocument, type Element } from "@app/protocol";
-import { FakeHqp, loadProfile, type ProfileId } from "../src/index.ts";
+import { parseDocument, predictedStop, type Element } from "@app/protocol";
+import { FakeHqp, defaultIncompatible, loadProfile, type ProfileId } from "../src/index.ts";
+import { STOP_RULES } from "../src/stops.ts";
 
 const recorded = (platform: string, command: string) =>
   parseDocument(readFileSync(new URL(`recorded/${platform}/${command}.xml`, import.meta.url), "utf8"));
@@ -146,6 +147,36 @@ describe("behaviours the safety rules rely on, with their evidence", () => {
     const s = (await fakeReply(f, "Status")).attrs;
     expect(Number(s.state)).toBe(2);
     expect(Number(s.position) - p0).toBeLessThan(0.3); // 0.4 s of wall clock at half speed
+  });
+
+  it.each(STOP_RULES.map((r) => [r.example.shaperName, r.example.filterName, r.example.rateHz, r] as const))(
+    "the fake's own stop rule (%s, %s at %i Hz) is one the app predicts",
+    (_s, _f, _hz, rule) => {
+      const c = rule.example;
+      expect(rule.stops(c)).toBe(true);
+      const predicted = predictedStop({
+        mode: c.modeName,
+        filter: c.filterName,
+        shaper: c.shaperName,
+        sourceRate: c.sourceRate,
+        outputRate: c.rateHz,
+      });
+      expect(predicted?.level).toBe("hard");
+    },
+  );
+
+  it("decides stops from its own table, not the app's predictions", () => {
+    // The app predicts a whole-number-ratio stop for FIR at 44.1k → 96k (§4.6); the
+    // fake has no measurement of it, so it plays. They're independent.
+    const c = { modeName: "PCM", rateHz: 96_000, shaperName: "TPDF", filterName: "FIR", sourceRate: 44_100 };
+    const predicted = predictedStop({
+      mode: c.modeName,
+      filter: c.filterName,
+      shaper: c.shaperName,
+      sourceRate: c.sourceRate,
+      outputRate: c.rateHz,
+    });
+    expect([predicted?.level, defaultIncompatible(c)]).toEqual(["hard", false]);
   });
 
   it("a volume set over the control API reads back as set, as a float (§2.1)", async () => {
