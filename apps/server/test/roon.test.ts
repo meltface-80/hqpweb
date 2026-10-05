@@ -171,8 +171,8 @@ describe("Roon link", () => {
     await until(() => c.waiting().length === 2);
     c.approve();
     await until(() => a.view().status === "connected" && b.view().status === "connected");
-    await new Promise((r) => setTimeout(r, 100));
-    expect([a.view().status, b.view().status]).toEqual(["connected", "connected"]);
+    // The core keeps one connection per extension id, so two approvals mean two ids.
+    expect(c.approved.size).toBe(2);
   });
 
   it("reconnects when the core comes back", async () => {

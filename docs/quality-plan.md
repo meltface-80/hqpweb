@@ -85,6 +85,14 @@ nobody waits for, promises passed where they don't belong, non-exhaustive `switc
 statements, unused code, overly complex functions, and Svelte's reactivity rules.
 Formatting stays with Prettier.
 
+**The test rules** make most of "Rules for writing tests" automatic: no test without
+an assertion; no unawaited, conditional, focused or skipped tests; no `toBeDefined`
+(it can't fail) or snapshots; no module mocks (use a fake at the boundary); no fixed
+sleeps (wait for a condition, or advance the fake's injectable clock); the fake may
+not import the app's decisions; and Playwright's recommended set for browser flows.
+Left out on purpose: one `expect` per test (one reason to fail isn't one `expect`) and
+rules that tie browser tests to the page's structure.
+
 **The numbers are starting values,** not measurements: 600 and 400 lines per file, 60
 lines and a complexity of 15 per function. Adjust them from experience, and write down
 why.

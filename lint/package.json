@@ -5,7 +5,9 @@
   "type": "module",
   "description": "ESLint and its own TypeScript 6.0: typescript-eslint doesn't support TypeScript 7 yet.",
   "devDependencies": {
+    "@vitest/eslint-plugin": "^1.6.27",
     "eslint": "^10.0.0",
+    "eslint-plugin-playwright": "^2.12.1",
     "eslint-plugin-svelte": "^3.23.0",
     "globals": "^17.0.0",
     "ts-api-utils": "^2.5.0",

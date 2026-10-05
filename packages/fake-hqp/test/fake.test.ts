@@ -3,13 +3,19 @@ import { HqpClient, cmd, rawRequest } from "@app/protocol";
 import { FakeHqp, loadProfile } from "../src/index.ts";
 
 let fake: FakeHqp | undefined;
+/** The fake's clock, in ms: tests advance it rather than wait. */
+let clock = 1_000_000;
+const until = async (cond: () => boolean, ms = 3000) => {
+  for (const t0 = Date.now(); !cond(); await new Promise((r) => setTimeout(r, 10)))
+    if (Date.now() - t0 > ms) throw new Error("timed out");
+};
 afterEach(async () => {
   await fake?.close();
   fake = undefined;
 });
 
 async function start(profile = "desktop5-mac-sdm") {
-  fake = new FakeHqp(loadProfile(profile), { timeScale: 0 });
+  fake = new FakeHqp(loadProfile(profile), { timeScale: 0, now: () => clock });
   const { port } = await fake.listen();
   return new HqpClient("127.0.0.1", { port, timeoutMs: 2000 });
 }
@@ -176,7 +182,7 @@ describe("invalid rate/modulator combination (measured)", () => {
 
     const advances = async () => {
       const p0 = (await c.status()).position;
-      await new Promise((r) => setTimeout(r, 300));
+      clock += 300;
       return (await c.status()).position > p0;
     };
     await c.send(cmd.play());
@@ -214,7 +220,7 @@ describe("persistent client connection", () => {
     const { port } = await fake.listen();
     const c = new HqpClient("127.0.0.1", { port, timeoutMs: 2000 });
     await c.state();
-    await new Promise((r) => setTimeout(r, 150));
+    await until(() => fake!.sockets.size === 0); // the fake closed it after 50 ms idle
     expect((await c.state()).volume).toBe(-22);
     expect(c.connections).toBe(2);
     c.close();

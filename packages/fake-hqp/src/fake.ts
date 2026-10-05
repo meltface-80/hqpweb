@@ -58,7 +58,7 @@ export class FakeHqp {
   apod = 0;
   clips = 0;
   private prepared = new Set<string>();
-  private lastTick = Date.now();
+  private lastTick = 0;
   private timers = new Set<NodeJS.Timeout>();
   /**
    * Fault injection: commands named here reply OK and change nothing, which is how
@@ -75,6 +75,7 @@ export class FakeHqp {
       idleTimeoutMs: opts.idleTimeoutMs ?? 156_000,
       incompatible: opts.incompatible ?? defaultIncompatible,
       speed: opts.speed ?? (() => 1),
+      now: opts.now ?? Date.now,
       matrixProfiles: opts.matrixProfiles ?? [],
       convolutionConfigured: opts.convolutionConfigured ?? false,
       log: opts.log,
@@ -159,8 +160,8 @@ export class FakeHqp {
   }
 
   private tick() {
-    const now = Date.now();
-    if (this.playback === 2 && !this.stuck) this.position += ((now - this.lastTick) / 1000) * this.currentSpeed();
+    const now = this.opts.now(); // the first reading only sets the baseline
+    if (this.playback === 2 && !this.stuck) this.position += ((now - (this.lastTick || now)) / 1000) * this.currentSpeed();
     this.lastTick = now;
   }
 
@@ -503,7 +504,7 @@ export class FakeHqp {
 
   private server?: Server;
   private udp?: UdpSocket;
-  private sockets = new Set<Socket>();
+  readonly sockets = new Set<Socket>(); // open control connections
 
   /** The bound TCP port, once listening. */
   get port(): number {
@@ -525,8 +526,7 @@ export class FakeHqp {
     });
   }
 
-  /** Connections accepted so far. */
-  connections = 0;
+  connections = 0; // accepted so far
 
   private serve(sock: Socket) {
     this.connections++;

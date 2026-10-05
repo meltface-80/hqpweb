@@ -21,6 +21,8 @@ export interface FakeOptions {
   matrixProfiles?: string[];
   /** Whether convolution impulse responses are configured. Measured: not, on both. */
   convolutionConfigured?: boolean;
+  /** The clock playback position advances by, in ms. Default Date.now; tests pass one they advance. */
+  now?: () => number;
   log?: (line: string) => void;
 }
 

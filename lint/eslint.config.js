@@ -6,6 +6,8 @@
 //
 // Existing violations are recorded in lint/eslint-suppressions.json: they don't fail,
 // new ones do. Fix them as each file is refactored, then `npm run lint -- --prune-suppressions`.
+import vitest from "@vitest/eslint-plugin";
+import playwright from "eslint-plugin-playwright";
 import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 import tseslint from "typescript-eslint";
@@ -56,6 +58,82 @@ export default tseslint.config(
       complexity: ["warn", 15],
       "max-lines-per-function": ["warn", { max: 60, skipBlankLines: true, skipComments: true }],
     },
+  },
+  // The fake never asks the app what to do (docs/quality-plan.md, "Rules for writing
+  // tests"): otherwise a test of the app's predictions agrees with itself.
+  {
+    files: ["packages/fake-hqp/src/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@app/protocol",
+              importNames: [
+                "predictedStop",
+                "filterSlot",
+                "ratioHint",
+                "ratioClass",
+                "modulatorHint",
+                "ditherHint",
+                "compatibleRates",
+                "isApodizing",
+                "filterNotes",
+                "modulatorGen",
+              ],
+              message: "The fake must not ask the app what to do: give it its own rule, citing the evidence (see stops.ts).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Unit tests that can't fail, or can't fail reliably ("Rules for writing tests").
+  {
+    files: ["**/*.test.ts"],
+    plugins: { vitest },
+    rules: {
+      // A test with no assertion passes whatever the code does.
+      "vitest/expect-expect": ["error", { assertFunctionNames: ["expect", "fc.assert", "until"] }],
+      // An unawaited or conditional expect may never run.
+      "vitest/valid-expect": "error",
+      "vitest/no-conditional-expect": "error",
+      // A forgotten .only or .skip silently stops other tests running.
+      "vitest/no-focused-tests": "error",
+      "vitest/no-disabled-tests": "error",
+      // "Merely defined" passes for any value; snapshots re-assert the code at itself.
+      "vitest/no-restricted-matchers": [
+        "error",
+        {
+          toBeDefined: "This can't fail for any value: assert the value itself.",
+          "not.toBeUndefined": "This can't fail for any value: assert the value itself.",
+          toMatchSnapshot: "No snapshots: assert the fields that matter.",
+          toMatchInlineSnapshot: "No snapshots: assert the fields that matter.",
+        },
+      ],
+      // A module mock tests the stand-in. Use a fake at the boundary (the fake HQPlayer).
+      "vitest/no-restricted-vi-methods": [
+        "error",
+        { mock: "Use a fake at the boundary instead.", doMock: "Use a fake at the boundary instead." },
+      ],
+      // A fixed sleep tests how fast the machine is. Wait for a condition (a polling loop
+      // is fine) or advance an injected clock, as the fake's `now` option allows.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.name='setTimeout']:not(:matches(WhileStatement, ForStatement, DoWhileStatement) CallExpression)",
+          message: "A fixed sleep: wait for a condition, or advance an injected clock.",
+        },
+      ],
+    },
+  },
+  // Browser flows: Playwright's recommended set (no fixed waits, awaited expects, …).
+  {
+    files: ["e2e/**/*.ts"],
+    plugins: playwright.configs["flat/recommended"].plugins,
+    rules: playwright.configs["flat/recommended"].rules,
   },
   // Svelte's own correctness and reactivity rules.
   ...svelte.configs.recommended,

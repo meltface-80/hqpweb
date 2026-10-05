@@ -54,13 +54,14 @@ describe("modulator and dither hints (§4.5, §4.4)", () => {
     expect(ditherHint("TPDF", 44_100)).toBeUndefined();
   });
 
-  it("predicts stops only from hard rules", () => {
-    expect(
-      predictedStop({ mode: "PCM", filter: "sinc-M", shaper: "NS5", sourceRate: 44_100, outputRate: 192_000 }),
-    ).toBeDefined();
-    expect(
-      predictedStop({ mode: "PCM", filter: "poly-sinc-gauss-long", shaper: "NS5", sourceRate: 44_100, outputRate: 96_000 }),
-    ).toBeUndefined();
+  it("predicts a stop from a filter's hard ratio rule, naming it", () => {
+    expect(predictedStop({ mode: "PCM", filter: "sinc-M", shaper: "NS5", sourceRate: 44_100, outputRate: 192_000 })).toEqual({
+      level: "hard",
+      text: expect.stringMatching(/^sinc-M needs a power-of-two ratio/),
+    });
+  });
+
+  it("predicts a stop from a modulator's hard rate floor, naming it", () => {
     expect(
       predictedStop({
         mode: "SDM (DSD)",
@@ -69,7 +70,13 @@ describe("modulator and dither hints (§4.5, §4.4)", () => {
         sourceRate: 44_100,
         outputRate: 11_289_600,
       }),
-    ).toBeDefined();
+    ).toEqual({ level: "hard", text: expect.stringMatching(/^AHM7EC8B needs ≥ 40.96 MHz/) });
+  });
+
+  it("predicts no stop from soft guidance alone (NS5 below 192k)", () => {
+    expect(
+      predictedStop({ mode: "PCM", filter: "poly-sinc-gauss-long", shaper: "NS5", sourceRate: 44_100, outputRate: 96_000 }),
+    ).toBeUndefined();
   });
 });
 

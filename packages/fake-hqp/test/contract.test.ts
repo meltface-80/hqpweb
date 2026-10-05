@@ -140,13 +140,14 @@ describe("behaviours the safety rules rely on, with their evidence", () => {
   });
 
   it("an overloaded machine keeps playing (state 2) while falling behind real time (§2.3: ASDM7EC at 0.53×)", async () => {
-    const f = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, speed: () => 0.5 });
+    let clock = 1_000_000;
+    const f = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, speed: () => 0.5, now: () => clock });
     f.playback = 2;
     const p0 = Number((await fakeReply(f, "Status")).attrs.position);
-    await new Promise((r) => setTimeout(r, 400));
+    clock += 400;
     const s = (await fakeReply(f, "Status")).attrs;
-    expect(Number(s.state)).toBe(2);
-    expect(Number(s.position) - p0).toBeLessThan(0.3); // 0.4 s of wall clock at half speed
+    // 0.4 s of wall clock at half speed: still "playing", but only 0.2 s further on.
+    expect([Number(s.state), Number(s.position) - p0]).toEqual([2, expect.closeTo(0.2, 6)]);
   });
 
   it.each(STOP_RULES.map((r) => [r.example.shaperName, r.example.filterName, r.example.rateHz, r] as const))(
