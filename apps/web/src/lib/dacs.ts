@@ -8,7 +8,8 @@
 //   can't confirm is left out, never guessed.
 // - Signalyst's advice (Jussi Laako's posts) is cited post by post, paraphrased.
 // - `ourReading` marks an answer that is our judgement, not Signalyst's or the maker's.
-// - Corrections arrive as GitHub issues ("DAC table: …") with a link to the spec sheet.
+// - Corrections arrive as GitHub issues, from .github/ISSUE_TEMPLATE/dac-table.md
+//   (link: …/issues/new?template=dac-table.md), with a link to the spec sheet.
 
 /** How the DAC takes DSD: decides the modulator's order. */
 export type DsdPath =

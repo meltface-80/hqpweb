@@ -397,8 +397,8 @@ From the 6.0.1 SDK source and the release notes:
 - **Status:** poll `Status` every 1–2 s while a client is viewing, pushed to the
   browser over server-sent events. `Status` subscription only pushes during playback,
   so polling is simpler and covers idle too.
-- **Storage:** presets, static instances and learned compatibility live in one JSON
-  file on a volume. No database in v1.
+- **Storage:** small JSON files on a volume: `instances.json` (with each instance's
+  setup answers), `presets.json`, `learned.json` and `roon.json`. No database in v1.
 - **Stack:** **TypeScript end to end** (decided 2026-10-02; details in
   [development.md](development.md)):
   a Node 24 backend (`node:http`, no framework) and a small Svelte 5 PWA, in one
@@ -489,37 +489,20 @@ these combinations, not hard-code them.
 
 ---
 
-## 5. UI sketch
+## 5. UI
 
-1. **Instance picker:** discovered and static instances, with online status, product
-   and engine version.
-2. **Now card:** state, mode, output rate (shown as "DSD512", "768 kHz" and so on),
-   active filter, modulator/dither, volume. Updated live.
-3. **Quick controls:** filter (Nx and 1x), modulator/dither, volume slider, toggles.
-   Searchable pickers, because the lists hold 36–77 items.
-4. **Presets:** one-tap apply, each with a quick or major badge; "save current as
-   preset"; edit and delete.
-5. **Advanced:** mode and rate, with the verify-and-rollback behaviour visible
-   ("applying… playing ✓" or "rolled back: …").
-6. **Undo last change.**
+Built as planned here: an instance picker, the Now card, quick controls (searchable
+pickers for filters and modulators), presets, Advanced (mode and rate, with
+verify-and-rollback shown), and Undo. The code is the reference now
+(`apps/web/src/`). A guided modulator and dither picker is in design.
 
 ---
 
 ## 6. Testing
 
-- **Protocol unit tests** against recorded replies, including reply shapes without a
-  `result` attribute, `Unknown command` and `not authorized`.
-- **A live integration harness**, opt-in and pointed at a real instance:
-  1. snapshot `State`;
-  2. run each change class;
-  3. measure stall and playback state;
-  4. restore;
-  5. diff against the snapshot.
-
-  It must refuse to start unless playback is in a known state. Volume may only ever
-  go down during tests.
-
-- **A fake HQPlayer server** (a small TCP responder) for CI and UI development.
+See [quality-plan.md](quality-plan.md): its gates, its rules for writing tests, and
+the live release checklist ([release-checklist.md](release-checklist.md)), which runs
+against a real HQPlayer under the rules in [CLAUDE.md](../CLAUDE.md).
 
 ---
 
@@ -574,6 +557,9 @@ these combinations, not hard-code them.
 
 1. ~~**Stack**~~ — decided: TypeScript end to end (Node 24, `node:http`, Svelte 5 PWA).
 2. ~~**Presets**~~ — decided: global, resolved by name per instance, with warnings.
-3. **Embedded profile adapter** (port 8088): v1.x or later.
+3. **Embedded settings over port 8088** (output settings such as DAC Bits, which the
+   control API can't reach): not planned. That web settings page isn't a published
+   interface, and the Embedded licence treats its interfaces as confidential. Revisit
+   only with Signalyst's agreement.
 4. **Filter audition:** v2, but the change engine should expose
    "apply quick change N times" cleanly so it can be added without rework.

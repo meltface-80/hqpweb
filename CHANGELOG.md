@@ -5,6 +5,11 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+### Changed
+
+- Section headings in Settings, and the rating groups in the filter picker, are now in
+  the main text colour and bold, so they read as headings.
+
 ## 0.1.0-beta.2 — safer rollback, Restart playback
 
 **Update:** `docker compose pull && docker compose up -d`. Settings are kept.

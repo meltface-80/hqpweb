@@ -16,33 +16,25 @@ is how we keep that from happening. It's a working document: it changes as we le
   two weak pull requests. So: principle 2 reworded, principle 8 added, the live release
   checklist moved ahead of the refactors, the `App.svelte` step narrowed, and the pause
   given an end.
+- 2026-10-05: the finished refactoring plan and the "where we are" table shortened to a
+  history note; the mutation-testing row says it's done by hand for now.
 
-## Where we are (0.1.0-beta.1)
+## History
 
-| Area                | Source lines | Tests                | Notes                                                                                   |
-| ------------------- | -----------: | -------------------- | --------------------------------------------------------------------------------------- |
-| `apps/web` (UI)     |        3,852 | none                 | `App.svelte` is 1,471 lines (622 script, 382 markup, 467 styles) holding most UI logic. |
-| `apps/server`       |        2,921 | 1,736 lines, 8 files | `instance.ts` is 897 lines and does six jobs (changes, polling, transport, presets, …). |
-| `packages/protocol` |        1,340 | 460 lines, 3 files   | Mostly pure functions; the best-tested part.                                            |
-| `packages/fake-hqp` |        1,011 | 194 lines            | The fake HQPlayer used by tests.                                                        |
+The plan started with four steps, all done on 2026-10-04 (#17–#34):
 
-Re-measure with `npm run measure`. It also counts config files, so `apps/web` shows
-25 lines more (`vite.config.ts`) than the 3,852 above.
+- a safety net (browser tests, ESLint, the file-length tripwire, volume properties);
+- the live release checklist;
+- `App.svelte`'s logic moved into tested modules (1,471 → 509 lines);
+- `instance.ts` split into a change engine and a status poller (790 → 305 lines).
 
-Already enforced in CI: strict TypeScript (including `noUncheckedIndexedAccess`),
-`svelte-check` with warnings as errors, Prettier, unit and integration tests, a Docker
-build with a health check, and CodeQL. **Missing:** a linter, any limit on file or
-function size, coverage measurement, and any UI tests.
+New features paused until then. Since then, three more checks:
 
-Two problems that line counts don't show:
+- the fake's own evidence table (#36);
+- an edit-time length hook (#37);
+- lint rules for tests (#38).
 
-- **The UI's decision logic is untested.** Which filters are blocked, which rates
-  fit, when a warning banner appears: all of it sits in `App.svelte`, checked only by
-  looking at screenshots.
-- **The fake can agree with us by construction.** It decides "won't play" using our
-  own rules module, so some tests check that our rules agree with themselves. The real
-  ground truth is the measurements in [design-v1.md](design-v1.md) §2; every real
-  behaviour bug found so far was caught by measuring a real instance, not by the fake.
+`npm run measure` re-measures the code.
 
 ## Principles
 
@@ -76,7 +68,7 @@ Two problems that line counts don't show:
 | **File length**                                        | Fails above 600 lines; reports above 400. Claude Code is warned at edit time above 500, and an edit that would cross 600 is refused                                         | Fails above 400                                              |
 | **Function size and complexity**                       | Reported                                                                                                                                                                    | Fails above 60 lines or a complexity of 15                   |
 | **Volume-safety properties** (fast-check)              | Volume never rises more than 6 dB in one step; rollback never raises it; undo returns to a higher level only if nobody moved it since                                       | More invariants as the change engine is split                |
-| **Mutation testing** (Stryker), on demand              | Run now and then on the core logic, to find tests that can't fail. No recorded score, not a gate                                                                            | —                                                            |
+| **Mutation testing**, on demand                        | Break the code on purpose and check a test fails, now and then on the core logic. By hand for now: Stryker can't drive Vitest 5 yet. No recorded score, not a gate          | —                                                            |
 | **Fake contract tests**                                | The fake behaviours the safety rules rely on (stalls, rollback triggers, volume) cite a recorded reply or a measurement                                                     | Extended when a bug shows the fake was wrong                 |
 | **Live release checklist**                             | Required before every release tag: a short scripted check against a real HQPlayer (see below)                                                                               | Automated where safe                                         |
 
@@ -124,44 +116,10 @@ and then, is the check that tests prove something.
   browser test walks one flow through several steps, so it checks each step.
 - **No tests that can't fail,** such as asserting that a value is merely defined.
 
-## Refactoring plan
-
-Each step keeps behaviour identical, shown by the browser smoke tests staying green. A
-refactor's pull request can include before-and-after screenshots for review; they're a
-one-off check, not a stored baseline.
-
-1. **Safety net.** Browser smoke tests, the curated ESLint set, the file-length
-   tripwire, the volume-safety properties, and a command that re-measures the table
-   above. _Done when_ the smoke flows run in CI, ESLint and the length tripwire block
-   on changed code, and the volume properties pass. _Done 2026-10-04_ (#17–#20, and a
-   pre-commit hook that runs the fast checks).
-2. **Live release checklist.** A short, scripted check against a real HQPlayer, before
-   each release tag (see the gate above). It comes before the refactors because
-   measuring real instances has found every real behaviour bug so far, and the fake
-   can't. _Done when_ it has run once against a real instance, including the volume
-   rule from #20 (a rollback keeps the volume low). _Done 2026-10-04_ (#24, #25: it found
-   a real bug on its first run, the first gate to do so).
-3. **`App.svelte`: logic first.** Move decision logic into tested modules under
-   `apps/web/src/lib/` (filter and rate hints, the "won't start" check, the update
-   check): it outlives any redesign. Split the view into components only as far as it
-   takes to get under the file limits; leave further structure until the UI settles.
-   _Done when_ no UI file exceeds the limits, the moved logic has tests, and the smoke
-   flows pass. _Done 2026-10-04_ (#28, #29, #30: App.svelte 1,471 → 509 lines).
-4. **`instance.ts`.** Split into a change engine and a status poller behind a thin
-   facade. Add the fake's contract tests. _Done when_ no server file exceeds the
-   limits and the fake's safety-relevant behaviours cite evidence. _Done 2026-10-04_
-   (#32, #33, #34: instance.ts 790 → 305 lines; no file in the repo over 600).
-
-New features pause until steps 2–4 are done as written here, and no longer: work that
-grows beyond these descriptions waits until after the pause. _All four steps were done on
-2026-10-04, so the pause is over._ Bug fixes continue, each
-starting with a failing test.
-
 ## Trade-offs
 
-- **Speed:** a short pause on features, and a few more minutes per CI run for browser
-  tests.
-- **Dependencies:** ESLint, Playwright and fast-check (and Stryker, when it's run) are development-only and
+- **Speed:** a few more minutes per CI run for browser tests.
+- **Dependencies:** ESLint, Playwright and fast-check are development-only and
   never ship in the image, but they're more to keep up to date.
 - **Refactoring risk:** moving code can break it. The browser tests come first for that
   reason.

@@ -66,11 +66,10 @@ environment. Read it if it exists; never commit anything from it.
 
 ## Code quality
 
-[docs/quality-plan.md](docs/quality-plan.md) is binding: its gates, its rules for
-writing tests, and (while it lasts) its pause on new features. In short: decision logic
-goes in tested `.ts` modules, not components; a bug fix starts with a failing test; never
-weaken a test to make it pass; the fake isn't evidence; keep files under the limits,
-splitting before adding.
+[docs/quality-plan.md](docs/quality-plan.md) is binding: its gates and its rules for
+writing tests. In short: decision logic goes in tested `.ts` modules, not components; a
+bug fix starts with a failing test; never weaken a test to make it pass; the fake isn't
+evidence; keep files under the limits, splitting before adding.
 
 ## Tools
 
