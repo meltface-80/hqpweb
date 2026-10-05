@@ -4,11 +4,14 @@ import {
   apodization,
   context,
   filterItems,
+  filterTaken,
   inUseSlot,
   otherSourceNotes,
+  ratioLabel,
   rateItems,
   rateOptions,
   shaperItems,
+  shaperTaken,
   wedge,
 } from "./hints.ts";
 
@@ -180,5 +183,119 @@ describe("the apodization counter (manual §2.6)", () => {
     expect(apodization(11, false)).toBe("suggest");
     expect(apodization(11, "partial")).toBe("suggest");
     expect(apodization(11, true)).toBe("handled");
+  });
+});
+
+describe("the ✓ next to a choice (HQPlayer reports what it actually uses)", () => {
+  const base = snap({ source: 44_100 });
+  const playing = { ...base, status: { ...base.status, activeFilter: "sinc-M", activeShaper: "NS5" } } as Snapshot;
+  it("shows whether the chosen filter is the one HQPlayer uses, in the slot in use", () => {
+    expect(filterTaken(playing, "1x", "1x", "sinc-M")).toBe(true);
+    expect(filterTaken(playing, "1x", "1x", "FFT")).toBe(false);
+    expect(filterTaken(playing, "1x", "Nx", "sinc-M")).toBeNull();
+  });
+  it("says nothing while stopped", () => {
+    expect(filterTaken(snap({ playing: false }), "1x", "1x", "sinc-M")).toBeNull();
+    expect(shaperTaken(snap({ playing: false }), "NS5")).toBeNull();
+  });
+  it("shows whether the chosen dither or modulator is the one in use", () => {
+    expect(shaperTaken(playing, "NS5")).toBe(true);
+    expect(shaperTaken(playing, "TPDF")).toBe(false);
+  });
+});
+
+describe("details the first tests missed (found by mutation testing)", () => {
+  it("uses HQPlayer's active rate as the output rate when the rate is on Auto", () => {
+    expect(context(pcm(), snap({ rate: 0, activeRate: 384_000 })).outRate).toBe(384_000);
+  });
+
+  it("shows a filter that can't do the ratio as blocked, not as a warning", () => {
+    const caps = pcm();
+    const fft = filterItems(context(caps, snap({ rate: at(caps, 192_000) })), "1x").find((f) => f.name === "FFT")!;
+    expect(fft.warn).toBeUndefined();
+  });
+
+  it("finds the slot in use from State when Status has no source details", () => {
+    const s = snap({ source: null, filter1x: "poly-sinc-hb", filterNx: "sinc-M" });
+    expect(inUseSlot({ ...s, state: { ...s.state, filterInUse: filter("sinc-M") } })).toBe("Nx");
+    expect(inUseSlot({ ...s, state: { ...s.state, filterInUse: filter("poly-sinc-hb") } })).toBe("1x");
+  });
+
+  it("labels the ratio as source → output, and leaves it blank with no source", () => {
+    const caps = pcm();
+    expect(ratioLabel(context(caps, snap({ rate: at(caps, 176_400) })))).toBe("44.1 kHz → 176.4 kHz");
+    expect(ratioLabel(context(caps, snap({ playing: false })))).toBe("");
+  });
+
+  it("offers Auto only when the rate is fixed and Auto is allowed", () => {
+    const caps = pcm();
+    expect(rateOptions(context(caps, snap({ rate: 0 })), "FFT").auto).toBe(false);
+    const noAuto = { ...caps, rates: caps.rates.map((r) => (r.rate === 0 ? { ...r, allowed: false } : r)) };
+    expect(rateOptions(context(noAuto, snap({ rate: at(caps, 192_000) })), "FFT").auto).toBe(false);
+  });
+
+  it("lets HQPlayer 6's own filter description decide the ratio rule", () => {
+    const caps = pcm();
+    caps.filters = caps.filters.map((f) => (f.name === "FFT" ? { ...f, description: "3/5 ⥣ Any" } : f));
+    const c = context(caps, snap({ rate: at(caps, 192_000) }));
+    expect(rateOptions(c, "FFT").options.map((o) => o.rate)).toContain(192_000);
+  });
+
+  it("says nothing about the next track when none is queued", () => {
+    const caps = pcm();
+    expect(wedge(context(caps, snap({ playing: false, rate: at(caps, 192_000), filter1x: "FFT" })))).toBeNull();
+  });
+
+  it("blames the modulator when it's the modulator that can't start the queued track (SDM)", () => {
+    const caps = sdm();
+    const s = snap({ playing: false, queued: 44_100, rate: at(caps, 11_289_600), shaper: 1 }); // AHM7EC8B at DSD256
+    expect(wedge(context(caps, s))).toMatchObject({ cause: "modulator" });
+  });
+
+  it("notes nothing about other sources with the rate on Auto", () => {
+    expect(otherSourceNotes(context(pcm(), snap({ rate: 0, filter1x: "FFT" })))).toEqual([]);
+  });
+
+  it("shows a modulator's generation in SDM (HQPlayer 6 says it), and none for PCM dither", () => {
+    const caps = sdm();
+    caps.shapers = caps.shapers.map((s) => ({ ...s, description: "Gen8" }));
+    expect(shaperItems(context(caps, snap({})))[0]).toMatchObject({ gen: 8 });
+    expect(shaperItems(context(pcm(), snap({})))[0]).not.toHaveProperty("gen");
+  });
+
+  it("judges output rates against the source only when there is one", () => {
+    const caps = pcm();
+    const items = rateItems(context(caps, snap({ playing: false, filter1x: "FFT" })));
+    expect(items.find((r) => r.rate === 192_000)!.warn).toBeUndefined();
+  });
+});
+
+describe("more details (second mutation pass)", () => {
+  it("shows a rate's own note, e.g. why it's over a limit", () => {
+    const caps = pcm();
+    caps.rates = caps.rates.map((r) => (r.rate === 192_000 ? { ...r, note: "above this DAC's limit" } : r));
+    expect(rateItems(context(caps, snap({})))!.find((r) => r.rate === 192_000)!.note).toBe("above this DAC's limit");
+  });
+
+  it("says nothing about the next track while playing, even without track details, or while paused", () => {
+    const caps = pcm();
+    const stuck = snap({ playing: false, queued: 44_100, rate: at(caps, 192_000), filter1x: "FFT" });
+    const playingNoDetails = { ...stuck, status: { ...stuck.status, state: 2 } } as Snapshot;
+    const pausedWithSource = {
+      ...stuck,
+      status: { ...stuck.status, state: 1, source: { sampleRate: 44_100, bits: 24, channels: 2, song: "x" } },
+    } as Snapshot;
+    expect(wedge(context(caps, playingNoDetails))).toBeNull();
+    expect(wedge(context(caps, pausedWithSource))).toBeNull();
+  });
+
+  it("notes nothing about other sources with the rate on Auto, for the Nx filter too", () => {
+    expect(otherSourceNotes(context(pcm(), snap({ rate: 0, activeRate: 384_000, filterNx: "FFT" })))).toEqual([]);
+  });
+
+  it("shows generations only for SDM modulators, even if a PCM dither had one", () => {
+    const caps = pcm();
+    caps.shapers = caps.shapers.map((s) => ({ ...s, description: "Gen8" }));
+    expect(shaperItems(context(caps, snap({})))[0]).not.toHaveProperty("gen");
   });
 });

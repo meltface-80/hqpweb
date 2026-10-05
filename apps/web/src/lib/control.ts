@@ -26,6 +26,23 @@ export function control(snap: Snapshot | null, zone: RoonZone | null) {
   };
 }
 
+/** Polls (~1.5 s each) of Roon playing while this HQPlayer is stopped before saying so: brief overlaps are normal. */
+export const MISMATCH_POLLS = 3;
+
+/**
+ * Roon's position. The server sends it only when it jumps (Roon updates every second);
+ * between jumps it advances with the clock while playing, never past the track's end.
+ */
+export function roonPosition(
+  base: { seek: number; at: number } | null,
+  length: number | undefined,
+  playing: boolean,
+  now: number,
+): number | null {
+  if (!base || !length) return null;
+  return Math.min(length, base.seek + (playing ? Math.max(0, now - base.at) / 1000 : 0));
+}
+
 /** Roon playing while this HQPlayer sits stopped: usually the wrong zone is mapped. */
 export const zoneMismatch = (snap: Snapshot | null, zone: RoonZone | null) =>
   snap?.status.state === 0 && zone?.state === "playing";

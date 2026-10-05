@@ -71,3 +71,23 @@ group("after Play", () => {
     expect(notStartedMessage({})?.text).toMatch(/output may be unavailable/);
   });
 });
+
+// Note: the label is "Modulator" even in PCM mode, where the picker says "Dither" (existing
+// wording, kept as is here; a follow-up).
+group("the playback note on a successful change (found by mutation testing)", () => {
+  const ok = (playback: ApplyResult["playback"]) =>
+    describe(result({ results: [field("shaper", "NS5")], playback }), show, false).text;
+  it("says it wasn't checked because nothing was playing", () => {
+    expect(ok({ kind: "not-checked", detail: "nothing was playing, so playback couldn't be checked" })).toBe(
+      "✓ Modulator → NS5 · not playing, so not checked",
+    );
+  });
+  it("says why a check was inconclusive", () => {
+    expect(ok({ kind: "inconclusive", detail: "playback was paused during the check" })).toBe(
+      "✓ Modulator → NS5 · playback not checked (playback was paused during the check)",
+    );
+  });
+  it("adds nothing for a change that can't stop playback", () => {
+    expect(ok({ kind: "not-checked", detail: "this change can't stop playback" })).toBe("✓ Modulator → NS5");
+  });
+});

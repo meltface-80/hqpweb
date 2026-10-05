@@ -14,6 +14,7 @@
   import { describe, type ResultMessage } from "./lib/result.ts";
   import { control, isRisky } from "./lib/control.ts";
   import * as hints from "./lib/hints.ts";
+  import { offerReload } from "./lib/update.ts";
   import * as speedRules from "./lib/speed.ts";
   import { nameAt } from "./lib/hints.ts";
   import { isApodizing, filterSlot } from "@app/protocol/compat";
@@ -67,10 +68,9 @@
   // and every 10 minutes, it asks the server. A difference offers a reload.
   let updated = $state(false);
   async function checkForUpdate() {
-    // Dev servers bake the commit in at start, so only built apps check.
-    if (import.meta.env.DEV || !__APP_COMMIT__ || updated) return;
+    if (import.meta.env.DEV || !__APP_COMMIT__ || updated) return; // no request when it couldn't matter
     const h = await api.health().catch(() => null);
-    if (h?.commit && h.commit !== __APP_COMMIT__) updated = true;
+    if (offerReload(__APP_COMMIT__, h?.commit, import.meta.env.DEV)) updated = true;
   }
   $effect(() => {
     const onVisible = () => document.visibilityState === "visible" && checkForUpdate();
@@ -194,9 +194,7 @@
   const show = (field: keyof Change, v: string | number | boolean) =>
     field === "rate" ? formatRate(Number(v), caps?.mode.name ?? "") : field === "volume" ? `${v} dB` : String(v);
 
-  /** Has the selected filter in this slot taken? null when the slot isn't in use. */
-  const takenFor = (slot: "1x" | "Nx", name: string) =>
-    snap?.status.state === 2 && inUse === slot ? snap.status.activeFilter === name : null;
+  const takenFor = (slot: "1x" | "Nx", name: string) => (snap ? hints.filterTaken(snap, inUse, slot, name) : null);
 
   // ---- incompatible filter or rate: offer output rates that fit -----------------
   // One sheet at a time: a picker closes before the rate sheet opens, and the rate
@@ -407,7 +405,7 @@
         <Picker
           bind:this={shaperPicker}
           label={isSdm ? "Modulator" : "Dither"}
-          active={snap.status.state === 2 ? snap.status.activeShaper === nameAt(caps.shapers, snap.state.shaper) : null}
+          active={hints.shaperTaken(snap, nameAt(caps.shapers, snap.state.shaper))}
           items={shaperItems}
           current={nameAt(caps.shapers, snap.state.shaper)}
           disabled={busy}

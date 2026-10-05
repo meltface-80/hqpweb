@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoonZone, Snapshot } from "./api.ts";
-import { control, isRisky, stepVolume, zoneMismatch } from "./control.ts";
+import { control, isRisky, roonPosition, stepVolume, zoneMismatch } from "./control.ts";
 
 const snap = (state: 0 | 1 | 2, song: string | null): Snapshot =>
   ({
@@ -60,5 +60,30 @@ describe("changes and volume", () => {
     expect(stepVolume(-3.5, 1, { min: -60, max: -3 })).toBe(-3);
     expect(stepVolume(-3, 1, { min: -60, max: -3 })).toBeNull();
     expect(stepVolume(-60, -1, { min: -60, max: -3 })).toBeNull();
+  });
+});
+
+describe("Roon's position between updates", () => {
+  const base = { seek: 60, at: 1_000_000 };
+  it("advances with the clock while playing", () => {
+    expect(roonPosition(base, 300, true, 1_005_000)).toBe(65);
+  });
+  it("holds while paused", () => {
+    expect(roonPosition(base, 300, false, 1_005_000)).toBe(60);
+  });
+  it("never passes the end of the track, or goes back if the clock does", () => {
+    expect(roonPosition(base, 62, true, 1_005_000)).toBe(62);
+    expect(roonPosition(base, 300, true, 999_000)).toBe(60);
+  });
+  it("is unknown without a length (a stream) or a starting point", () => {
+    expect(roonPosition(base, undefined, true, 1_005_000)).toBeNull();
+    expect(roonPosition(null, 300, true, 1_005_000)).toBeNull();
+  });
+});
+
+describe("playing state (found by mutation testing)", () => {
+  it("follows HQPlayer while it plays its own playlist, even with a Roon zone mapped", () => {
+    expect(control(snap(2, "01 - Example.flac"), zone("paused")).playing).toBe(true);
+    expect(control(snap(0, null), null).playing).toBe(false);
   });
 });

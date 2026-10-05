@@ -114,6 +114,12 @@ export function apodization(apod: number, inUseApodizing: boolean | "partial" | 
   return inUseApodizing === true ? "handled" : "suggest";
 }
 
+/** The ✓ next to a filter: has the chosen one taken? null when its slot isn't in use. */
+export const filterTaken = (snap: Snapshot, inUse: "1x" | "Nx" | null, slot: "1x" | "Nx", name: string) =>
+  snap.status.state === 2 && inUse === slot ? snap.status.activeFilter === name : null;
+/** The ✓ next to the dither or modulator: has the chosen one taken? null when not playing. */
+export const shaperTaken = (snap: Snapshot, name: string) => (snap.status.state === 2 ? snap.status.activeShaper === name : null);
+
 /** The filter slot HQPlayer is using (1x below 50 kHz, manual §4.6), from the source, else from State; null when stopped. */
 export function inUseSlot(snap: Snapshot): "1x" | "Nx" | null {
   if (snap.status.state === 0) return null;

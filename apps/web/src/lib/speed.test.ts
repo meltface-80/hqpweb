@@ -48,3 +48,13 @@ describe("slow signals", () => {
     expect(answersSlowly(undefined)).toBe(false);
   });
 });
+
+describe("boundaries (found by mutation testing)", () => {
+  it("is not red at exactly 0.90 from the position fit", () => {
+    expect(speedClass(null, 0.9, null)).toBe("ok");
+  });
+  it("shows whole numbers from 10× up, one decimal below", () => {
+    expect(speedText(10, null, "ok")).toBe("10×");
+    expect(speedText(9.5, null, "ok")).toBe("9.5×");
+  });
+});

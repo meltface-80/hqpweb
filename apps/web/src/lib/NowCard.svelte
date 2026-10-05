@@ -5,7 +5,7 @@
   import { untrack } from "svelte";
   import { RECOMMENDED_MAX_VOLUME_DB } from "@app/protocol/compat";
   import { api, formatRate, PLAYBACK, type Capabilities, type Change, type RoonZone, type Snapshot, type Status } from "./api.ts";
-  import { control, stepVolume, zoneMismatch } from "./control.ts";
+  import { control, MISMATCH_POLLS, roonPosition, stepVolume, zoneMismatch } from "./control.ts";
   import { apodization, type wedge as wedgeOf } from "./hints.ts";
   import { prefs } from "./prefs.svelte.ts";
   import { notStartedMessage, type ResultMessage } from "./result.ts";
@@ -83,12 +83,7 @@
     const t = setInterval(() => (clock = Date.now()), 1000);
     return () => clearInterval(t);
   });
-  const position = $derived.by(() => {
-    const len = viaRoon?.nowPlaying?.length;
-    if (!seekBase || !len) return null;
-    const p = seekBase.seek + (playing ? Math.max(0, clock - seekBase.at) / 1000 : 0);
-    return Math.min(len, p);
-  });
+  const position = $derived(roonPosition(seekBase, viaRoon?.nowPlaying?.length, playing, clock));
   const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
   let hqSeekDraft = $state<number | null>(null);
   async function hqSeekTo(seconds: number) {
@@ -222,7 +217,7 @@
       <button class="link" onclick={onfixwedge} disabled={busy}>Fix…</button>
     </p>
   {/if}
-  {#if mismatchTicks >= 3 && roonZone}
+  {#if mismatchTicks >= MISMATCH_POLLS && roonZone}
     <p class="mismatch">
       Roon is playing in “{roonZone.name}”, but this HQPlayer is stopped. If that zone isn't fed by this HQPlayer, pick another in
       Settings → Roon.
