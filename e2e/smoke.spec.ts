@@ -193,6 +193,29 @@ test("Advanced: change the output rate after confirming, and switch an option", 
   await shot(page, "advanced-1-applied");
 });
 
+test("Settings: add an instance by address, rename it, and remove it", async ({ page }) => {
+  await openOn(page, "about");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const item = () => sheet(page).locator("ul.instances li").filter({ hasText: "127.0.0.1:1" });
+
+  // Port 1 never answers: it's added anyway, with a warning saying why.
+  await sheet(page).getByLabel("Name").fill("Spare test box");
+  await sheet(page).getByLabel("Host").fill("127.0.0.1");
+  await sheet(page).getByLabel("Port").fill("1");
+  await sheet(page).getByRole("button", { name: "Add", exact: true }).click();
+  await expect(item()).toContainText("Spare test box");
+  await expect(sheet(page)).toContainText("doesn't answer");
+
+  page.once("dialog", (d) => void d.accept("Renamed box"));
+  await item().getByRole("button", { name: "Rename" }).click();
+  await expect(item()).toContainText("Renamed box");
+  await shot(page, "settings-1-instance-added");
+
+  page.once("dialog", (d) => void d.accept());
+  await item().getByRole("button", { name: "Remove" }).click();
+  await expect(item()).toHaveCount(0);
+});
+
 test("Settings shows the version and the non-affiliation notice", async ({ page }) => {
   await openOn(page, "about");
   await page.getByRole("button", { name: "Settings" }).click();
