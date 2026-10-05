@@ -22,6 +22,7 @@ export default tseslint.config(
       "lint/",
       "tools/*/",
       "!tools/quality/",
+      "!tools/release-check/",
       "e2e/test-results/",
       "e2e/report/",
     ],
