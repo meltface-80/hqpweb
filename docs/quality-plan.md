@@ -127,7 +127,8 @@ one-off check, not a stored baseline.
    each release tag (see the gate above). It comes before the refactors because
    measuring real instances has found every real behaviour bug so far, and the fake
    can't. _Done when_ it has run once against a real instance, including the volume
-   rule from #20 (a rollback keeps the volume low).
+   rule from #20 (a rollback keeps the volume low). _Done 2026-10-04_ (#24, #25: it found
+   a real bug on its first run, the first gate to do so).
 3. **`App.svelte`: logic first.** Move decision logic into tested modules under
    `apps/web/src/lib/` (filter and rate hints, the "won't start" check, the update
    check): it outlives any redesign. Split the view into components only as far as it
