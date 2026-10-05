@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "apps/server/src/instance.ts": {
-    "@typescript-eslint/no-misused-promises": {
-      "count": 2
-    }
-  },
   "apps/server/src/roon/roon.ts": {
     "@typescript-eslint/no-floating-promises": {
       "count": 1

@@ -16,6 +16,8 @@ export type Inst = {
 export type Named = { index: number; name: string; description?: string };
 export type State = {
   mode: number;
+  /** The mode's value: -1 [source], 0 PCM, 1 SDM (HQPlayer's numbering). */
+  activeMode: number;
   rate: number;
   filter1x: number;
   filterNx: number;
@@ -235,6 +237,13 @@ export function formatRate(hz: number, modeName: string): string {
   if (hz >= 1_000_000) return `${hz / 1_000_000} MHz`;
   return `${hz / 1000} kHz`;
 }
+
+/**
+ * A field's name as the pickers show it. The shaper is a modulator in SDM and dither in PCM;
+ * `sdm` undefined (mode unknown) names both.
+ */
+export const fieldLabel = (field: keyof Change, sdm?: boolean) =>
+  field === "shaper" ? (sdm === undefined ? "Dither or modulator" : sdm ? "Modulator" : "Dither") : FIELD_LABEL[field];
 
 export const FIELD_LABEL: Record<keyof Change, string> = {
   mode: "Mode",

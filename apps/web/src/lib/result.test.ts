@@ -1,5 +1,5 @@
 import { describe as group, expect, it } from "vitest";
-import type { ApplyResult, FieldResult } from "./api.ts";
+import { fieldLabel, type ApplyResult, type FieldResult } from "./api.ts";
 import { describe, notStartedMessage } from "./result.ts";
 
 const show = (_f: unknown, v: string | number | boolean) => String(v);
@@ -72,22 +72,44 @@ group("after Play", () => {
   });
 });
 
-// Note: the label is "Modulator" even in PCM mode, where the picker says "Dither" (existing
-// wording, kept as is here; a follow-up).
 group("the playback note on a successful change (found by mutation testing)", () => {
   const ok = (playback: ApplyResult["playback"]) =>
     describe(result({ results: [field("shaper", "NS5")], playback }), show, false).text;
   it("says it wasn't checked because nothing was playing", () => {
     expect(ok({ kind: "not-checked", detail: "nothing was playing, so playback couldn't be checked" })).toBe(
-      "✓ Modulator → NS5 · not playing, so not checked",
+      "✓ Dither → NS5 · not playing, so not checked",
     );
   });
   it("says why a check was inconclusive", () => {
     expect(ok({ kind: "inconclusive", detail: "playback was paused during the check" })).toBe(
-      "✓ Modulator → NS5 · playback not checked (playback was paused during the check)",
+      "✓ Dither → NS5 · playback not checked (playback was paused during the check)",
     );
   });
   it("adds nothing for a change that can't stop playback", () => {
-    expect(ok({ kind: "not-checked", detail: "this change can't stop playback" })).toBe("✓ Modulator → NS5");
+    expect(ok({ kind: "not-checked", detail: "this change can't stop playback" })).toBe("✓ Dither → NS5");
+  });
+});
+
+group("the dither or modulator is named as the picker names it", () => {
+  const changed = (activeMode: number, name: string) =>
+    describe(
+      result({ results: [field("shaper", name)], playback: { kind: "playing" }, state: { activeMode } as ApplyResult["state"] }),
+      show,
+      false,
+    ).text;
+  it("says Dither in PCM mode", () => {
+    expect(changed(0, "NS5")).toBe("✓ Dither → NS5 · playback OK");
+  });
+  it("says Modulator in SDM mode", () => {
+    expect(changed(1, "AHM7EC8B")).toBe("✓ Modulator → AHM7EC8B · playback OK");
+  });
+});
+
+group("field names", () => {
+  it("name the shaper by mode, and both when the mode isn't known; other fields as before", () => {
+    expect(fieldLabel("shaper", false)).toBe("Dither");
+    expect(fieldLabel("shaper", true)).toBe("Modulator");
+    expect(fieldLabel("shaper")).toBe("Dither or modulator");
+    expect(fieldLabel("filter1x", true)).toBe("1x filter");
   });
 });

@@ -3,7 +3,7 @@
   // preset and opens a sheet where one tap applies (undo stays available), with a
   // badge saying what applying means here (already active / quick / major) and
   // warnings for settings this instance can't take. Save and edit live in the sheet.
-  import { api, formatRate, FIELD_LABEL, type ApplyResult, type PresetView } from "./api.ts";
+  import { api, fieldLabel, formatRate, type ApplyResult, type PresetView } from "./api.ts";
 
   let {
     instanceId,
@@ -168,7 +168,9 @@
                 {/if}
                 {#if p.preview.missing.length}
                   <small class="warn"
-                    >⚠ {p.preview.missing.map((m) => `${FIELD_LABEL[m.field]} ${m.reason}`).join("; ")} (skipped)</small
+                    >⚠ {p.preview.missing
+                      .map((m) => `${fieldLabel(m.field, p.settings.mode?.startsWith("SDM"))} ${m.reason}`)
+                      .join("; ")} (skipped)</small
                   >
                 {:else if p.preview.unchecked}
                   <small class="sum">Switches mode; names are checked when applied</small>
