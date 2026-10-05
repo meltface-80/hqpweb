@@ -16,13 +16,10 @@
   },
   "apps/web/src/App.svelte": {
     "@typescript-eslint/no-floating-promises": {
-      "count": 4
+      "count": 2
     },
     "@typescript-eslint/no-misused-promises": {
       "count": 4
-    },
-    "svelte/no-useless-mustaches": {
-      "count": 1
     }
   },
   "apps/web/src/lib/Picker.svelte": {

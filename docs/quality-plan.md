@@ -134,7 +134,7 @@ one-off check, not a stored baseline.
    check): it outlives any redesign. Split the view into components only as far as it
    takes to get under the file limits; leave further structure until the UI settles.
    _Done when_ no UI file exceeds the limits, the moved logic has tests, and the smoke
-   flows pass.
+   flows pass. _Done 2026-10-04_ (#28, #29, #30: App.svelte 1,471 → 509 lines).
 4. **`instance.ts`.** Split into a change engine and a status poller behind a thin
    facade. Add the fake's contract tests. _Done when_ no server file exceeds the
    limits and the fake's safety-relevant behaviours cite evidence.
