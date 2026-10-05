@@ -6,11 +6,10 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { judge, LIMITS, ratchet, type Counts } from "./length.ts";
+import { CODE, judge, LIMITS, ratchet, type Counts } from "./length.ts";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const baselinePath = fileURLToPath(new URL("length-baseline.json", import.meta.url));
-const CODE = /\.(ts|svelte|js|mjs|cjs|py)$/;
 
 function count(): Counts {
   const files = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {

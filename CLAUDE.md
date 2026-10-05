@@ -92,4 +92,8 @@ splitting before adding.
 - `npm run lines` is the file-length tripwire (fails above 600 lines). Files already over it
   are listed in `tools/quality/length-baseline.json` and may not grow; after splitting one,
   `npm run lines -- --ratchet`. Never raise or add an entry: split the file.
+- `.claude/settings.json` runs the same check as a Claude Code hook before each Write or
+  Edit (`tools/quality/edit-hook.ts`): a note when a file goes past 500 lines, and a
+  refusal when an edit would take it past 600. An edit that shrinks a file is never
+  refused, so an oversized file can always be split.
   `npm run measure` re-measures the quality plan's table.

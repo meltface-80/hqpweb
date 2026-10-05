@@ -1,7 +1,11 @@
 // File-length tripwire (docs/quality-plan.md, "File length"): the decision, kept
 // free of I/O so it can be tested. measure.ts does the reading and printing.
 
-export const LIMITS = { fail: 600, report: 400 } as const;
+/** fail: the commit check fails above it. report: listed by `npm run lines`. warn: an agent is told at edit time. */
+export const LIMITS = { fail: 600, report: 400, warn: 500 } as const;
+
+/** The files the tripwire measures. */
+export const CODE = /\.(ts|svelte|js|mjs|cjs|py)$/;
 
 /** Lines per file, counted like `wc -l`. */
 export type Counts = Record<string, number>;
