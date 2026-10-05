@@ -245,6 +245,24 @@ SDM, DSD1024, 44.1 kHz source, 1x `poly-sinc-gauss-xla`:
   that can mean a louder volume (seen: −3 dB after running at −20 dB). Re-read
   everything after a reconnect, and never assume a volume.
 
+- **Recovery from HQPlayer's own playlist (measured 2026-10-04, Desktop 5.35.10,
+  Linux, by the release check and follow-up probes):** with a local file playing from
+  HQPlayer's playlist, an incompatible rate (`sinc-M`, 44.1 kHz → 192 kHz) stops it, as
+  with Roon. Unlike with Roon, **fixing the rate doesn't resume playback**. `Play` alone
+  then reports state 2 with the **position stuck at 0** (it looks like playing, and
+  isn't). **`Stop`, then `Play`, resumed it once and didn't once** (the second time, sent
+  by hqpweb about 4 s after the rate was fixed, it stuck at 0 like `Play` alone). So
+  after such a rollback hqpweb presses nothing: it says playback stopped and offers
+  **Restart playback** (Stop, then Play), with restarting HQPlayer as the fallback.
+- **Queuing a file doesn't lock Roon out (measured once each, same instance):** Roon
+  played to the instance with a file queued in HQPlayer's playlist, with or without
+  `start="1"`.
+- **Seen once, not confirmed:** after an HQPlayer-side `Stop` with Roon as the source,
+  Roon's next play left HQPlayer paused at position 0 for at least 12 s; after a rate
+  change Roon played normally. The same day, Roon couldn't play to that instance until
+  HQPlayer was restarted; the cause wasn't isolated. A restart brought it back at its
+  saved volume, 21 dB louder than before (see the previous point).
+
 ### 2.4 Built-in configurations (HQPlayer's own presets)
 
 - `ConfigurationList` works without authentication and returns the names.

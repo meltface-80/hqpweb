@@ -116,3 +116,11 @@ export async function watchPlayback(
     await new Promise((r) => setTimeout(r, timing.sampleMs));
   }
 }
+
+/**
+ * Getting playback back after a rollback. Roon resumes by itself once the settings are
+ * valid again (measured, design §2.3). HQPlayer's own playlist doesn't, and Play alone
+ * then leaves it reporting "playing" with the position stuck; Stop, then Play, resumes
+ * it (all measured on 5.35.10, 2026-10-04). So do that, but only if it was playing
+ * before the change and Roon wasn't the source: it restores what was happening.
+ */

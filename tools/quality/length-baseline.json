@@ -1,5 +1,4 @@
 {
-  "apps/web/src/App.svelte": 1471,
-  "apps/server/src/instance.ts": 879,
-  "packages/fake-hqp/src/fake.ts": 628
+  "apps/web/src/App.svelte": 1440,
+  "apps/server/src/instance.ts": 790
 }

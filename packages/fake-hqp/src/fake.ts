@@ -4,43 +4,9 @@
 // so client code that copes with the fake should cope with the real thing.
 import { createServer, type Server, type Socket } from "node:net";
 import { createSocket, type Socket as UdpSocket } from "node:dgram";
-import { element, filterSlot, parseDocument, predictedStop, type AttrValue, type Element } from "@app/protocol";
+import { element, filterSlot, parseDocument, type AttrValue, type Element } from "@app/protocol";
+import { defaultIncompatible, type FakeOptions } from "./options.ts";
 import type { ModeLists, Profile, Remembered } from "./profile.ts";
-
-export interface FakeOptions {
-  /** Multiplies every measured delay. 1 = realistic, 0 = instant (tests). */
-  timeScale?: number;
-  /** Close a connection after this much idle time. Measured ≈156 s. */
-  idleTimeoutMs?: number;
-  /**
-   * Whether the settings in use stop playback. Default: defaultIncompatible.
-   */
-  incompatible?: (c: { modeName: string; rateHz: number; shaperName: string; filterName: string; sourceRate: number }) => boolean;
-  /**
-   * Simulated CPU/GPU load: playback speed (1 = real time) for the settings in
-   * use. Default: never overloaded. Inferred model: an overloaded instance keeps
-   * state 2 but its position falls behind real time. Not yet measured.
-   */
-  speed?: (c: { modeName: string; rateHz: number; filterName: string; shaperName: string }) => number;
-  /** Matrix profiles configured in HQPlayer. Measured on both instances: none. */
-  matrixProfiles?: string[];
-  /** Whether convolution impulse responses are configured. Measured: not, on both. */
-  convolutionConfigured?: boolean;
-  log?: (line: string) => void;
-}
-
-/**
- * Default: what the manual's rules predict (integer-ratio filters, the AHM
- * modulator floor; see @app/protocol compat.ts). The AHM floor is also measured.
- */
-export const defaultIncompatible: NonNullable<FakeOptions["incompatible"]> = (c) =>
-  predictedStop({
-    mode: c.modeName,
-    filter: c.filterName,
-    shaper: c.shaperName,
-    sourceRate: c.sourceRate,
-    outputRate: c.rateHz,
-  }) !== undefined;
 
 const DELAY = {
   /** First SetFilter for a filter: ~5 s (measured). */
@@ -74,6 +40,8 @@ export class FakeHqp {
   playback: 0 | 1 | 2 | 3;
   /** Playback stopped by an incompatible combination; resumes by itself once valid. */
   stalled = false;
+  /** After such a stop on its own playlist, Play shows state 2 but the position doesn't move until a Stop (measured, 5.35.10). */
+  stuck = false;
   position = 0;
   convolution = false;
   matrixProfile = "";
@@ -192,7 +160,7 @@ export class FakeHqp {
 
   private tick() {
     const now = Date.now();
-    if (this.playback === 2) this.position += ((now - this.lastTick) / 1000) * this.currentSpeed();
+    if (this.playback === 2 && !this.stuck) this.position += ((now - this.lastTick) / 1000) * this.currentSpeed();
     this.lastTick = now;
   }
 
@@ -222,9 +190,13 @@ export class FakeHqp {
       });
     } else if (!this.comboBad && this.stalled) {
       this.stalled = false;
-      this.later(DELAY.resume, () => {
-        if (this.playback === 0 || this.playback === 3) this.playback = 2;
-      });
+      // Resumes by itself with Roon as the source (measured, §2.3). From its own playlist
+      // it stays stopped (measured, 5.35.10); Stop, then Play, resumed it once and not once.
+      if (this.feeder === "Roon")
+        this.later(DELAY.resume, () => {
+          if (this.playback === 0 || this.playback === 3) this.playback = 2;
+        });
+      else this.stuck = true;
     }
   }
 
@@ -520,8 +492,7 @@ export class FakeHqp {
       return this.ok("SelectTrack");
     },
     Stop: () => {
-      // Inferred: an explicit Stop clears the auto-resume.
-      this.stalled = false;
+      this.stalled = this.stuck = false; // clears the auto-resume (inferred) and a stuck Play (measured, 5.35.10)
       this.playback = 0;
       this.position = 0;
       return this.ok("Stop");

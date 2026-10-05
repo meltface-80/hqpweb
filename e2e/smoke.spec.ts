@@ -65,6 +65,28 @@ test("a filter this machine can't keep up with is rolled back, and flagged next 
   await shot(page, "rollback-2-flagged");
 });
 
+test("a rollback that leaves HQPlayer's own playlist stopped offers Restart playback", async ({ page }) => {
+  await openOn(page, "restart");
+  await page.locator("summary", { hasText: "Advanced" }).click();
+  await row(page, "Output rate").click();
+  page.once("dialog", (d) => void d.accept());
+  await sheet(page)
+    .getByRole("button", { name: /^192 kHz/ })
+    .click();
+
+  await expect(footer(page)).toContainText(/rolled back/i, { timeout: 10_000 });
+  await expect(page.locator(".headline .state")).toHaveText("Stopped");
+  await shot(page, "restart-1-offered");
+
+  await page.getByRole("button", { name: "Restart playback" }).click();
+  await expect(page.locator(".headline .state")).toHaveText("Playing");
+  // Really playing: the position moves (measured: Play alone can show "playing" and not move).
+  const position = page.locator(".seek span").first();
+  const at = await position.textContent();
+  await expect.poll(() => position.textContent(), { timeout: 10_000 }).not.toBe(at);
+  await expect(page.getByRole("button", { name: "Restart playback" })).toBeHidden();
+});
+
 test("a filter that can't convert this ratio is hidden, and picking it offers rates that fit", async ({ page }) => {
   await openOn(page, "ratio");
   await row(page, "1x filter").click();

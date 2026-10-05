@@ -64,6 +64,18 @@ const FLOWS: Record<string, Flow> = {
       f.feeder = "playlist";
     },
   },
+  // Playing from HQPlayer's own playlist at 176.4k with sinc-M: 192k stops it, and it doesn't resume by itself.
+  restart: {
+    name: "Restart",
+    profile: "desktop5-linux-pcm",
+    setup: (f) => {
+      setRate(f, 176_400);
+      setFilter(f, "filter1x", "sinc-M");
+      f.feeder = "playlist";
+      f.playlist = ["/music/Example Artist/Example Album/01 - Example.flac"];
+      f.playback = 2;
+    },
+  },
   jump: { name: "Volume jump", profile: "desktop5-mac-sdm", setup: (f) => (f.volume = -44) },
   // A recording that keeps needing apodization, played through a filter that isn't apodizing.
   apod: {

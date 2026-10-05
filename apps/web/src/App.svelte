@@ -7,6 +7,7 @@
   import Presets from "./lib/Presets.svelte";
   import RateSwitch, { type RateSwitchRequest } from "./lib/RateSwitch.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
+  import { describe, type ResultMessage } from "./lib/result.ts";
   import {
     MODULATOR_NOTE,
     isApodizing,
@@ -23,7 +24,6 @@
   import {
     api,
     formatRate,
-    FIELD_LABEL,
     PLAYBACK,
     knownBad,
     type ApplyResult,
@@ -31,7 +31,6 @@
     type Change,
     type Combo,
     type Inst,
-    type PlaybackCheck,
     type RoonZone,
     type Snapshot,
   } from "./lib/api.ts";
@@ -53,7 +52,7 @@
   let offlineReason = $state("");
   let busy = $state(false);
   let undoAvailable = $state(false);
-  let message = $state<{ kind: "ok" | "warn" | "error" | "info"; text: string } | null>(null);
+  let message = $state<ResultMessage | null>(null);
   // The footer (result + Undo) fades 30 s after the last change; it stays while a
   // change is running or HQPlayer is falling behind (the banner points at Undo).
   let footerOpen = $state(false);
@@ -439,63 +438,16 @@
     }),
   );
 
-  function describe(r: ApplyResult) {
-    const base = describeCore(r);
-    if (!r.skipped?.length) return base;
-    const sk = r.skipped.map((x) => `${FIELD_LABEL[x.field]} (${x.reason})`).join("; ");
-    return { kind: "warn" as const, text: `${base.text} · Skipped: ${sk}` };
-  }
-
-  function describeCore(r: ApplyResult) {
-    if (r.rolledBack) {
-      const back = r.rolledBack.results.map((x) => `${FIELD_LABEL[x.field]} back to ${show(x.field, x.actual)}`).join(", ");
-      const rec: PlaybackCheck = r.rolledBack.playback;
-      const tail =
-        rec.kind === "playing"
-          ? "Playback resumed."
-          : rec.kind === "not-checked"
-            ? ""
-            : `Playback did not recover (${rec.detail}): HQPlayer may need a restart.`;
-      return {
-        kind: "warn" as const,
-        text: r.incompatible
-          ? `Rolled back: ${r.incompatible.text}. ${back}. ${tail} That's an HQPlayer rule, not a limit of this machine.`
-          : `Rolled back: ${r.playback.detail}. ${back}. ${tail} Marked as not working on this instance.`,
-      };
-    }
-    const failed = r.results.filter((x) => !x.applied);
-    const notes = r.results.filter((x) => x.note).map((x) => `${FIELD_LABEL[x.field]} ${x.note}`);
-    if (failed.length) {
-      const text = failed
-        .map(
-          (x) => `${FIELD_LABEL[x.field]}: asked for ${show(x.field, x.requested)}, HQPlayer reports ${show(x.field, x.actual)}`,
-        )
-        .concat(notes)
-        .join(" · ");
-      return { kind: "warn" as const, text };
-    }
-    if (r.results.length === 0) return { kind: "warn" as const, text: "Nothing applied" };
-    const text = r.results.map((x) => `${FIELD_LABEL[x.field]} → ${show(x.field, x.actual)}`);
-    const pb =
-      r.playback.kind === "playing"
-        ? "playback OK"
-        : r.playback.kind === "not-checked" && r.playback.detail?.startsWith("nothing")
-          ? "not playing, so not checked"
-          : r.playback.kind === "inconclusive"
-            ? `playback not checked (${r.playback.detail})`
-            : "";
-    return { kind: "ok" as const, text: ["✓ " + text.join(", "), pb, ...notes].filter(Boolean).join(" · ") };
-  }
-
   async function run(label: string, fn: () => Promise<ApplyResult>) {
     if (!selected || busy) return;
     busy = true;
+    const wasFromRoon = fromRoon;
     message = { kind: "info", text: `${label}…` };
     try {
       const r = await fn();
       if (snap) snap = { ...snap, state: r.state };
       undoAvailable = r.undoAvailable;
-      message = describe(r);
+      message = describe(r, show, wasFromRoon);
       // A rollback teaches the server a failed combination: refresh the warnings.
       if (r.rolledBack && selected) caps = await api.capabilities(selected);
     } catch (e) {
@@ -613,6 +565,22 @@
     if (ok) apply(change);
   };
   const undo = () => run("Undoing", () => api.undo(selected!));
+  /** After a rollback left HQPlayer's own playlist stopped: Stop, then Play (resumed it once when measured, not once). */
+  async function restartPlayback() {
+    if (!selected) return;
+    message = { kind: "info", text: "Restarting playback…" };
+    try {
+      await api.transport(selected, "stop");
+      await new Promise((r) => setTimeout(r, 500));
+      const r = await api.transport(selected, "play");
+      if (snap) snap = { ...snap, status: r.status };
+      message = r.notStarted
+        ? { kind: "warn", text: "HQPlayer didn't start. Restart HQPlayer, then check its volume." }
+        : { kind: "ok", text: "✓ Playback restarted" };
+    } catch (e) {
+      message = { kind: "error", text: (e as Error).message };
+    }
+  }
 
   const vol = $derived(volDraft ?? snap?.state.volume ?? 0);
   const step = (d: number) => {
@@ -998,6 +966,7 @@
 
 <footer class:show={footerOpen || (speedClass === "bad" && undoAvailable)}>
   {#if message}<p class="msg {message.kind}">{message.text}</p>{/if}
+  {#if message?.restart}<button class="undo" onclick={restartPlayback} disabled={busy}>Restart playback</button>{/if}
   {#if undoAvailable}<button class="undo" onclick={undo} disabled={busy}>Undo last change</button>{/if}
 </footer>
 

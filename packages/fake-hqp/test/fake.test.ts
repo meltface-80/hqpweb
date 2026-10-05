@@ -139,7 +139,7 @@ describe("mode change", () => {
 });
 
 describe("invalid rate/modulator combination (measured)", () => {
-  it("replies OK, stops, ignores Play, and resumes by itself once the rate is valid", async () => {
+  it("with Roon as the source: replies OK, stops, ignores Play, and resumes by itself once the rate is valid", async () => {
     const c = await start();
     const rates = await c.rates();
     const dsd512 = rates.find((r) => r.rate === 22579200)!.index;
@@ -153,6 +153,39 @@ describe("invalid rate/modulator combination (measured)", () => {
 
     await c.send(cmd.setRate(auto));
     expect((await c.status()).state).toBe(2);
+  });
+
+  // Measured 2026-10-04 (Desktop 5.35.10, Linux): playing from HQPlayer's own playlist,
+  // a stop at an incompatible ratio doesn't resume when the rate is fixed. Play alone then
+  // reports state 2 but the position doesn't move; Stop, then Play, resumed it once and
+  // failed once. The fake lets Stop-then-Play resume, so hqpweb's Restart button can be tested.
+  it("with its own playlist as the source: after the fix, Play alone is stuck; Stop then Play resumes", async () => {
+    const c = await start("desktop5-linux-pcm");
+    fake!.feeder = "playlist";
+    fake!.playlist = ["/music/Example Artist/Example Album/01 - Example.flac"];
+    fake!.playback = 2;
+    const rates = await c.rates();
+    const at = (hz: number) => rates.find((r) => r.rate === hz)!.index;
+    await c.send(cmd.setRate(at(176_400))); // first: Auto here is 384 kHz, which sinc-M can't do
+    await c.send(cmd.setFilter((await c.state()).filterNx, byName(await c.filters(), "sinc-M")));
+    expect((await c.status()).state).toBe(2);
+
+    await c.send(cmd.setRate(at(192_000))); // 4.35×: sinc-M can't
+    await c.send(cmd.setRate(at(176_400)));
+    expect((await c.status()).state).toBe(0);
+
+    const advances = async () => {
+      const p0 = (await c.status()).position;
+      await new Promise((r) => setTimeout(r, 300));
+      return (await c.status()).position > p0;
+    };
+    await c.send(cmd.play());
+    expect((await c.status()).state).toBe(2);
+    expect(await advances()).toBe(false);
+
+    await c.send(cmd.stop());
+    await c.send(cmd.play());
+    expect(await advances()).toBe(true);
   });
 
   it("a valid combination at DSD512 keeps playing", async () => {
