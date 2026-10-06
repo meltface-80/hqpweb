@@ -17,8 +17,10 @@
 export type DsdPath =
   /** ESS Sabre up to ES9038PRO, and ES9068: fifth-order modulators. */
   | "older-ess"
-  /** Takes DSD natively (any other chip, ladder DSD paths, 1-bit paths): seventh order. */
-  | "native"
+  /** Re-modulates DSD inside (ES9039 and later, the AK4191 pair, FPGA designs): seventh order. */
+  | "remodulates"
+  /** Passes DSD untouched to the converter (TI/Burr-Brown, ROHM, Holo, 1-bit paths, AKM in DSD Direct): seventh order. */
+  | "direct"
   /** Converts DSD to PCM, or doesn't accept it: PCM output probably suits it better. */
   | "converts";
 
@@ -123,21 +125,22 @@ export const CHIP_FAMILIES: ChipFamily[] = [
   {
     id: "ess-9039",
     chips: "ESS ES9039 (Pro, SPro, MSPro, Q2M) and newer",
-    dsd: "native",
+    dsd: "remodulates",
     pcm: "delta-sigma",
     advice: [jussi("261032/1422", "2026-09", "modulator", "From the ES9039 on, seventh order.")],
   },
   {
     id: "akm",
     chips: "AKM AK4490, AK4493, AK4497, AK4499",
-    dsd: "native",
+    dsd: "direct",
     pcm: "delta-sigma",
+    note: "Direct only where the maker enabled DSD Direct mode; otherwise the chip re-modulates DSD.",
     advice: [jussi("160210/676", "2022-02", "modulator", "AKM converts with several elements, so seventh order suits it.")],
   },
   {
     id: "akm-split",
     chips: "AKM AK4191 + AK4499EX",
-    dsd: "native",
+    dsd: "remodulates",
     pcm: "delta-sigma",
     note: "Direct DSD only at DSD128 or DSD256, and only where the maker implemented it correctly; otherwise the AK4191 re-modulates DSD.",
     advice: [
@@ -148,7 +151,7 @@ export const CHIP_FAMILIES: ChipFamily[] = [
   {
     id: "burr-brown",
     chips: 'Burr-Brown (TI) PCM179x, iFi "True Native"',
-    dsd: "native",
+    dsd: "direct",
     pcm: "delta-sigma",
     note: "When the DAC accepts DSD, it reaches the chip untouched. Some PCM179x DACs are PCM-only.",
     advice: [
@@ -158,9 +161,9 @@ export const CHIP_FAMILIES: ChipFamily[] = [
   {
     id: "ladder-dsd",
     chips: "Resistor ladder with its own DSD path",
-    dsd: "native",
+    dsd: "direct",
     pcm: "ladder",
-    note: "Holo, Denafrips, Musician, Gustard R26, Topping Centaurus.",
+    note: "Holo, Musician, Gustard R26, Topping Centaurus. Not Denafrips: measured filtering DSD (see its rows).",
   },
   {
     id: "ladder-pcm",

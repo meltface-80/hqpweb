@@ -47,11 +47,11 @@ describe("Find your DAC: the table's own rules", () => {
     expect(odd.map((a) => `${a.id}: ${a.url} ${a.date}`)).toEqual([]);
   });
 
-  it("answers fifth order for ESS chips up to the ES9038 and ES9068, seventh from the ES9039", () => {
+  it("puts ESS up to the ES9038 and ES9068 as older ESS, and the ES9039 on as re-modulating", () => {
     const disagree = DAC_MODELS.filter((m) => {
       const ess = /ES90(\d\d)/.exec(m.chip)?.[1];
       if (!ess || m.dsd === "converts") return false;
-      return ["18", "28", "38", "68"].includes(ess) !== (m.dsd === "older-ess");
+      return m.dsd !== (["18", "28", "38", "68"].includes(ess) ? "older-ess" : "remodulates");
     });
     expect(disagree.map((m) => `${m.id}: ${m.chip} → ${m.dsd}`)).toEqual([]);
   });

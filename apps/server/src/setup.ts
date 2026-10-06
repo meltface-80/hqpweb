@@ -3,7 +3,7 @@ import { HttpError } from "./errors.ts";
 import type { InstanceSetup } from "./config.ts";
 
 const ALLOWED: { [K in keyof Required<InstanceSetup>]: readonly NonNullable<InstanceSetup[K]>[] } = {
-  dsd: ["older-ess", "native", "converts"],
+  dsd: ["older-ess", "remodulates", "direct", "converts"],
   pcm: ["delta-sigma", "ladder"],
   link: ["usb", "spdif"],
   volume: ["hqplayer", "elsewhere"],

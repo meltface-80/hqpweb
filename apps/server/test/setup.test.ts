@@ -11,11 +11,11 @@ import { client } from "./http.ts";
 
 describe("setup answers: what a change may contain", () => {
   it("rejects a question it doesn't know", () => {
-    expect(() => parseSetupChange({ dac: "native" })).toThrow(/unknown setup question "dac"/);
+    expect(() => parseSetupChange({ dac: "direct" })).toThrow(/unknown setup question "dac"/);
   });
 
   it("rejects an answer that isn't one of the question's choices", () => {
-    expect(() => parseSetupChange({ dsd: "seventh" })).toThrow(/dsd must be one of older-ess, native, converts/);
+    expect(() => parseSetupChange({ dsd: "seventh" })).toThrow(/dsd must be one of older-ess, remodulates, direct, converts/);
   });
 
   it("accepts null, which clears an answer", () => {
@@ -23,14 +23,14 @@ describe("setup answers: what a change may contain", () => {
   });
 
   it("sets and clears answers, leaving the others alone", () => {
-    expect(applySetupChange({ dsd: "native", pcm: "ladder" }, { pcm: null, volume: "hqplayer" })).toEqual({
-      dsd: "native",
+    expect(applySetupChange({ dsd: "direct", pcm: "ladder" }, { pcm: null, volume: "hqplayer" })).toEqual({
+      dsd: "direct",
       volume: "hqplayer",
     });
   });
 
   it("has no setup at all once every answer is cleared", () => {
-    expect(applySetupChange({ dsd: "native" }, { dsd: null })).toBeUndefined();
+    expect(applySetupChange({ dsd: "direct" }, { dsd: null })).toBeUndefined();
   });
 });
 
@@ -63,8 +63,8 @@ describe("setup answers over the API", () => {
 
   it("saves answers on a configured instance, in instances.json", async () => {
     const { req, saved } = await start([{ id: "mac", name: "Mac", host: "127.0.0.1", port: 0 }]);
-    await req("PUT", "/api/instances/mac/setup", { body: { dsd: "native", volume: "hqplayer" } });
-    expect(saved()[0].setup).toEqual({ dsd: "native", volume: "hqplayer" });
+    await req("PUT", "/api/instances/mac/setup", { body: { dsd: "direct", volume: "hqplayer" } });
+    expect(saved()[0].setup).toEqual({ dsd: "direct", volume: "hqplayer" });
   });
 
   it("shows the answers in the instance list", async () => {
@@ -87,7 +87,7 @@ describe("setup answers over the API", () => {
 
   it("refuses an instance it doesn't know", async () => {
     const { req } = await start([]);
-    expect((await req("PUT", "/api/instances/nope/setup", { body: { dsd: "native" } })).status).toBe(404);
+    expect((await req("PUT", "/api/instances/nope/setup", { body: { dsd: "direct" } })).status).toBe(404);
   });
 
   it("refuses an invalid answer without saving anything", async () => {

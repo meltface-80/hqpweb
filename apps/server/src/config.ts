@@ -23,7 +23,7 @@ export interface InstanceConfig {
  */
 export interface InstanceSetup {
   /** How the DAC takes DSD (apps/web/src/lib/dacs.ts, DsdPath). */
-  dsd?: "older-ess" | "native" | "converts";
+  dsd?: "older-ess" | "remodulates" | "direct" | "converts";
   /** How the DAC converts PCM. */
   pcm?: "delta-sigma" | "ladder";
   /** How the signal reaches the DAC: USB or network (NAA), or S/PDIF, AES or optical. */

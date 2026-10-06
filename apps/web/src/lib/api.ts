@@ -16,7 +16,7 @@ export type Inst = {
 };
 /** What the modulator and dither advice needs to know, and HQPlayer can't tell us. */
 export type Setup = {
-  dsd?: "older-ess" | "native" | "converts";
+  dsd?: "older-ess" | "remodulates" | "direct" | "converts";
   pcm?: "delta-sigma" | "ladder";
   link?: "usb" | "spdif";
   volume?: "hqplayer" | "elsewhere";
