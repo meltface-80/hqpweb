@@ -18,10 +18,12 @@ export interface Prefs {
   advancedOpen: boolean;
   /** Filter lists: HQPlayer's own order, or grouped by HQPlayer 6's rating. */
   filterOrder: "hqplayer" | "rating";
+  /** The modulator/dither sheet opens on the tab used last. */
+  adviceTab: "list" | "guide";
 }
 
 const KEY = "prefs-v1";
-const DEFAULTS: Prefs = { theme: "system", volumeStep: 1, advancedOpen: false, filterOrder: "hqplayer" };
+const DEFAULTS: Prefs = { theme: "system", volumeStep: 1, advancedOpen: false, filterOrder: "hqplayer", adviceTab: "list" };
 
 function load(): Prefs {
   try {

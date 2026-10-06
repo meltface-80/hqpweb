@@ -3,6 +3,7 @@
   // can disturb playback are checked by the server and rolled back if they fail.
   import { tick, untrack } from "svelte";
   import Picker from "./lib/Picker.svelte";
+  import AdviceSheet from "./lib/AdviceSheet.svelte";
   import Settings from "./lib/Settings.svelte";
   import Presets from "./lib/Presets.svelte";
   import Footer from "./lib/Footer.svelte";
@@ -225,7 +226,7 @@
   // Say why and offer rates, but leave Play to the user: no surprise playback.
   let picker1x = $state<Picker>();
   let pickerNx = $state<Picker>();
-  let shaperPicker = $state<Picker>();
+  let shaperPicker = $state<AdviceSheet>();
   function fixWedge() {
     if (!wedge) return;
     rateSwitch = {
@@ -244,7 +245,11 @@
     rateSwitch = null;
     await tick();
     // Let the sheet finish closing before the picker opens.
-    setTimeout(() => (w?.cause === "modulator" ? shaperPicker : w?.slot === "filter1x" ? picker1x : pickerNx)?.open(), 0);
+    // The list shows which ones won't play here, so the wedge opens it rather than the guide.
+    setTimeout(() => {
+      if (w?.cause === "modulator") shaperPicker?.open({ tab: "list" });
+      else (w?.slot === "filter1x" ? picker1x : pickerNx)?.open();
+    }, 0);
   }
 
   // ---- HQPlayer's apodization and clip counters ---------------------------------
@@ -402,14 +407,20 @@
         oncancel={() => (rateSwitch = null)}
       />
       <section class="card list quick">
-        <Picker
+        <AdviceSheet
           bind:this={shaperPicker}
-          label={isSdm ? "Modulator" : "Dither"}
+          {isSdm}
           active={hints.shaperTaken(snap, nameAt(caps.shapers, snap.state.shaper))}
           items={shaperItems}
           current={nameAt(caps.shapers, snap.state.shaper)}
           disabled={busy}
-          onpick={(i) => apply({ shaper: i.name })}
+          instanceId={selected}
+          setup={instances.find((i) => i.id === selected)?.setup ?? {}}
+          rateHz={outRate}
+          rateText={outRate ? formatRate(outRate, caps.mode.name) : ""}
+          {processSpeed}
+          onpick={(name) => apply({ shaper: name })}
+          onsaved={refreshInstances}
         />
       </section>
       {#if selected}

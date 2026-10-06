@@ -5,6 +5,7 @@
   import { THEMES, prefs, savePrefs, type Prefs } from "./prefs.svelte.ts";
   import InstanceSettings from "./InstanceSettings.svelte";
   import RoonSettings from "./RoonSettings.svelte";
+  import SetupSettings from "./SetupSettings.svelte";
 
   let {
     instance,
@@ -12,7 +13,7 @@
     onforgot,
     onchange,
   }: {
-    instance: { id: string; name: string } | null;
+    instance: Inst | null;
     instances: Inst[];
     onforgot: () => void;
     onchange: () => Promise<void>;
@@ -77,6 +78,7 @@
 
     <div class="body" hidden={tab !== "general"}>
       <InstanceSettings {instances} {onchange} />
+      <SetupSettings {instance} {onchange} />
 
       <h4>Theme</h4>
       <div class="themes">

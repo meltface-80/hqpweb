@@ -26,10 +26,12 @@ export interface InstanceSetup {
   dsd?: "older-ess" | "remodulates" | "direct" | "converts";
   /** How the DAC converts PCM. */
   pcm?: "delta-sigma" | "ladder";
-  /** How the signal reaches the DAC: USB or network (NAA), or S/PDIF, AES or optical. */
-  link?: "usb" | "spdif";
-  /** Whether HQPlayer is the volume control, or stays near 0 dB with the level set elsewhere. */
-  volume?: "hqplayer" | "elsewhere";
+  /** Whether the power amplifier is class-D or tube: Signalyst then suggests fifth order. */
+  amp?: "class-d-or-tube" | "other" | "unsure";
+  /** How the signal reaches the DAC: USB or network (NAA); S/PDIF, AES or optical; or I2S. */
+  link?: "usb" | "spdif" | "i2s";
+  /** HQPlayer is the volume control, or it stays at about −3 dB or on its fixed volume. */
+  volume?: "hqplayer" | "fixed";
 }
 
 export interface AppConfig {

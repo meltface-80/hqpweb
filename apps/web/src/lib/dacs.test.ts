@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { DAC_MODELS } from "./dac-models.ts";
-import { CHIP_FAMILIES, isDated, type Advice } from "./dacs.ts";
+import { CHIP_FAMILIES, datedBy, isDated, type Advice } from "./dacs.ts";
 
 describe("Find your DAC: which advice may be dated", () => {
-  const at = (date: string, about: Advice["about"]): Advice => ({ text: "", url: "", date, about });
+  const at = (date: string, about: Advice["about"], text = ""): Advice => ({ text, url: "", date, about });
 
   it("marks modulator advice from before HQPlayer 5.11's modulators (Feb 2025)", () => {
     expect(isDated(at("2025-01", "modulator"))).toBe(true);
@@ -11,6 +11,18 @@ describe("Find your DAC: which advice may be dated", () => {
 
   it("doesn't mark modulator advice from February 2025 on", () => {
     expect(isDated(at("2025-02", "modulator"))).toBe(false);
+  });
+
+  it("marks DSD1024 / AHM advice from before HQPlayer 6.1's AHM 4B (Sep 2026)", () => {
+    expect(datedBy(at("2025-11", "modulator", "DSD1024 with AHM7EC8B is clean."))?.label).toBe("before 6.1's AHM 4B");
+  });
+
+  it("doesn't mark other modulator advice from after 5.11 for 6.1", () => {
+    expect(datedBy(at("2025-11", "modulator", "ASDM7EC-fast at DSD256."))).toBeNull();
+  });
+
+  it("names the older cut-over when advice predates both", () => {
+    expect(datedBy(at("2024-08", "modulator", "AHM7EC5L at DSD1024."))?.label).toBe("before 5.11's modulators");
   });
 
   it("doesn't mark old advice about dither, or facts about the hardware", () => {

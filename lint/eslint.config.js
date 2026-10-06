@@ -27,6 +27,7 @@ export default tseslint.config(
       "!tools/release-check/",
       "e2e/test-results/",
       "e2e/report/",
+      ".claude/worktrees/",
     ],
   },
   {

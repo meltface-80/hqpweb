@@ -18,8 +18,9 @@ export type Inst = {
 export type Setup = {
   dsd?: "older-ess" | "remodulates" | "direct" | "converts";
   pcm?: "delta-sigma" | "ladder";
-  link?: "usb" | "spdif";
-  volume?: "hqplayer" | "elsewhere";
+  amp?: "class-d-or-tube" | "other" | "unsure";
+  link?: "usb" | "spdif" | "i2s";
+  volume?: "hqplayer" | "fixed";
 };
 /** description: HQPlayer 6 only (filters: "5/5 timbre ⥮ Any"; modulators: "Gen8"). */
 export type Named = { index: number; name: string; description?: string };

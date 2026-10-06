@@ -412,6 +412,12 @@ export const DAC_MODELS: DacModel[] = [
         "modulator",
         "DAC 200, measured: DSD1024 with AHM7EC8B is clean; DSD512 shows some intermodulation.",
       ),
+      jussi(
+        "325365/2",
+        "2026-09",
+        "modulator",
+        "DAC 200 on HQPlayer 6.1: the new AHM 4B is the better choice at DSD1024; keep the 60 kHz filter and the matching DAC correction on.",
+      ),
     ],
     sources: [src("https://www.ta-hifi.de/en/audiosystems/series-200/dac-200-d-a-converter/", "maker")],
   },

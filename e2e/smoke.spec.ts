@@ -226,3 +226,50 @@ test("Settings shows the version and the non-affiliation notice", async ({ page 
   await sheet(page).getByRole("heading", { name: "About", exact: true }).scrollIntoViewIfNeeded();
   await shot(page, "about-1-settings");
 });
+
+test("Settings: answer setup questions; they're kept on reopening and after a reload", async ({ page }) => {
+  await openOn(page, "setup");
+  const settings = () => page.getByRole("button", { name: "Settings" }).click();
+  const dsd = sheet(page).getByRole("radiogroup", { name: "How your DAC takes DSD" });
+  const amp = sheet(page).getByRole("radiogroup", { name: "Your amplifier" });
+  const direct = dsd.getByRole("radio", { name: /straight to the converter/ });
+  const classD = amp.getByRole("radio", { name: /^Yes/ });
+
+  await settings();
+  await expect(dsd.getByRole("radio", { name: /^Not set/ })).toBeChecked();
+  await direct.check();
+  await expect(dsd).toContainText("Saved");
+  await classD.check();
+  await expect(amp).toContainText("Saved");
+  await shot(page, "setup-1-answered");
+
+  await sheet(page).getByRole("button", { name: "Close" }).click();
+  await settings();
+  await expect(direct).toBeChecked();
+  await expect(classD).toBeChecked();
+
+  // Kept on the server, not only in the page.
+  await page.reload();
+  await expect(page.locator("section.now")).toBeVisible();
+  await settings();
+  await expect(direct).toBeChecked();
+  await expect(classD).toBeChecked();
+});
+
+test("Settings: Find your DAC filters the models", async ({ page }) => {
+  await openOn(page, "setup");
+  await page.getByRole("button", { name: "Settings" }).click();
+  await sheet(page).getByText("Find your DAC").click();
+  const models = sheet(page).locator("table", { has: page.getByRole("columnheader", { name: "Model" }) });
+  await expect(models).toContainText("Topping");
+
+  await sheet(page).getByRole("searchbox", { name: "Filter models" }).fill("holo");
+  await expect(models).toContainText("Holo Audio");
+  await expect(models).not.toContainText("Topping");
+  // Signalyst's advice is cited, and old modulator advice is marked as such.
+  await expect(models.getByRole("link", { name: /^Jussi, / }).first()).toBeVisible();
+  await expect(models).toContainText("before 5.11");
+  await expect(sheet(page).getByRole("link", { name: /Report it/ })).toHaveAttribute("href", /template=dac-table\.md$/);
+  await models.scrollIntoViewIfNeeded();
+  await shot(page, "setup-2-find-your-dac");
+});

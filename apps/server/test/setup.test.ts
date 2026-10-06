@@ -22,6 +22,14 @@ describe("setup answers: what a change may contain", () => {
     expect(parseSetupChange({ pcm: null, link: "spdif" })).toEqual({ pcm: null, link: "spdif" });
   });
 
+  it("accepts the amplifier, fixed-volume and I2S answers", () => {
+    expect(parseSetupChange({ amp: "class-d-or-tube", volume: "fixed", link: "i2s" })).toEqual({
+      amp: "class-d-or-tube",
+      volume: "fixed",
+      link: "i2s",
+    });
+  });
+
   it("sets and clears answers, leaving the others alone", () => {
     expect(applySetupChange({ dsd: "direct", pcm: "ladder" }, { pcm: null, volume: "hqplayer" })).toEqual({
       dsd: "direct",

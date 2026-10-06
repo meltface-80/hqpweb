@@ -2,11 +2,13 @@
 import { HttpError } from "./errors.ts";
 import type { InstanceSetup } from "./config.ts";
 
-const ALLOWED: { [K in keyof Required<InstanceSetup>]: readonly NonNullable<InstanceSetup[K]>[] } = {
+/** The answers each question allows. The web app keeps its own copy (test/setup-answers.test.ts). */
+export const ALLOWED: { [K in keyof Required<InstanceSetup>]: readonly NonNullable<InstanceSetup[K]>[] } = {
   dsd: ["older-ess", "remodulates", "direct", "converts"],
   pcm: ["delta-sigma", "ladder"],
-  link: ["usb", "spdif"],
-  volume: ["hqplayer", "elsewhere"],
+  amp: ["class-d-or-tube", "other", "unsure"],
+  link: ["usb", "spdif", "i2s"],
+  volume: ["hqplayer", "fixed"],
 };
 
 /** A change to the answers: a value sets one, null clears it, a missing key leaves it alone. */

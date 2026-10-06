@@ -50,15 +50,47 @@ export interface Advice {
   about: "modulator" | "dither" | "hardware";
 }
 
-/**
- * HQPlayer Desktop 5.11.0 (2025-02-03) reworked the EC-ul, -light and -super
- * modulators and added EC-fast (Signalyst's release notes). Modulator advice from
- * before then may predate a better choice; Signalyst said as much about older posts.
- */
-export const CURRENT_MODULATORS_SINCE = "2025-02";
+/** A modulator release that may have made earlier advice dated (Signalyst's release notes). */
+export interface Cutover {
+  /** "YYYY-MM" of the release. */
+  since: string;
+  /** The mark shown on dated advice. */
+  label: string;
+  /** Its tooltip. */
+  title: string;
+  /** Which modulator advice it can date. */
+  covers: (a: Advice) => boolean;
+}
 
-/** Modulator advice from before the current modulators: show it, marked as possibly dated. */
-export const isDated = (a: Advice): boolean => a.about === "modulator" && a.date < CURRENT_MODULATORS_SINCE;
+/**
+ * Oldest first. 5.11.0 (2025-02-03) reworked EC-ul, -light and -super and added EC-fast:
+ * any modulator advice before it may predate a better choice, as Signalyst said of older
+ * posts. 6.1.0 (2026-09-22) added AHMxEC4B for DSD1024 and up: AHM / DSD1024 advice
+ * before it may too.
+ */
+export const CUTOVERS: Cutover[] = [
+  {
+    since: "2025-02",
+    label: "before 5.11's modulators",
+    title: "Before HQPlayer 5.11 (Feb 2025) reworked the modulators: newer ones may suit better.",
+    covers: () => true,
+  },
+  {
+    since: "2026-09",
+    label: "before 6.1's AHM 4B",
+    title: "Before HQPlayer 6.1 (Sep 2026) added AHM 4B for DSD1024 and up: it may suit better.",
+    covers: (a) => /AHM|DSD1024/.test(a.text),
+  },
+];
+
+/** The release a piece of modulator advice predates (the oldest that applies), or null. */
+export function datedBy(a: Advice): Cutover | null {
+  if (a.about !== "modulator") return null;
+  return CUTOVERS.find((c) => c.covers(a) && a.date < c.since) ?? null;
+}
+
+/** Modulator advice from before a newer modulator release: show it, marked as possibly dated. */
+export const isDated = (a: Advice): boolean => datedBy(a) !== null;
 
 export interface ChipFamily {
   id: string;

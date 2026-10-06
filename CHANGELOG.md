@@ -5,7 +5,24 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+### Added
+
+- **A guide for the modulator and dither (beta).** The Modulator / Dither row now opens
+  a sheet with two tabs. **List** is HQPlayer's whole list, grouped by family, with the
+  older series folded (the one in use always shows). **Guide** asks a few questions
+  about your DAC, amplifier, volume and connection, and suggests where to start, with
+  each suggestion linked to the Signalyst post it comes from. Suggestions are starting
+  points, chosen by name from your HQPlayer's own list; **Compare** switches between
+  the suggestion and what you were playing. Nothing is changed until you pick.
+- **Settings → Your setup**, where the same answers can be seen and changed, per
+  instance, with **Find your DAC**: a table of chips and common models.
+
 ### Changed
+
+- The DAC table follows Signalyst's 2025–26 advice: newer ESS chips are listed as
+  re-processing DSD, and Denafrips as converting it (PCM output suits it better).
+- In the list, a row the guide suggests for your answers shows the guide's reason
+  instead of an older, narrower note (for example, NS9 at 384 kHz for a ladder DAC).
 
 - Section headings in Settings, and the rating groups in the filter picker, are now in
   the main text colour and bold, so they read as headings.
