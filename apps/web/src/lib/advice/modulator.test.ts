@@ -55,9 +55,9 @@ describe("modulator advice: the DAC question", () => {
     expect(advise({ setup: { dsd: "remodulates" } }).suggestedRate?.rules).toEqual([RULES.rateEss, RULES.akmPairRate]);
   });
 
-  it("sends a DAC that converts DSD to PCM, with no modulator to start on", () => {
+  it("suggests PCM for a DAC that converts DSD, but still gives a DSD start for anyone staying in DSD", () => {
     const a = advise({ setup: { dsd: "converts" } });
-    expect([a.status, a.start]).toEqual(["use-pcm", null]);
+    expect([a.status, a.suggestedRate, a.start?.name, a.start?.isDefault]).toEqual(["use-pcm", null, "ASDM7EC-fast", true]);
   });
 });
 
@@ -73,20 +73,18 @@ describe("modulator advice: amplifier and volume", () => {
     expect(advise({ setup: { dsd: "direct", amp: "unsure" } }).order).toBe(7);
   });
 
-  it("suggests 512+fs when HQPlayer sets the volume, at DSD512", () => {
-    expect(advise({ setup: { dsd: "direct", volume: "hqplayer" }, rateHz: DSD512 }).start).toMatchObject({
-      name: "ASDM7EC-fast 512+fs",
-      rules: [RULES.p512Volume],
-    });
+  // HQPlayer's volume as the main control isn't a setup to steer people to: Signalyst
+  // suggests gain optimisation, "safe from too loud accidents" (RULES.gainOpt). So 512+fs
+  // is offered, never the starting point.
+  it("starts on plain -fast even when HQPlayer sets the volume at DSD512", () => {
+    expect(advise({ setup: { dsd: "direct", volume: "hqplayer" }, rateHz: DSD512 }).start?.name).toBe("ASDM7EC-fast");
   });
 
-  it("offers the plain version first, since 512+fs is an option, not an upgrade", () => {
+  it("offers the 512+fs version first among the alternatives when HQPlayer sets the volume", () => {
     const a = advise({ setup: { dsd: "direct", volume: "hqplayer" }, rateHz: DSD512 });
-    expect(a.alternatives.map((x) => x.name)).toEqual([
-      "ASDM7EC-fast",
-      "ASDM7EC-ul 512+fs",
-      "ASDM7EC-light 512+fs",
-      "ASDM7EC-super 512+fs",
+    expect([a.p512.suggested, a.alternatives.map((x) => x.name)]).toEqual([
+      true,
+      ["ASDM7EC-fast 512+fs", "ASDM7EC-ul", "ASDM7EC-light", "ASDM7EC-super"],
     ]);
   });
 

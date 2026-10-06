@@ -27,8 +27,15 @@ export interface WatchTiming {
 }
 
 export const DEFAULT_TIMING: WatchTiming = { graceMs: 1500, healthyMs: 1500, maxMs: 6000, sampleMs: 250, minSpeed: 0.85 };
-/** Mode changes take ~3 s before HQPlayer replies (measured); allow more after. */
-export const MAJOR_TIMING: WatchTiming = { ...DEFAULT_TIMING, graceMs: 2500, maxMs: 10000 };
+/**
+ * Rate and mode changes restart HQPlayer's processing: mode changes take ~3 s before it
+ * replies (measured), and playback can run slow for a few seconds while it refills. Seen
+ * live (2026-10-06): DSD1024 + AHM7EC8B, measured at 1.0x on 2026-10-02, was rolled back
+ * at 72% when judged from 2.5 s. So wait 5 s, and need 6 s of slow playback (2 x healthy)
+ * before calling it struggling. A real overload is still caught: ASDM7EC at DSD1024 fell
+ * to 0.53x within 10 s (measured, design 2.3).
+ */
+export const MAJOR_TIMING: WatchTiming = { ...DEFAULT_TIMING, graceMs: 5000, healthyMs: 3000, maxMs: 15000 };
 
 export type Verdict =
   | { kind: "playing" }

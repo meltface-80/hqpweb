@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIMING, judge, type Sample, type WatchTiming } from "../src/watch.ts";
+import { DEFAULT_TIMING, MAJOR_TIMING, judge, type Sample, type WatchTiming } from "../src/watch.ts";
 
 const T: WatchTiming = { graceMs: 1000, healthyMs: 1000, maxMs: 4000, sampleMs: 250, minSpeed: 0.85 };
 
@@ -147,5 +147,37 @@ describe("judge with HQPlayer's ~1 s position steps", () => {
   it("still catches a real overload (0.6× and 0.75×)", () => {
     for (const speed of [0.6, 0.75])
       for (const ph of phases) expect(judge(stepped(speed, ph), DEFAULT_TIMING, true).kind).toBe("struggling");
+  });
+});
+
+describe("after a rate or mode change (MAJOR_TIMING)", () => {
+  /** Judge as the live watch does: one sample at a time, stopping at the first verdict. */
+  const watchOver = (samples: Sample[], timing: WatchTiming) => {
+    for (let n = 1; n <= samples.length; n++) {
+      const v = judge(samples.slice(0, n), timing, samples[n - 1]!.t >= timing.maxMs);
+      if (v.kind !== "pending") return { ...v, at: samples[n - 1]!.t };
+    }
+    return { kind: "pending", at: Infinity };
+  };
+  /** Position at `slow`× real time until `until` ms, then real time. */
+  const lagThen = (slow: number, until: number) => (t: number) =>
+    100 + (Math.min(t, until) * slow + Math.max(0, t - until)) / 1000;
+
+  it("doesn't call a slow start a failure: HQPlayer restarting its processing after a rate change", () => {
+    // Seen live (2026-10-06): DSD1024 + AHM7EC8B rolled back at 72%, a combination measured at 1.0x.
+    const v = watchOver(
+      run(MAJOR_TIMING.maxMs, () => 2, lagThen(0.6, 5000)),
+      MAJOR_TIMING,
+    );
+    expect(v.kind).toBe("playing");
+  });
+
+  it("still catches a real overload, well within the window", () => {
+    // Measured (design 2.3): ASDM7EC at DSD1024 on the Mac, 0.53x within 10 s.
+    const v = watchOver(
+      run(MAJOR_TIMING.maxMs, () => 2, lagThen(0.53, Infinity)),
+      MAJOR_TIMING,
+    );
+    expect([v.kind, v.at <= 12_000]).toEqual(["struggling", true]);
   });
 });

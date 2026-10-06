@@ -411,3 +411,15 @@ export const modulatorGen = (name: string, description: string | undefined, desc
   modulatorGeneration(description) ?? (described ? undefined : MODULATOR_GEN[name]);
 
 export { MODULATOR_NOTE };
+
+/**
+ * Rate and modulator changing together: should the modulator go first? Only when sending
+ * the rate first would pass through a pair that can't play (and the other order wouldn't).
+ * Measured (design §2.3): an invalid pair (AHM below DSD1024) stops playback until fixed,
+ * while a valid one applies live. So coming down from AHM at DSD1024, the modulator goes
+ * first; going up to AHM, the rate does. A rate of 0 (auto, unknown) keeps rate first.
+ */
+export function shaperBeforeRate(p: { fromRate: number; toRate: number; fromShaper: string; toShaper: string }): boolean {
+  const cantPlay = (shaper: string, rate: number) => modulatorHint(shaper, rate)?.level === "hard";
+  return cantPlay(p.fromShaper, p.toRate) && !cantPlay(p.toShaper, p.fromRate);
+}

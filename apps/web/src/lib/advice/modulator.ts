@@ -74,7 +74,8 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
     ? [RULES.rateDirect, ...(ampRate ? [RULES.ampRate] : [])]
     : [RULES.rateEss, ...(setup.dsd === "remodulates" ? [RULES.akmPairRate] : [])];
   const suggestedRate = rate ? { label: rate, orDsd1024: direct, orDsd512: ampRate, rules: rateRules } : null;
-  if (setup.dsd === "converts") return { status: "use-pcm", ...empty, suggestedRate };
+  // A DAC that converts DSD: PCM suits it better, but anyone staying in DSD still gets a
+  // starting point (informing, not refusing).
 
   const rules: Rule[] = [];
   if (setup.dsd === "older-ess") rules.push(RULES.olderEssFifth);
@@ -84,9 +85,10 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
   const p512Suggested = p512Offered && setup.volume === "hqplayer";
   const base = `ASDM${order}EC`;
   const ec = (v: Variant, p512: boolean) => `${base}-${v}${p512 ? " 512+fs" : ""}`;
-  // The EC family at this rate: 512+fs when suggested and listed, else the regular versions.
-  const use512 = p512Suggested && has(ec(POLICY.defaultVariant, true));
-  const family = POLICY.variants.map((v) => ec(v, use512)).filter(has);
+  // The EC family at this rate, in its regular versions. 512+fs is offered, never the start:
+  // HQPlayer's volume as the main control isn't a setup to steer people to (RULES.gainOpt).
+  const p512Option = p512Suggested ? [ec(POLICY.defaultVariant, true)].filter(has) : [];
+  const family = POLICY.variants.map((v) => ec(v, false)).filter(has);
 
   let start: ModulatorAdvice["start"] = null;
   if (rateHz >= POLICY.ahmFromHz) {
@@ -97,9 +99,8 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
     }
   }
   if (!start) {
-    const name = ec(POLICY.defaultVariant, use512);
+    const name = ec(POLICY.defaultVariant, false);
     if (has(name)) {
-      if (use512) rules.push(RULES.p512Volume);
       const isDefault = name === `ASDM7EC-${POLICY.defaultVariant}`;
       start = { name, isDefault, rules: isDefault ? [RULES.default] : rules };
     }
@@ -110,11 +111,10 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
     const ahm = [order, other].flatMap((o) => POLICY.ahmPreference.map((s) => `AHM${o}${s}`));
     alternatives = ahm.filter((n) => n !== start?.name && has(n)).map((name) => ({ name }));
   } else {
-    const plain = use512 ? [ec(POLICY.defaultVariant, false)].filter(has) : [];
-    alternatives = [...plain, ...family.filter((n) => n !== start?.name)].map((name) => ({ name }));
+    alternatives = [...p512Option, ...family.filter((n) => n !== start?.name)].map((name) => ({ name }));
   }
   return {
-    status: "ok",
+    status: setup.dsd === "converts" ? "use-pcm" : "ok",
     order,
     suggestedRate,
     start,

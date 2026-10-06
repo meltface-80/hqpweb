@@ -33,3 +33,10 @@ export const speedTitle = (processSpeed: number | null, speed: number | null) =>
     : speed == null
       ? "Shown while playing, after about 30 s of a track."
       : `HQPlayer is processing at ${speed.toFixed(3)}× real time over the last 30 s. Below 1.0 it can't keep up and audio will drop. Brief dips during a change are normal.`;
+
+/** Readings in a row below real time before the alarm (HQPTuner uses 3 too): one dip isn't an overload. */
+export const SUSTAIN = 3;
+/** The count of consecutive readings below real time (1×), after this one. */
+export const behindStreak = (streak: number, processSpeed: number | null) =>
+  processSpeed != null && processSpeed < 1 ? streak + 1 : 0;
+export const lasting = (streak: number) => streak >= SUSTAIN;

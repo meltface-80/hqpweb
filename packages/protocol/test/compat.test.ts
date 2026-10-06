@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ditherHint, filterSlot, modulatorHint, predictedStop, ratioClass, ratioHint } from "../src/compat.ts";
+import { ditherHint, filterSlot, modulatorHint, predictedStop, ratioClass, ratioHint, shaperBeforeRate } from "../src/compat.ts";
 
 describe("ratio rules (manual §4.6)", () => {
   it("knows classes, including -2s variants, and admits unknown names", () => {
@@ -197,5 +197,28 @@ describe("apodizing filters (HQPlayer 6's table)", () => {
     expect(isApodizing("poly-sinc-lp")).toBe("partial");
     expect(isApodizing("poly-sinc-xtr-short-lp-2s")).toBe(true);
     expect(isApodizing("some-future-filter")).toBeUndefined();
+  });
+});
+
+describe("rate and modulator changed together (design §2.3)", () => {
+  const DSD256 = 11_289_600;
+  const DSD1024 = 45_158_400;
+
+  it("going up to AHM: rate first, since AHM at the old rate can't play", () => {
+    expect(shaperBeforeRate({ fromRate: DSD256, toRate: DSD1024, fromShaper: "ASDM7EC-fast", toShaper: "AHM7EC4B" })).toBe(false);
+  });
+
+  it("coming down from AHM: modulator first, since AHM at the new rate can't play", () => {
+    expect(shaperBeforeRate({ fromRate: DSD1024, toRate: DSD256, fromShaper: "AHM7EC4B", toShaper: "ASDM7EC-fast" })).toBe(true);
+  });
+
+  it("keeps the usual order (rate first) when either order is fine", () => {
+    expect(
+      shaperBeforeRate({ fromRate: DSD256, toRate: 22_579_200, fromShaper: "ASDM7EC-fast", toShaper: "ASDM7EC-light" }),
+    ).toBe(false);
+  });
+
+  it("keeps rate first when the rate was auto and unknown", () => {
+    expect(shaperBeforeRate({ fromRate: 0, toRate: DSD1024, fromShaper: "ASDM7EC-fast", toShaper: "AHM7EC4B" })).toBe(false);
   });
 });

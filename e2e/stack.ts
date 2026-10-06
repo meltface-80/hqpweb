@@ -125,6 +125,21 @@ const FLOWS: Record<string, Flow> = {
       f.feeder = "playlist";
     },
   },
+  // Playing at DSD1024 with AHM7EC8B: rate and modulator have to change together.
+  pairnet: {
+    name: "Pairs",
+    profile: "desktop5-mac-sdm",
+    setup: (f) => {
+      setRate(f, 45_158_400);
+      setShaper(f, "AHM7EC8B");
+    },
+  },
+  // A short screen: the sheet's body must scroll to its end.
+  scroll: { name: "Scroll", profile: "desktop5-mac-sdm" },
+  // Playing on a machine that can't keep up with anything: the falling-behind alarm.
+  behind: { name: "Behind", profile: "desktop5-mac-sdm", speed: () => 0.6 },
+  // HQPlayer stops answering (a test closes it): the restart steps.
+  down: { name: "Down", profile: "desktop5-mac-sdm" },
   // Settings → Your setup: answers saved on the server, per instance.
   setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };
@@ -135,6 +150,8 @@ interface Poke {
   apod?: number;
   playlist?: string[];
   sourceRate?: number;
+  /** Stop answering, as an overloaded or crashed HQPlayer would. */
+  down?: boolean;
 }
 
 // Short playback checks, as in the server's own tests: flows finish in seconds.
@@ -174,6 +191,7 @@ export async function startStack() {
       if (p.apod !== undefined) fake.apod = p.apod;
       if (p.playlist !== undefined) fake.playlist = p.playlist;
       if (p.sourceRate !== undefined) fake.setSource(p.sourceRate);
+      if (p.down) void fake.close();
       res.writeHead(204).end();
     });
   });

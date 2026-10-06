@@ -3,6 +3,9 @@
   // advice/modulator.ts's; this only shows them. Names come from this HQPlayer's own list.
   import type { Setup } from "./api.ts";
   import { modulatorAdvice } from "./advice/modulator.ts";
+  import { modulatorPairs } from "./advice/pairs.ts";
+  import PairList from "./PairList.svelte";
+  import VariantRows from "./VariantRows.svelte";
   import { RULES } from "./advice/policy.ts";
   import { SETUP_QUESTIONS, type SetupKey } from "./setup-questions.ts";
   import SetupStep from "./SetupStep.svelte";
@@ -13,6 +16,10 @@
     rateHz,
     rateText,
     names,
+    rates,
+    check,
+    onpickpair,
+    onpcm,
     warnings,
     processSpeed,
     current,
@@ -25,6 +32,14 @@
     /** The output rate as the app shows it, e.g. "DSD256". */
     rateText: string;
     names: string[];
+    /** The output rates this HQPlayer offers now, in Hz. */
+    rates: number[];
+    /** What's known about a rate and modulator here (learned; information only). */
+    check: (c: { rateHz: number; shaper: string }) => { invalid: string | null; failedHere: string | null } | null;
+    /** Rate and modulator as one change. */
+    onpickpair: (c: { rateHz: number; shaper: string }) => void;
+    /** Switch HQPlayer to PCM output (for a DAC that converts DSD). */
+    onpcm: () => void;
     /** Warnings from the list, by name ("won't play here", "failed here before"). */
     warnings: Record<string, string>;
     processSpeed: number | null;
@@ -35,22 +50,96 @@
   } = $props();
 
   const advice = $derived(modulatorAdvice({ setup, rateHz, modulators: names, processSpeed }));
+  const pairs = $derived(modulatorPairs({ setup, rates, modulators: names }));
+  // The current rate's starting point is already a pair row when the rate is one of them.
+  const startInPairs = $derived(pairs.some((p) => p.rateHz === rateHz));
   const q = SETUP_QUESTIONS;
   const label = (key: SetupKey, v: string | undefined) => q[key].options.find((o) => o.value === v)?.label ?? "";
   // Yes/No answers read better as their description, e.g. "Any other kind."
   const described = (key: SetupKey, v: string | undefined) => q[key].options.find((o) => o.value === v)?.description ?? "";
 
-  // Compare: A is the starting point, B what was playing when Compare was pressed.
-  let compareB = $state<string | null>(null);
-  const comparing = $derived(!!compareB && advice.start !== null && compareB !== advice.start.name);
-  function compare() {
-    if (!advice.start || !current) return;
-    compareB = current;
-    onpick(advice.start.name);
-  }
   const startIsAhm = $derived(advice.start?.name.startsWith("AHM") ?? false);
   const p512Name = $derived(advice.start ? `${advice.start.name} 512+fs` : "");
 </script>
+
+{#snippet dsdCards()}
+  <li class="card">
+    <div class="head">Rate and modulator</div>
+    {#if pairs.length}
+      <p class="sub">Each choice sets both at once. Now: {rateText || "unknown"}.</p>
+      <PairList {pairs} currentRate={rateHz} {current} {disabled} {check} onpick={onpickpair} />
+      {#if advice.suggestedRate}<RuleList rules={advice.suggestedRate.rules} />{/if}
+    {:else if advice.suggestedRate}
+      <p>
+        {advice.suggestedRate.label} suits {setup.dsd === "remodulates"
+          ? "a newer ESS chip"
+          : "your DAC"}{#if advice.suggestedRate.orDsd512}, or DSD512 to cut ultrasonic noise further{/if}{#if advice.suggestedRate.orDsd1024},
+          or DSD1024 with an AHM modulator{/if}. Now: {rateText || "unknown"}. Change it under Advanced → Output rate.
+      </p>
+      <RuleList rules={advice.suggestedRate.rules} />
+    {:else}
+      <p>Now: {rateText || "unknown"}.</p>
+    {/if}
+    {#if !advice.rateKnown}
+      <p class="note">The rate isn't known while stopped on auto, so this assumes below DSD1024. Play something to update it.</p>
+    {/if}
+  </li>
+
+  <li class="card">
+    <div class="head">At {rateText || "the current rate"}</div>
+    {#if advice.start && startInPairs}
+      {@render variants()}
+    {:else if advice.start}
+      <p class="start">
+        <strong>{advice.start.name}</strong>
+        <span class="badge" class:yours={!advice.start.isDefault}
+          >{advice.start.isDefault ? "HQPlayer's default" : "For your answers"}</span
+        >
+      </p>
+      <RuleList rules={advice.start.rules} />
+      {#if warnings[advice.start.name]}<p class="note warn">⚠ {warnings[advice.start.name]}</p>{/if}
+      <div class="actions">
+        {#if current === advice.start.name}
+          <span class="using">✓ Now using</span>
+        {:else}
+          <button class="primary" {disabled} onclick={() => onpick(advice.start!.name)}>Use {advice.start.name}</button>
+        {/if}
+      </div>
+      {@render variants()}
+    {:else}
+      <p>None of this HQPlayer's modulators fits these answers; pick one from the list.</p>
+    {/if}
+    {#if advice.machine && advice.machine.state !== "keeps-up"}
+      <p class="note warn">
+        {advice.machine.state === "behind"
+          ? "HQPlayer is falling behind at these settings. A lower rate or a lighter filter helps most; a lighter variant only a little."
+          : "HQPlayer is only just keeping up. If playback stutters, a lower rate or a lighter filter helps most."}
+      </p>
+      <RuleList rules={[advice.machine.rule]} />
+    {/if}
+    {#if advice.unknown.length}
+      <p class="note">
+        This HQPlayer also lists {advice.unknown.join(", ")}, newer than hqpweb's advice. They're in the list.
+      </p>
+    {/if}
+  </li>
+{/snippet}
+
+{#snippet variants()}
+  {#if advice.p512.offered && names.includes(p512Name)}
+    <!-- Only when the start isn't already the 512+fs version, i.e. it isn't suggested. -->
+    <RuleList rules={[RULES.p512Volume]} />
+  {/if}
+  {#if advice.alternatives.length}
+    {#if startIsAhm}
+      <p class="sub">The other AHM versions, to compare by ear:</p>
+    {:else}
+      <p class="sub">Other characters to try, by ear (they're equals, not a ranking):</p>
+      <RuleList rules={[RULES.variantsEqual]} />
+    {/if}
+    <VariantRows names={advice.alternatives.map((a) => a.name)} {current} {warnings} {disabled} {onpick} />
+  {/if}
+{/snippet}
 
 <ol class="steps">
   <SetupStep
@@ -66,9 +155,11 @@
     {#snippet after()}
       {#if advice.status === "use-pcm"}
         <p class="note">
-          Your DAC converts DSD, so PCM output usually sounds better. Switch to PCM under Advanced → Mode, then choose a dither.
+          Your DAC converts DSD, so PCM output usually sounds better. Switch to PCM, then choose a dither. To stay in DSD, the
+          choices below still apply.
         </p>
         <RuleList rules={[RULES.usePcm]} />
+        <button class="primary" {disabled} onclick={onpcm}>Switch to PCM</button>
       {/if}
     {/snippet}
   </SetupStep>
@@ -93,98 +184,20 @@
     current={setup.volume}
     summary={described("volume", setup.volume)}
     onchoose={(v) => onanswer("volume", v)}
-  />
+  >
+    {#snippet extra()}<RuleList rules={[RULES.gainOpt]} />{/snippet}
+  </SetupStep>
 
-  {#if advice.status === "ok"}
+  {#if advice.status === "use-pcm"}
+    <!-- PCM suits this DAC: the DSD choices stay available, folded away. -->
     <li class="card">
-      <div class="head">Rate</div>
-      {#if advice.suggestedRate}
-        <p>
-          {advice.suggestedRate.label} suits {setup.dsd === "remodulates"
-            ? "a newer ESS chip"
-            : "your DAC"}{#if advice.suggestedRate.orDsd512}, or DSD512 to cut ultrasonic noise further{/if}{#if advice.suggestedRate.orDsd1024},
-            or DSD1024 with an AHM modulator{/if}. Now: {rateText || "unknown"}. Change it under Advanced → Output rate.
-        </p>
-        <RuleList rules={advice.suggestedRate.rules} />
-      {:else}
-        <p>Now: {rateText || "unknown"}.</p>
-      {/if}
-      {#if !advice.rateKnown}
-        <p class="note">
-          The rate isn't known while stopped on auto, so this assumes below DSD1024. Play something to update it.
-        </p>
-      {/if}
+      <details>
+        <summary>Staying in DSD? Show where to start</summary>
+        <ol class="steps nested">{@render dsdCards()}</ol>
+      </details>
     </li>
-
-    <li class="card">
-      <div class="head">Where to start</div>
-      {#if advice.start}
-        <p class="start">
-          <strong>{advice.start.name}</strong>
-          <span class="badge" class:yours={!advice.start.isDefault}
-            >{advice.start.isDefault ? "HQPlayer's default" : "For your answers"}</span
-          >
-        </p>
-        <RuleList rules={advice.start.rules} />
-        {#if warnings[advice.start.name]}<p class="note warn">⚠ {warnings[advice.start.name]}</p>{/if}
-        <div class="actions">
-          {#if current === advice.start.name}
-            <span class="using">✓ Now using</span>
-          {:else}
-            <button class="primary" {disabled} onclick={() => onpick(advice.start!.name)}>Use {advice.start.name}</button>
-            <button class="secondary" disabled={disabled || !current} onclick={compare}>Compare with what's playing</button>
-          {/if}
-        </div>
-        {#if comparing}
-          <div class="ab" role="group" aria-label="Compare">
-            <button class:on={current === advice.start.name} {disabled} onclick={() => onpick(advice.start!.name)}
-              >A · {advice.start.name}</button
-            >
-            <button class:on={current === compareB} {disabled} onclick={() => onpick(compareB!)}>B · {compareB}</button>
-          </div>
-        {/if}
-        {#if advice.p512.offered && names.includes(p512Name)}
-          <!-- Only when the start isn't already the 512+fs version, i.e. it isn't suggested. -->
-          <p class="note">{p512Name} is also offered at this rate; it matters when HQPlayer turns the volume well down.</p>
-        {/if}
-        {#if advice.alternatives.length}
-          {#if startIsAhm}
-            <p class="sub">The other AHM versions, to compare by ear:</p>
-          {:else}
-            <p class="sub">Other characters to try, by ear (they're equals, not a ranking):</p>
-            <RuleList rules={[RULES.variantsEqual]} />
-          {/if}
-          <div class="alts">
-            {#each advice.alternatives as a (a.name)}
-              <button
-                class="chip"
-                class:on={current === a.name}
-                title={warnings[a.name]}
-                {disabled}
-                onclick={() => onpick(a.name)}
-                >{#if warnings[a.name]}⚠
-                {/if}{a.name}</button
-              >
-            {/each}
-          </div>
-        {/if}
-      {:else}
-        <p>None of this HQPlayer's modulators fits these answers; pick one from the list.</p>
-      {/if}
-      {#if advice.machine && advice.machine.state !== "keeps-up"}
-        <p class="note warn">
-          {advice.machine.state === "behind"
-            ? "HQPlayer is falling behind at these settings. A lower rate or a lighter filter helps most; a lighter variant only a little."
-            : "HQPlayer is only just keeping up. If playback stutters, a lower rate or a lighter filter helps most."}
-        </p>
-        <RuleList rules={[advice.machine.rule]} />
-      {/if}
-      {#if advice.unknown.length}
-        <p class="note">
-          This HQPlayer also lists {advice.unknown.join(", ")}, newer than hqpweb's advice. They're in the list.
-        </p>
-      {/if}
-    </li>
+  {:else if advice.status === "ok"}
+    {@render dsdCards()}
   {/if}
 </ol>
 
@@ -194,6 +207,13 @@
     padding: 0 16px 16px;
     display: grid;
     gap: 10px;
+  }
+  .steps.nested {
+    padding: 8px 0 0;
+  }
+  summary {
+    cursor: pointer;
+    font-weight: 600;
   }
   .card {
     list-style: none;
@@ -244,9 +264,7 @@
     background: color-mix(in srgb, var(--ok) 16%, transparent);
     color: var(--ok);
   }
-  .actions,
-  .alts,
-  .ab {
+  .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -275,13 +293,5 @@
     color: var(--on-accent);
     border-color: var(--accent);
     font-weight: 600;
-  }
-  .chip {
-    border-radius: 999px;
-    font-size: 0.85rem;
-  }
-  .on {
-    border-color: var(--ok);
-    background: color-mix(in srgb, var(--ok) 12%, var(--bg-elev));
   }
 </style>

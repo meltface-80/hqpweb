@@ -256,6 +256,27 @@ describe("mode and rate", () => {
     expect(fake.mode.name).toBe("SDM (DSD)");
   });
 
+  // The rate and the modulator in the order that never passes through a pair that can't play.
+  const sent = () => fake.received.map((x) => /<(SetRate|SetShaping)\b/.exec(x)?.[1]).filter(Boolean);
+
+  it("coming down from AHM at DSD1024, sends the modulator before the rate", async () => {
+    await setup();
+    await change({ rate: 45158400, shaper: "AHM7EC8B" });
+    fake.received.length = 0;
+    const body = (await change({ rate: 11289600, shaper: "ASDM7EC" })).json();
+    expect(sent()).toEqual(["SetShaping", "SetRate"]);
+    expect(body.playback).toEqual({ kind: "playing" });
+  });
+
+  it("going up to AHM at DSD1024, sends the rate before the modulator", async () => {
+    await setup();
+    await change({ rate: 11289600, shaper: "ASDM7EC" });
+    fake.received.length = 0;
+    const body = (await change({ rate: 45158400, shaper: "AHM7EC8B" })).json();
+    expect(sent()).toEqual(["SetRate", "SetShaping"]);
+    expect(body.playback).toEqual({ kind: "playing" });
+  });
+
   it("refuses rates in [source] mode", async () => {
     await setup();
     const r = await change({ mode: "[source]", rate: 44100 });

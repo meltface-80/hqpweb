@@ -13,6 +13,14 @@ import {
   type Hint,
 } from "@app/protocol/compat";
 import { formatRate, knownBad, type Capabilities, type Combo, type Snapshot } from "./api.ts";
+import { heavyAt } from "./advice/variants.ts";
+import { dayLabel, monthLabel } from "./dac-table.ts";
+
+/** "Heavy" by Signalyst's word (information): the note text, with who said it and when. */
+const heavyNote = (shaper: string, rateHz: number) => {
+  const h = heavyAt(shaper, rateHz);
+  return h ? `${h.text} (Signalyst, ${monthLabel(h.date)})` : undefined;
+};
 
 export type Slot = "filter1x" | "filterNx";
 
@@ -70,10 +78,22 @@ export function context(caps: Capabilities, snap: Snapshot): Ctx {
 export const ratioOf = (c: Ctx, name: string) =>
   filterNotes(name, c.caps.filters.find((f) => f.name === name)?.description, c.isSdm, c.described)?.ratio;
 
+/** "failed here 3× at these settings (last 6 Oct 2026: …)": the history, in local time. */
+export function failedText(f: { reason: string; at: string; count?: number }): string {
+  const d = new Date(f.at);
+  const day = Number.isNaN(d.getTime())
+    ? f.at
+    : dayLabel(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  const n = f.count ?? 1;
+  return n > 1
+    ? `failed here ${n}× at these settings (last ${day}: ${f.reason})`
+    : `failed here once at these settings (${day}: ${f.reason})`;
+}
+
 /** Warning text if switching `field` to `value` gives a combination that failed here before. */
 const warnFor = (c: Ctx, field: keyof Combo, value: string | number) => {
   const f = knownBad(c.caps.knownBad, { ...c.combo, [field]: value });
-  return f ? `failed here before at these settings (${f.reason})` : undefined;
+  return f ? failedText(f) : undefined;
 };
 
 /** Rule hints (manual) first, then learned failures. Hard → warning, soft → note. */
@@ -183,7 +203,9 @@ export function shaperItems(c: Ctx) {
       s,
       c.isSdm ? modulatorHint(s.name, c.outRate) : ditherHint(s.name, c.outRate),
       warnFor(c, "shaper", s.name),
-      c.isSdm ? MODULATOR_NOTE[s.name] : undefined,
+      [c.isSdm ? MODULATOR_NOTE[s.name] : undefined, c.isSdm ? heavyNote(s.name, c.outRate) : undefined]
+        .filter(Boolean)
+        .join(" · ") || undefined,
     ),
     ...(c.isSdm && modulatorGen(s.name, s.description, c.shapersDescribed) !== undefined
       ? { gen: modulatorGen(s.name, s.description, c.shapersDescribed)! }
@@ -202,10 +224,62 @@ export function rateItems(c: Ctx) {
         { index: r.index, name: formatRate(r.rate, c.caps.mode.name) },
         rule,
         r.rate ? warnFor(c, "rateHz", r.rate) : undefined,
-        r.note,
+        [r.note, c.isSdm && r.rate ? heavyNote(c.shaperName, r.rate) : undefined].filter(Boolean).join(" · ") || undefined,
       ),
       rate: r.rate,
       disabled: !r.allowed,
+      /** The modulator to change to with this rate, when the current one can't play there. */
+      companion: ratio?.level === "hard" ? null : companionShaper(c, r.rate),
+      /**
+       * The modulator can't play at this rate (its floor, by definition): only a pair, or
+       * nothing, may be written. A filter-ratio problem isn't refused: those rules are
+       * partly our inference on v5, so it's a warning, with rollback if it stops.
+       */
+      cantPlay: c.isSdm && !!r.rate && cantPlay(c.shaperName, r.rate),
     };
   });
+}
+
+/**
+ * A rate and modulator as one choice, before anything is written. `invalid` comes only
+ * from the rules (the modulator's floor, the filter's ratio): shown as a warning; only a
+ * modulator below its floor is ever refused (cantPlay). `failedHere` comes from what this machine has done before:
+ * information, never a refusal. `note` is a soft rule ("designed for DSD512 and up").
+ */
+export function checkPair(c: Ctx, pair: { rateHz: number; shaper: string }) {
+  const mod = modulatorHint(pair.shaper, pair.rateHz);
+  const filter = c.inUseFilter;
+  const ratio = c.source && filter ? ratioHint(filter, c.source, pair.rateHz, c.isSdm, ratioOf(c, filter)) : undefined;
+  const invalid = mod?.level === "hard" ? mod.text : ratio?.level === "hard" ? ratio.text : null;
+  const f = knownBad(c.caps.knownBad, { ...c.combo, rateHz: pair.rateHz, shaper: pair.shaper });
+  return {
+    invalid,
+    failedHere: f ? failedText(f) : null,
+    note: mod?.level === "soft" ? mod.text : null,
+  };
+}
+
+/** The modulator can't play at this rate, by the rules (AHM below DSD1024). */
+export const cantPlay = (shaper: string, rateHz: number) => modulatorHint(shaper, rateHz)?.level === "hard";
+const orderOfName = (name: string) => (/^[A-Z]+5/.test(name) ? 5 : 7);
+
+/**
+ * A new rate the current modulator can't play at (AHM below DSD1024): the modulator to
+ * change to with it, so the pair can play. HQPlayer's EC default, in the same order.
+ * Null when the current one plays there (heavy is information, not a reason to switch).
+ */
+export function companionShaper(c: Ctx, rateHz: number): string | null {
+  if (!c.isSdm || !rateHz || !cantPlay(c.shaperName, rateHz)) return null;
+  const o = orderOfName(c.shaperName);
+  const names = c.caps.shapers.map((s) => s.name);
+  return [`ASDM${o}EC-fast`, "ASDM7EC-fast"].find((n) => names.includes(n) && !cantPlay(n, rateHz)) ?? null;
+}
+
+/**
+ * A modulator picked that can't play at the current rate (AHM below DSD1024): the lowest
+ * listed rate it plays at, to change to with it. Null when it plays now, or nowhere listed.
+ */
+export function companionRate(shaper: string, rates: number[], currentRate: number): number | null {
+  if (!currentRate || !cantPlay(shaper, currentRate)) return null;
+  return [...rates].filter((r) => r > 0 && !cantPlay(shaper, r)).sort((a, b) => a - b)[0] ?? null;
 }

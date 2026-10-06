@@ -20,10 +20,19 @@ export interface Prefs {
   filterOrder: "hqplayer" | "rating";
   /** The modulator/dither sheet opens on the tab used last. */
   adviceTab: "list" | "guide";
+  /** The guide's intro has been read once: show it as one line from then on. */
+  guideIntroSeen: boolean;
 }
 
 const KEY = "prefs-v1";
-const DEFAULTS: Prefs = { theme: "system", volumeStep: 1, advancedOpen: false, filterOrder: "hqplayer", adviceTab: "list" };
+const DEFAULTS: Prefs = {
+  theme: "system",
+  volumeStep: 1,
+  advancedOpen: false,
+  filterOrder: "hqplayer",
+  adviceTab: "list",
+  guideIntroSeen: false,
+};
 
 function load(): Prefs {
   try {

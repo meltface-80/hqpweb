@@ -17,6 +17,8 @@
   import * as hints from "./lib/hints.ts";
   import { offerReload } from "./lib/update.ts";
   import * as speedRules from "./lib/speed.ts";
+  import { recentChange, restartSteps } from "./lib/recovery.ts";
+  import StatusBanners from "./lib/StatusBanners.svelte";
   import { nameAt } from "./lib/hints.ts";
   import { isApodizing, filterSlot } from "@app/protocol/compat";
   import {
@@ -92,11 +94,16 @@
       else if (slowSince === null) slowSince = Date.now();
     });
   });
+  const restart = $derived(restartSteps(instances.find((i) => i.id === selected)?.product));
   const processSpeed = $derived(snap?.health?.processSpeed ?? null);
+  /** Readings in a row below real time: the alarm waits for a few (speed.ts, SUSTAIN). */
+  let behind = $state(0);
   // `snap` in the clock term re-evaluates on each update, so "slow for 15 s" can turn amber.
   const speedClass = $derived(
     speedRules.speedClass(processSpeed, speed, slowSince === null ? null : (snap ? Date.now() : 0) - slowSince),
   );
+  /** HQPlayer's own figure must stay below 1× for a while; the position fit has its own timing. */
+  const fallingBehind = $derived(processSpeed != null ? speedRules.lasting(behind) : speedClass === "bad" && speed != null);
   const speedText = $derived(speedRules.speedText(processSpeed, speed, speedClass));
   const speedTitle = $derived(speedRules.speedTitle(processSpeed, speed));
   let offlineSince = $state<Date | null>(null);
@@ -146,6 +153,7 @@
     const es = api.events(id);
     es.addEventListener("now", (e) => {
       snap = JSON.parse((e as MessageEvent).data);
+      behind = speedRules.behindStreak(behind, snap?.health?.processSpeed ?? null);
       online = "live";
       offlineSince = null;
     });
@@ -278,7 +286,16 @@
     }
   }
 
+  /** When the last change that could overload HQPlayer was made (recovery.ts, recentChange). */
+  let riskyAt = $state<number | null>(null);
+  // `snap` re-evaluates this on each update, so the window closes on its own.
+  const lastChange = $derived(
+    snap && recentChange(riskyAt, Date.now())
+      ? new Date(riskyAt!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : null,
+  );
   const apply = (change: Change) => {
+    if (isRisky(change)) riskyAt = Date.now();
     const label = isRisky(change) && snap?.status.state === 2 ? "Applying and checking playback" : "Applying";
     return run(label, () => api.change(selected!, change));
   };
@@ -324,118 +341,117 @@
     onforgot={() => selected && api.capabilities(selected).then((c) => (caps = c))}
   />
 
-  {#if instances.length === 0}
-    <p class="banner warn">No HQPlayer instances yet. Open Settings (⚙) to scan the network or add one by address.</p>
-  {/if}
-
-  {#if speedClass === "bad" && (processSpeed ?? speed) != null}
-    <p class="banner warn">
-      HQPlayer is falling behind real time ({(processSpeed ?? speed)!.toFixed(2)}×): it may be overloaded.
-      {#if undoAvailable}Undo the last change below, or pick a lighter filter or modulator.{:else}Try a lighter filter or
-        modulator.{/if}
-    </p>
-  {/if}
-  {#if online === "live" && slow}
-    <p class="banner warn">HQPlayer is answering slowly ({snap?.health?.latencyMs} ms); it may be overloaded.</p>
-  {/if}
-
-  {#if online === "unreachable"}
-    <p class="banner error">HQPlayer unreachable: {offlineReason}</p>
-  {:else if online === "lost"}
-    <p class="banner warn">Lost connection to the app's server; retrying…</p>
-  {/if}
+  <StatusBanners
+    noInstances={instances.length === 0}
+    {fallingBehind}
+    speed={processSpeed ?? speed}
+    {lastChange}
+    {undoAvailable}
+    slowMs={online === "live" && slow ? (snap?.health?.latencyMs ?? null) : null}
+    {online}
+    {offlineReason}
+    {restart}
+  />
 
   {#if snap}
-    <NowCard
-      {selected}
-      {snap}
-      {caps}
-      {roonZone}
-      bind:seekBase
-      bind:volDraft
-      {busy}
-      {apply}
-      {wedge}
-      {inUseFilter}
-      {inUseApodizing}
-      {speedClass}
-      {speedText}
-      {speedTitle}
-      onfixwedge={fixWedge}
-      onsuggestapodizing={suggestApodizing}
-      onstatus={(status) => snap && (snap = { ...snap, status })}
-      onmessage={(m) => (message = m)}
-    />
-
-    {#if caps}
-      <!-- Most frequent jobs, kept above the fold: filters, then dither/modulator, then presets. -->
-      <section class="card list quick" title="1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.">
-        <Picker
-          bind:this={picker1x}
-          label="1x filter"
-          hint={inUse === "1x" ? "in use" : ""}
-          active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
-          items={filterItems("1x")}
-          groupByRating={prefs.filterOrder === "rating"}
-          current={nameAt(caps.filters, snap.state.filter1x)}
-          disabled={busy}
-          {ratioLabel}
-          onpick={(i) => pickFilter("filter1x", i)}
-        />
-        <Picker
-          bind:this={pickerNx}
-          label="Nx filter"
-          hint={inUse === "Nx" ? "in use" : ""}
-          active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
-          items={filterItems("Nx")}
-          groupByRating={prefs.filterOrder === "rating"}
-          current={nameAt(caps.filters, snap.state.filterNx)}
-          disabled={busy}
-          {ratioLabel}
-          onpick={(i) => pickFilter("filterNx", i)}
-        />
-      </section>
-      {#if otherSourceNotes.length}
-        <p class="card-note">
-          At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
-        </p>
-      {/if}
-      <RateSwitch
-        request={rateSwitch}
-        onchoose={chooseRate}
-        onalternative={chooseAlternative}
-        oncancel={() => (rateSwitch = null)}
+    <!-- While HQPlayer doesn't answer, what's shown is its last known state: dimmed and inert. -->
+    <div class="live" class:stale={online === "unreachable"} inert={online === "unreachable" || undefined}>
+      <NowCard
+        {selected}
+        {snap}
+        {caps}
+        {roonZone}
+        bind:seekBase
+        bind:volDraft
+        {busy}
+        {apply}
+        {wedge}
+        {inUseFilter}
+        {inUseApodizing}
+        {speedClass}
+        {speedText}
+        {speedTitle}
+        onfixwedge={fixWedge}
+        onsuggestapodizing={suggestApodizing}
+        onstatus={(status) => snap && (snap = { ...snap, status })}
+        onmessage={(m) => (message = m)}
       />
-      <section class="card list quick">
-        <AdviceSheet
-          bind:this={shaperPicker}
-          {isSdm}
-          active={hints.shaperTaken(snap, nameAt(caps.shapers, snap.state.shaper))}
-          items={shaperItems}
-          current={nameAt(caps.shapers, snap.state.shaper)}
-          disabled={busy}
-          instanceId={selected}
-          setup={instances.find((i) => i.id === selected)?.setup ?? {}}
-          rateHz={outRate}
-          rateText={outRate ? formatRate(outRate, caps.mode.name) : ""}
-          {processSpeed}
-          onpick={(name) => apply({ shaper: name })}
-          onsaved={refreshInstances}
-        />
-      </section>
-      {#if selected}
-        <section class="card list quick">
-          <Presets
-            instanceId={selected}
-            stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}`}
-            {busy}
-            {run}
+
+      {#if caps}
+        <!-- Most frequent jobs, kept above the fold: filters, then dither/modulator, then presets. -->
+        <section class="card list quick" title="1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.">
+          <Picker
+            bind:this={picker1x}
+            label="1x filter"
+            hint={inUse === "1x" ? "in use" : ""}
+            active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
+            items={filterItems("1x")}
+            groupByRating={prefs.filterOrder === "rating"}
+            current={nameAt(caps.filters, snap.state.filter1x)}
+            disabled={busy}
+            {ratioLabel}
+            onpick={(i) => pickFilter("filter1x", i)}
+          />
+          <Picker
+            bind:this={pickerNx}
+            label="Nx filter"
+            hint={inUse === "Nx" ? "in use" : ""}
+            active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
+            items={filterItems("Nx")}
+            groupByRating={prefs.filterOrder === "rating"}
+            current={nameAt(caps.filters, snap.state.filterNx)}
+            disabled={busy}
+            {ratioLabel}
+            onpick={(i) => pickFilter("filterNx", i)}
           />
         </section>
-      {/if}
+        {#if otherSourceNotes.length}
+          <p class="card-note">
+            At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
+          </p>
+        {/if}
+        <RateSwitch
+          request={rateSwitch}
+          onchoose={chooseRate}
+          onalternative={chooseAlternative}
+          oncancel={() => (rateSwitch = null)}
+        />
+        <section class="card list quick">
+          <AdviceSheet
+            bind:this={shaperPicker}
+            {isSdm}
+            active={hints.shaperTaken(snap, nameAt(caps.shapers, snap.state.shaper))}
+            items={shaperItems}
+            current={nameAt(caps.shapers, snap.state.shaper)}
+            disabled={busy}
+            instanceId={selected}
+            setup={instances.find((i) => i.id === selected)?.setup ?? {}}
+            rateHz={outRate}
+            rateText={outRate ? formatRate(outRate, caps.mode.name) : ""}
+            {processSpeed}
+            rates={caps.rates.filter((r) => r.allowed).map((r) => r.rate)}
+            check={(c) => (ctx ? hints.checkPair(ctx, c) : null)}
+            onpick={(name) => apply({ shaper: name })}
+            onpickpair={(c) => apply(c.rateHz === outRate ? { shaper: c.shaper } : { rate: c.rateHz, shaper: c.shaper })}
+            onpcm={() => apply({ mode: "PCM" })}
+            result={message}
+            onsaved={refreshInstances}
+          />
+        </section>
+        {#if selected}
+          <section class="card list quick">
+            <Presets
+              instanceId={selected}
+              stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}`}
+              {busy}
+              {run}
+            />
+          </section>
+        {/if}
 
-      <Advanced {caps} {snap} {busy} {rateItems} {apply} bind:open={advancedOpen} />
-    {/if}
+        <Advanced {caps} {snap} {busy} {rateItems} {apply} bind:open={advancedOpen} />
+      {/if}
+    </div>
   {:else if online === "connecting" && instances.length}
     <p class="muted">Connecting…</p>
   {/if}
@@ -467,20 +483,11 @@
   .quick {
     margin-top: 10px;
   }
-  .banner {
-    padding: 10px 14px;
-    border-radius: 10px;
-    margin: 0 0 12px;
-  }
-  .banner.error {
-    background: color-mix(in srgb, var(--danger) 14%, transparent);
-    color: var(--danger);
-  }
-  .banner.warn {
-    background: color-mix(in srgb, var(--warn) 14%, transparent);
-    color: var(--warn);
-  }
 
+  .stale {
+    opacity: 0.45;
+    filter: grayscale(0.6);
+  }
   .card {
     background: var(--bg-elev);
     border-radius: 14px;

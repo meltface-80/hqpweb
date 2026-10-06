@@ -83,3 +83,20 @@ export function groupDithers(names: string[]): Section[] {
   }));
   return sections.filter((s) => s.names.length);
 }
+
+/**
+ * The list as narrowed by a search and the "works here" chip: names that match the query
+ * (any case), minus the hidden ones. A search opens the sections it matches in, folded or
+ * not; sections left empty go.
+ */
+export function narrowSections(sections: Section[], query: string, hide: ReadonlySet<string>): Section[] {
+  const q = query.trim().toLowerCase();
+  if (!q && hide.size === 0) return sections;
+  return sections
+    .map((s) => ({
+      ...s,
+      names: s.names.filter((n) => !hide.has(n) && (!q || n.toLowerCase().includes(q))),
+      open: s.open || !!q,
+    }))
+    .filter((s) => s.names.length);
+}

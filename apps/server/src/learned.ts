@@ -17,8 +17,12 @@ export interface Combo {
 export interface Failure extends Combo {
   instance: string;
   engine: string;
+  /** The latest failure's reason and time. */
   reason: string;
   at: string;
+  /** How many times this combination has failed here, and when first (a history). */
+  count?: number;
+  first?: string;
 }
 
 const sameCombo = (a: Combo, b: Combo) =>
@@ -32,12 +36,16 @@ export class LearnedStore {
   constructor(path: string | null) {
     this.path = path;
     if (!path) return;
-    this.failures = loadList<Failure>(path, "failures");
+    // Saved before counts existed: once each, first seen when last seen.
+    this.failures = loadList<Failure>(path, "failures").map((x) => ({ ...x, count: x.count ?? 1, first: x.first ?? x.at }));
   }
 
+  /** A failure: counted against the same instance, engine and combination when there is one. */
   record(f: Failure) {
-    this.failures = this.failures.filter((x) => !(x.instance === f.instance && x.engine === f.engine && sameCombo(x, f)));
-    this.failures.push(f);
+    const same = (x: Failure) => x.instance === f.instance && x.engine === f.engine && sameCombo(x, f);
+    const prev = this.failures.find(same);
+    this.failures = this.failures.filter((x) => !same(x));
+    this.failures.push({ ...f, count: (prev?.count ?? 0) + 1, first: prev?.first ?? f.at });
     this.save();
   }
 

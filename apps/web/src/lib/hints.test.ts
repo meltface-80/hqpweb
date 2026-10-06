@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Capabilities, Failure, Snapshot } from "./api.ts";
 import {
   apodization,
+  checkPair,
+  companionRate,
+  companionShaper,
   context,
+  failedText,
   filterItems,
   filterTaken,
   inUseSlot,
@@ -109,11 +113,26 @@ describe("filter picker", () => {
         filter1x: "poly-sinc-hb",
         shaper: "NS5",
         reason: "playback stopped",
-        at: "2026-10-04T00:00:00Z",
+        at: "2026-10-04T12:00:00Z",
       },
     ]);
     const hb = filterItems(context(caps, snap({})), "1x").find((f) => f.name === "poly-sinc-hb")!;
-    expect(hb.warn).toBe("failed here before at these settings (playback stopped)");
+    expect(hb.warn).toBe("failed here once at these settings (4 Oct 2026: playback stopped)");
+  });
+
+  it("counts a combination that has failed here more than once, with the latest", () => {
+    const f = {
+      mode: "PCM",
+      rateHz: 384_000,
+      filterNx: "poly-sinc-gauss-xla",
+      filter1x: "poly-sinc-hb",
+      shaper: "NS5",
+      reason: "playing at 70% of real time",
+      at: "2026-10-06T12:00:00Z",
+      count: 3,
+      first: "2026-10-01T12:00:00Z",
+    };
+    expect(failedText(f)).toBe("failed here 3× at these settings (last 6 Oct 2026: playing at 70% of real time)");
   });
 });
 
@@ -297,5 +316,80 @@ describe("more details (second mutation pass)", () => {
     const caps = pcm();
     caps.shapers = caps.shapers.map((s) => ({ ...s, description: "Gen8" }));
     expect(shaperItems(context(caps, snap({})))[0]).not.toHaveProperty("gen");
+  });
+});
+
+describe("a rate and modulator together (checkPair)", () => {
+  const DSD256 = 11_289_600;
+  const DSD1024 = 45_158_400;
+  const caps = sdm();
+  const now = (o: Parameters<typeof snap>[0] = {}) => context(caps, snap({ activeRate: DSD256, ...o }));
+
+  it("says AHM can't play below DSD1024, from the rules", () => {
+    expect(checkPair(now(), { rateHz: DSD256, shaper: "AHM7EC8B" }).invalid).toMatch(/40\.96 MHz/);
+  });
+
+  it("finds nothing wrong with AHM at DSD1024", () => {
+    expect(checkPair(now(), { rateHz: DSD1024, shaper: "AHM7EC8B" })).toEqual({ invalid: null, failedHere: null, note: null });
+  });
+
+  it("calls a pair that failed on this machine 'failed here', never invalid", () => {
+    const failure = {
+      mode: "SDM (DSD)",
+      rateHz: DSD1024,
+      filterNx: "poly-sinc-gauss-xla",
+      filter1x: "poly-sinc-gauss-xla",
+      shaper: "ASDM7EC",
+      reason: "fell behind (0.53×)",
+      at: "2026-10-02T00:00:00Z",
+    };
+    const c = context({ ...caps, knownBad: [failure] }, snap({ activeRate: DSD256 }));
+    expect(checkPair(c, { rateHz: DSD1024, shaper: "ASDM7EC" })).toMatchObject({
+      invalid: null,
+      failedHere: expect.stringContaining("0.53×"),
+    });
+  });
+
+  it("says when the filter in use can't do the new rate's ratio", () => {
+    const c = now({ source: 48_000, filter1x: "FFT" });
+    expect(checkPair(c, { rateHz: DSD1024, shaper: "AHM7EC8B" }).invalid).toMatch(/FFT/);
+  });
+});
+
+describe("the other half of a pair (Advanced and the List)", () => {
+  const caps = { ...sdm(), shapers: named(["ASDM7EC-fast", "ASDM5EC-fast", "AHM7EC4B", "AHM7EC8B", "AHM5EC8B"]) };
+  const on = (shaper: string, activeRate: number) =>
+    context(caps, snap({ activeRate, shaper: caps.shapers.find((s) => s.name === shaper)!.index }));
+
+  it("going to DSD256 from AHM, pairs the EC line's default in the same order", () => {
+    expect(companionShaper(on("AHM7EC4B", 45_158_400), 11_289_600)).toBe("ASDM7EC-fast");
+  });
+
+  it("going to DSD1024 is fine for the EC line: no companion needed", () => {
+    expect(companionShaper(on("ASDM7EC-fast", 11_289_600), 45_158_400)).toBeNull();
+  });
+
+  it("keeps fifth order when coming down from AHM5", () => {
+    expect(companionShaper(on("AHM5EC8B", 45_158_400), 11_289_600)).toBe("ASDM5EC-fast");
+  });
+
+  it("picking AHM in the list at DSD256 pairs DSD1024, the lowest rate it plays at", () => {
+    expect(companionRate("AHM7EC4B", [0, 11_289_600, 22_579_200, 45_158_400], 11_289_600)).toBe(45_158_400);
+  });
+
+  it("needs no rate for a modulator that plays at the current rate", () => {
+    expect(companionRate("ASDM7EC-fast", [0, 11_289_600, 45_158_400], 11_289_600)).toBeNull();
+  });
+
+  it("has no rate to offer when HQPlayer lists none it plays at", () => {
+    expect(companionRate("AHM7EC4B", [0, 11_289_600, 22_579_200], 11_289_600)).toBeNull();
+  });
+});
+
+describe("heavy at DSD1024, on the list's rows", () => {
+  it("notes a regular modulator needs a high-clock CPU at DSD1024, and not AHM", () => {
+    const items = shaperItems(context(sdm(), snap({ activeRate: 45_158_400 })));
+    const note = (n: string) => items.find((i) => i.name === n)?.note ?? "";
+    expect([note("ASDM7EC").includes("high-clock CPU"), note("AHM7EC8B").includes("high-clock CPU")]).toEqual([true, false]);
   });
 });

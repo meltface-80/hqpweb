@@ -3,7 +3,17 @@
 // if playback stopped or can't keep up, record the combination as failed and roll back to
 // the snapshot. It also keeps the undo. Moved from instance.ts, unchanged; Instance runs
 // its calls one at a time.
-import { cmd, filterSlot, predictedStop, queuedRate, type HqpClient, type Hint, type Outcome, type State } from "@app/protocol";
+import {
+  cmd,
+  filterSlot,
+  predictedStop,
+  queuedRate,
+  shaperBeforeRate,
+  type HqpClient,
+  type Hint,
+  type Outcome,
+  type State,
+} from "@app/protocol";
 import { HttpError } from "./errors.ts";
 import type { ApplyResult, Capabilities, Change, Field, FieldResult, PlaybackCheck } from "./instance.ts";
 import type { Combo, LearnedStore } from "./learned.ts";
@@ -212,6 +222,14 @@ export class ChangeEngine {
     const fields = requestedFields.filter((f) => !skippedFields.has(f));
 
     // ---- 4. apply in the design's order (§4.3) --------------------------------
+    // Except: when rate and modulator change together, never pass through a pair that
+    // can't play (shaperBeforeRate). The old rate may be auto; then what's active counts.
+    const fromRate = rateIdx !== undefined && shaper !== undefined ? was.rate || (await this.client.status()).activeRate : 0;
+    const modulatorFirst =
+      rateIdx !== undefined &&
+      shaper !== undefined &&
+      shaperBeforeRate({ fromRate, toRate: change.rate ?? 0, fromShaper: was.shaper, toShaper: change.shaper ?? "" });
+    if (modulatorFirst) replies.set("shaper", await this.client.send(cmd.setShaping(shaper!)));
     if (rateIdx !== undefined) replies.set("rate", await this.client.send(cmd.setRate(rateIdx)));
     if (nx !== undefined || x1 !== undefined) {
       // SetFilter always carries both indices; keep the one not being changed.
@@ -220,7 +238,7 @@ export class ChangeEngine {
       if (nx !== undefined) replies.set("filterNx", r);
       if (x1 !== undefined) replies.set("filter1x", r);
     }
-    if (shaper !== undefined) replies.set("shaper", await this.client.send(cmd.setShaping(shaper)));
+    if (shaper !== undefined && !modulatorFirst) replies.set("shaper", await this.client.send(cmd.setShaping(shaper)));
     if (change.invert !== undefined) replies.set("invert", await this.client.send(cmd.setInvert(change.invert)));
     if (change.filter20k !== undefined) replies.set("filter20k", await this.client.send(cmd.set20kFilter(change.filter20k)));
     if (change.adaptive !== undefined) replies.set("adaptive", await this.client.send(cmd.setAdaptiveVolume(change.adaptive)));

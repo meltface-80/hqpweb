@@ -53,12 +53,14 @@ describe("settings from 0.1 (no format number) load and survive a save", () => {
     const dir = fresh();
     const before = json(dir, "learned.json").failures;
     const store = new LearnedStore(join(dir, "learned.json"));
-    expect(store.all("office")).toEqual(before);
+    // Everything kept as it was; failures from before counts existed read as once each.
+    const once = (x: { at: string }) => ({ ...x, count: 1, first: x.at });
+    expect(store.all("office")).toEqual(before.map(once));
     store.record({ ...before[0], shaper: "ASDM7EC-light", at: "2026-10-05T00:00:00.000Z" });
     const saved = json(dir, "learned.json");
     expect(saved.format).toBe(SETTINGS_FORMAT);
     expect(saved.failures).toHaveLength(2);
-    expect(saved.failures[0]).toEqual(before[0]);
+    expect(saved.failures[0]).toEqual(once(before[0]));
   });
 
   it("Roon: install id, core, approval tokens and zone mapping", () => {

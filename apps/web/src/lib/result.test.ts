@@ -55,7 +55,7 @@ group("after a rollback", () => {
 
   it("explains a rule-based stop as HQPlayer's rule", () => {
     const m = describe(rollback({ kind: "playing" }, { level: "hard", text: "sinc-M needs a power-of-two ratio" }), show, false);
-    expect(m.text).toMatch(/^Rolled back: sinc-M needs a power-of-two ratio\..*That's an HQPlayer rule/);
+    expect(m.text).toMatch(/^Rolled back to how it was: sinc-M needs a power-of-two ratio\..*That's an HQPlayer rule/);
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MODULATORS_V5 as V5, SHAPERS_V5 as SHAPERS } from "./recorded-lists.ts";
-import { groupDithers, groupModulators, modulatorFamily, orderOf } from "./catalogue.ts";
+import { groupDithers, groupModulators, modulatorFamily, narrowSections, orderOf } from "./catalogue.ts";
 import { RULES } from "./policy.ts";
 
 const titles = (s: { title: string }[]) => s.map((x) => x.title);
@@ -81,5 +81,30 @@ describe("dither list grouping", () => {
         .flatMap((x) => x.names)
         .sort(),
     ).toEqual([...SHAPERS].sort());
+  });
+});
+
+describe("narrowing the list (search, works here)", () => {
+  const sections = groupModulators(V5, 7);
+
+  it("keeps every section as it was with no query and nothing hidden", () => {
+    expect(narrowSections(sections, "", new Set())).toEqual(sections);
+  });
+
+  it("searches across folded sections too, opening the ones that match", () => {
+    const s = narrowSections(sections, "ecv3", new Set());
+    expect(s.map((x) => [x.key, x.names, x.open])).toEqual([
+      ["olderEc", ["ASDM7ECv3"], true],
+      ["other", ["ASDM5ECv3"], true],
+    ]);
+  });
+
+  it("matches without regard to case", () => {
+    expect(narrowSections(sections, "AHM7EC8b", new Set()).flatMap((x) => x.names)).toEqual(["AHM7EC8B"]);
+  });
+
+  it("drops what's hidden (e.g. won't play here) and any section left empty", () => {
+    const hide = new Set(["AHM5EC5L", "AHM7EC5L", "AHM5EC8B", "AHM7EC8B"]);
+    expect(narrowSections(sections, "", hide).some((x) => x.key === "ahm")).toBe(false);
   });
 });

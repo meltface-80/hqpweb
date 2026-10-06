@@ -107,14 +107,14 @@ export const SETUP_QUESTIONS: { [K in SetupKey]: SetupQuestion<K> } = {
     {
       title: "Your volume",
       question: "Do you set the volume in HQPlayer?",
-      help: "HQPlayer's own volume works well. Keep at least 3 dB of headroom: never above −3 dB.",
-      source: RULES.headroom,
+      help: "Signalyst suggests gain optimisation: HQPlayer at −3 dB, the amplifier at the loudest you'd ever want, then turn down in HQPlayer or Roon. That keeps you safe from too-loud accidents. Never above −3 dB.",
+      source: RULES.gainOpt,
       notSet: "",
     },
     {
       hqplayer: {
         label: "Yes",
-        description: "HQPlayer is my volume control, including Roon's slider when Roon drives it.",
+        description: "HQPlayer is my volume control (Roon's slider included), ideally with gain optimisation.",
       },
       fixed: { label: "No", description: "I keep HQPlayer at about −3 dB, or on its fixed volume." },
     },

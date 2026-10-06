@@ -50,8 +50,8 @@ function describeCore(r: ApplyResult, show: Show, fromRoon: boolean, label: (f: 
     return {
       kind: "warn",
       text: r.incompatible
-        ? `Rolled back: ${r.incompatible.text}. ${back}. ${tail} That's an HQPlayer rule, not a limit of this machine.`
-        : `Rolled back: ${r.playback.detail}. ${back}. ${tail} Marked as not working on this instance.`,
+        ? `Rolled back to how it was: ${r.incompatible.text}. ${back}. ${tail} That's an HQPlayer rule, not a limit of this machine.`
+        : `Rolled back to how it was (${r.playback.detail}): ${back}. ${tail} Noted here as failed; you can clear that in Settings.`,
       ...(stopped && !fromRoon ? { restart: true } : {}),
     };
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answersSlowly, isSlow, speedClass, speedText } from "./speed.ts";
+import { answersSlowly, isSlow, speedClass, speedText, behindStreak, lasting, SUSTAIN } from "./speed.ts";
 
 describe("Processing, from HQPlayer's own figure (5.17.2+, calibrated on a real instance)", () => {
   it("is red below 1× (can't keep up), amber below 1.15× (little headroom), green above", () => {
@@ -56,5 +56,16 @@ describe("boundaries (found by mutation testing)", () => {
   it("shows whole numbers from 10× up, one decimal below", () => {
     expect(speedText(10, null, "ok")).toBe("10×");
     expect(speedText(9.5, null, "ok")).toBe("9.5×");
+  });
+});
+
+describe("a falling-behind reading that lasts", () => {
+  it("counts consecutive readings below real time, and resets on a good one", () => {
+    const seq = [0.9, 0.95, 0.9, 1.2, 0.9].reduce<number[]>((acc, sp) => [...acc, behindStreak(acc.at(-1) ?? 0, sp)], []);
+    expect(seq).toEqual([1, 2, 3, 0, 1]);
+  });
+
+  it("raises the alarm only once it has lasted", () => {
+    expect([lasting(SUSTAIN - 1), lasting(SUSTAIN)]).toEqual([false, true]);
   });
 });

@@ -27,6 +27,19 @@
     );
     if (ok) void apply(change); // apply reports its own errors in the footer
   };
+  /**
+   * A rate the current modulator can't play at goes with a modulator that can, as one change.
+   * One that can't play at all (and has no fix here) isn't written: it would only stop playback.
+   */
+  function pickRate(r: (typeof rateItems)[number]) {
+    if (r.companion) {
+      const ok = confirm(
+        `${r.warn ?? "The current modulator can't play there"}.\n\nChange the output rate to ${r.name} and the modulator to ${r.companion}, together?`,
+      );
+      if (ok) void apply({ rate: r.rate, shaper: r.companion });
+    } else if (r.cantPlay) alert(`${r.name}: ${r.warn ?? "can't play with the current settings"}.`);
+    else applyMajor(`output rate to ${r.name}`, { rate: r.rate });
+  }
   /** Apply a switch, then show what HQPlayer actually reports (it can say OK and not change). */
   const toggle = async (el: HTMLInputElement, key: "invert" | "filter20k" | "adaptive" | "convolution") => {
     await apply({ [key]: el.checked });
@@ -52,7 +65,7 @@
         items={rateItems}
         current={formatRate(caps.rates.find((r) => r.index === snap!.state.rate)?.rate ?? 0, caps.mode.name)}
         disabled={busy}
-        onpick={(i) => applyMajor(`output rate to ${i.name}`, { rate: (i as (typeof rateItems)[number]).rate })}
+        onpick={(i) => pickRate(i as (typeof rateItems)[number])}
       />
     {/if}
   </section>

@@ -75,6 +75,9 @@ export type Failure = {
   shaper: string;
   reason: string;
   at: string;
+  /** How many times it has failed here (the server keeps a history); absent: once. */
+  count?: number;
+  first?: string;
 };
 export type Capabilities = {
   engine: string;
