@@ -6,6 +6,7 @@ import { HqpClient, discover, type DiscoverOptions, type Discovered } from "@app
 import { HttpError, Instance } from "./instance.ts";
 import { ID_PATTERN, saveConfig, type AppConfig, type InstanceConfig, type InstanceSetup } from "./config.ts";
 import { applySetupChange, type SetupChange } from "./setup.ts";
+import { MAIN, activeDac, addDac, cleanDacs, removeDac, renameDac, selectDac, type DacEntry } from "./dac-scope.ts";
 
 export interface InstanceView {
   id: string;
@@ -21,9 +22,23 @@ export interface InstanceView {
   error?: string;
   product?: string;
   engine?: string;
-  /** The listener's setup answers; only configured instances have them. */
+  /** The listener's setup answers for the DAC in use; only configured instances have them. */
   setup?: InstanceSetup;
+  /** Named DACs behind this HQPlayer (dac-scope.ts): main first; one unnamed = no picker. */
+  dacs: { id: string; name: string }[];
+  /** The DAC in use. */
+  dac: string;
 }
+
+/** The answers kept for the DAC in use: the main DAC's on the instance, another's on its entry. */
+const setupOf = (c: InstanceConfig): InstanceSetup | undefined => {
+  const dac = activeDac(c);
+  return dac === MAIN ? c.setup : cleanDacs(c.dacs).find((d) => d.id === dac)?.setup;
+};
+const dacView = (c: { dacs?: DacEntry[]; dac?: string }) => ({
+  dacs: cleanDacs(c.dacs).map(({ id, name }) => ({ id, name })),
+  dac: activeDac(c),
+});
 
 interface Health {
   at: number;
@@ -223,7 +238,8 @@ export class Registry {
       reachable: h.reachable,
       ...(h.error ? { error: h.error } : {}),
       ...(h.product ? { product: h.product, engine: h.engine } : {}),
-      ...(c.setup ? { setup: c.setup } : {}),
+      ...(setupOf(c) ? { setup: setupOf(c) } : {}),
+      ...dacView(c),
     }));
     const discovered = this.discoveredOnly();
     const checks = await Promise.all(discovered.map((d) => this.check(d)));
@@ -233,6 +249,7 @@ export class Registry {
         ...d,
         source: "discovered",
         discovered: true,
+        ...dacView({}),
         reachable: h.reachable,
         ...(h.error ? { error: h.error } : {}),
         ...(h.product ? { product: h.product, engine: h.engine } : {}),
@@ -298,11 +315,63 @@ export class Registry {
       if (!d) throw new HttpError(404, "no such instance");
       cfg = await this.add({ name: d.name, host: d.host, port: d.port, id: d.id });
     }
-    const setup = applySetupChange(cfg.setup, change);
-    if (setup) cfg.setup = setup;
-    else delete cfg.setup;
+    // The DAC in use: the main DAC's answers stay on the instance, as before named DACs.
+    const dac = activeDac(cfg);
+    if (dac === MAIN) {
+      const setup = applySetupChange(cfg.setup, change);
+      if (setup) cfg.setup = setup;
+      else delete cfg.setup;
+    } else {
+      const dacs = cleanDacs(cfg.dacs);
+      const entry = dacs.find((d) => d.id === dac)!;
+      const setup = applySetupChange(entry.setup, change);
+      if (setup) entry.setup = setup;
+      else delete entry.setup;
+      cfg.dacs = dacs;
+    }
     this.persist();
     return { instance: cfg, savedNow };
+  }
+
+  // ---- named DACs (dac-scope.ts) ----------------------------------------------
+
+  private configured(id: string): InstanceConfig {
+    const cfg = this.config.instances.find((i) => i.id === id);
+    if (!cfg) throw new HttpError(404, "not a configured instance");
+    return cfg;
+  }
+
+  addDac(id: string, input: { name: unknown; currentName?: unknown }) {
+    const cfg = this.configured(id);
+    const r = addDac(cleanDacs(cfg.dacs), input);
+    cfg.dacs = r.dacs;
+    this.persist();
+    return { dac: r.dac };
+  }
+
+  renameDac(id: string, dacId: string, name: unknown) {
+    const cfg = this.configured(id);
+    cfg.dacs = renameDac(cleanDacs(cfg.dacs), dacId, name);
+    this.persist();
+  }
+
+  removeDac(id: string, dacId: string) {
+    const cfg = this.configured(id);
+    const r = removeDac(cleanDacs(cfg.dacs), activeDac(cfg), dacId);
+    cfg.dacs = r.dacs;
+    if (r.dac === MAIN) delete cfg.dac;
+    else cfg.dac = r.dac;
+    this.persist();
+  }
+
+  /** Chooses the DAC in use. Refused mid-change: its failure must be learned for the DAC it started on. */
+  selectDac(id: string, dacId: string) {
+    const cfg = this.configured(id);
+    const dac = selectDac(cleanDacs(cfg.dacs), dacId);
+    if (this.live.get(id)?.busy) throw new HttpError(409, "a change is still running; switch DACs when it's done");
+    if (dac === MAIN) delete cfg.dac;
+    else cfg.dac = dac;
+    this.persist();
   }
 
   remove(id: string) {

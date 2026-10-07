@@ -13,6 +13,8 @@ export interface Preset {
   settings: Change;
   createdAt: string;
   updatedAt: string;
+  /** Kept for one DAC only: its scope (`id` or `id#dac`, dac-scope.ts). Absent: shared by all. */
+  scope?: string;
 }
 
 export class PresetStore {
@@ -46,17 +48,29 @@ export class PresetStore {
     return p;
   }
 
-  create(name: string, settings: Change): Preset {
+  create(name: string, settings: Change, scope?: string): Preset {
     const now = new Date().toISOString();
-    const p: Preset = { id: randomUUID().slice(0, 8), name: this.checkName(name), settings, createdAt: now, updatedAt: now };
+    const p: Preset = {
+      id: randomUUID().slice(0, 8),
+      name: this.checkName(name, undefined, scope),
+      settings,
+      createdAt: now,
+      updatedAt: now,
+      ...(scope ? { scope } : {}),
+    };
     this.presets.push(p);
     this.save();
     return p;
   }
 
-  update(id: string, patch: { name?: string; settings?: Change }): Preset {
+  update(id: string, patch: { name?: string; settings?: Change; scope?: string | null }): Preset {
     const p = this.get(id);
-    if (patch.name !== undefined) p.name = this.checkName(patch.name, id);
+    const scope = patch.scope !== undefined ? patch.scope || undefined : p.scope;
+    if (patch.name !== undefined || patch.scope !== undefined) p.name = this.checkName(patch.name ?? p.name, id, scope);
+    if (patch.scope !== undefined) {
+      if (scope) p.scope = scope;
+      else delete p.scope;
+    }
     if (patch.settings !== undefined) p.settings = patch.settings;
     p.updatedAt = new Date().toISOString();
     this.save();
@@ -69,10 +83,23 @@ export class PresetStore {
     this.save();
   }
 
-  private checkName(name: string, exceptId?: string): string {
+  /** A removed DAC's presets become shared ones. */
+  unscope(scope: string) {
+    let n = 0;
+    for (const p of this.presets)
+      if (p.scope === scope) {
+        delete p.scope;
+        n++;
+      }
+    if (n) this.save();
+  }
+
+  /** Unique among the presets that show together: the shared ones, and one DAC's own (dac-scope.ts). */
+  private checkName(name: string, exceptId?: string, scope?: string): string {
     const n = name.trim();
     if (!n || n.length > 64) throw new HttpError(400, "name must be 1–64 characters");
-    if (this.presets.some((x) => x.id !== exceptId && x.name.toLowerCase() === n.toLowerCase()))
+    const together = (x: Preset) => !scope || !x.scope || x.scope === scope;
+    if (this.presets.some((x) => x.id !== exceptId && together(x) && x.name.toLowerCase() === n.toLowerCase()))
       throw new HttpError(409, `a preset named "${n}" already exists`);
     return n;
   }

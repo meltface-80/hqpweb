@@ -11,8 +11,12 @@ export type Inst = {
   error?: string;
   product?: string;
   engine?: string;
-  /** The listener's setup answers (server: config.ts, InstanceSetup). Absent: none answered. */
+  /** The listener's setup answers for the DAC in use (server: config.ts). Absent: none answered. */
   setup?: Setup;
+  /** Named DACs behind this HQPlayer (server: dac-scope.ts): main first; one unnamed = no picker. */
+  dacs: { id: string; name: string }[];
+  /** The DAC in use. */
+  dac: string;
 };
 /** What the modulator and dither advice needs to know, and HQPlayer can't tell us. */
 export type Setup = {
@@ -133,7 +137,15 @@ export type RoonView = {
   zoneFor: Record<string, string>;
 };
 export type FoundCore = { host: string; port: number; name?: string; version?: string };
-export type Preset = { id: string; name: string; settings: Change; createdAt: string; updatedAt: string };
+export type Preset = {
+  id: string;
+  name: string;
+  settings: Change;
+  createdAt: string;
+  updatedAt: string;
+  /** Kept for one DAC only (its scope, lib/dac-scope.ts); absent: shared by all. */
+  scope?: string;
+};
 export type PresetView = Preset & {
   preview: {
     kind: "active" | "quick" | "major";
@@ -184,6 +196,27 @@ export const api = {
       body: JSON.stringify(change),
     }),
   removeInstance: (id: string) => call<{ ok: true }>(`/api/instances/${id}`, { method: "DELETE" }),
+  // Named DACs behind one HQPlayer (server: dac-scope.ts).
+  addDac: (id: string, name: string, currentName?: string) =>
+    call<{ dac: { id: string; name: string } }>(`/api/instances/${id}/dacs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name, ...(currentName ? { currentName } : {}) }),
+    }),
+  renameDac: (id: string, dac: string, name: string) =>
+    call<{ ok: true }>(`/api/instances/${id}/dacs/${encodeURIComponent(dac)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    }),
+  removeDac: (id: string, dac: string) =>
+    call<{ ok: true }>(`/api/instances/${id}/dacs/${encodeURIComponent(dac)}`, { method: "DELETE" }),
+  selectDac: (id: string, dac: string) =>
+    call<{ ok: true }>(`/api/instances/${id}/dac`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ dac }),
+    }),
   discover: () => call<Inst[]>("/api/discover", { method: "POST" }),
   capabilities: (id: string) => call<Capabilities>(`/api/instances/${id}/capabilities`),
   change: (id: string, change: Change) =>
@@ -201,7 +234,7 @@ export const api = {
   undo: (id: string) => call<ApplyResult>(`/api/instances/${id}/undo`, { method: "POST" }),
   dismissVolumeJump: (id: string) => call<{ ok: boolean }>(`/api/instances/${id}/dismissjump`, { method: "POST" }),
   presets: (id: string) => call<PresetView[]>(`/api/instances/${id}/presets`),
-  savePreset: (body: { name: string; fromInstance: string; includeVolume: boolean }) =>
+  savePreset: (body: { name: string; fromInstance: string; includeVolume: boolean; scope?: string }) =>
     call<Preset>("/api/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
   renamePreset: (pid: string, name: string) =>
     call<Preset>(`/api/presets/${pid}`, {

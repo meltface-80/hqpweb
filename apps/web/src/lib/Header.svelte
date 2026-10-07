@@ -1,6 +1,8 @@
 <script lang="ts">
-  // The top bar: the app, the instance (with its status dot) and Settings.
-  import type { Inst } from "./api.ts";
+  // The top bar: the app, the instance (with its status dot) and Settings; under it, with
+  // more than one named DAC behind the instance, which DAC is in use (dac-scope.ts).
+  import { api, type Inst } from "./api.ts";
+  import { hasDacs } from "./dac-scope.ts";
 
   let {
     instances,
@@ -9,6 +11,7 @@
     slow,
     dotTitle,
     onsettings,
+    ondacs,
   }: {
     instances: Inst[];
     selected: string | null;
@@ -16,7 +19,23 @@
     slow: boolean;
     dotTitle: string;
     onsettings: () => void;
+    /** After the DAC in use changes, so the instance list (and its answers) catch up. */
+    ondacs: () => Promise<void>;
   } = $props();
+
+  const inst = $derived(instances.find((i) => i.id === selected) ?? null);
+  let dacMsg = $state("");
+  async function pickDac(e: Event) {
+    const dac = (e.currentTarget as HTMLSelectElement).value;
+    if (!inst || dac === inst.dac) return;
+    dacMsg = "";
+    try {
+      await api.selectDac(inst.id, dac);
+    } catch (err) {
+      dacMsg = (err as Error).message; // e.g. a change is still running
+    }
+    await ondacs();
+  }
 
   const optionLabel = (i: Inst) =>
     `${i.reachable === false ? "⚠ " : ""}${i.name}${i.source === "discovered" ? " (discovered)" : ""}`;
@@ -45,8 +64,40 @@
     >
   </button>
 </header>
+{#if inst && hasDacs(inst)}
+  <div class="dacrow">
+    <label
+      >DAC
+      <select value={inst.dac} onchange={pickDac} aria-label="DAC in use">
+        {#each inst.dacs as d (d.id)}<option value={d.id}>{d.name}</option>{/each}
+      </select></label
+    >
+    {#if dacMsg}<span class="dacmsg" role="status">{dacMsg}</span>{/if}
+  </div>
+{/if}
 
 <style>
+  .dacrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: -4px 0 12px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  .dacrow select {
+    font: inherit;
+    margin-left: 6px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--text);
+  }
+  .dacmsg {
+    color: var(--warn);
+  }
   .top {
     display: flex;
     align-items: center;

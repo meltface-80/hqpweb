@@ -19,6 +19,7 @@
   import * as speedRules from "./lib/speed.ts";
   import { recentChange, restartSteps } from "./lib/recovery.ts";
   import StatusBanners from "./lib/StatusBanners.svelte";
+  import { hasDacs, scopeOf } from "./lib/dac-scope.ts";
   import { nameAt } from "./lib/hints.ts";
   import { isApodizing, filterSlot } from "@app/protocol/compat";
   import {
@@ -45,6 +46,21 @@
   let selected = $state<string | null>(null);
   let snap = $state<Snapshot | null>(null);
   let caps = $state<Capabilities | null>(null);
+  // The DAC in use (dac-scope.ts) decides which failures are known here: reload on a switch.
+  const selInst = $derived(instances.find((i) => i.id === selected) ?? null);
+  const dacInUse = $derived(selInst?.dac);
+  let dacSeen: string | undefined;
+  $effect(() => {
+    const d = dacInUse;
+    untrack(() => {
+      if (dacSeen !== undefined && d !== dacSeen && selected)
+        api
+          .capabilities(selected)
+          .then((c) => (caps = c))
+          .catch(() => {}); // on failure the known failures stay as they were until the next load
+      dacSeen = d;
+    });
+  });
   let online = $state<"connecting" | "live" | "unreachable" | "lost">("connecting");
   let offlineReason = $state("");
   let busy = $state(false);
@@ -326,7 +342,7 @@
 </script>
 
 <main>
-  <Header {instances} bind:selected {online} {slow} {dotTitle} onsettings={() => settings.open()} />
+  <Header {instances} bind:selected {online} {slow} {dotTitle} onsettings={() => settings.open()} ondacs={refreshInstances} />
   {#if updated}
     <p class="updated">
       hqpweb has been updated. <button class="link" onclick={() => location.reload()}>Reload</button>
@@ -442,9 +458,10 @@
           <section class="card list quick">
             <Presets
               instanceId={selected}
-              stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}`}
+              stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}|${dacInUse}`}
               {busy}
               {run}
+              dacScope={selInst && hasDacs(selInst) ? scopeOf(selInst.id, selInst.dac) : null}
             />
           </section>
         {/if}

@@ -5,6 +5,16 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+### Added
+
+- **Named DACs behind one HQPlayer.** If one HQPlayer plays to more than one DAC (a
+  saved HQPlayer profile for each), name them in Settings → Your setup → DACs and choose
+  the one in use there or from the header. HQPlayer can't tell an app which DAC it's
+  using, so you choose it whenever you switch in HQPlayer. Your setup answers, the
+  failures hqpweb learns and presets marked "this DAC only" follow the choice; anything
+  saved before stays with the first DAC. The model is MusicD-Remote's (by meltface-80),
+  adopted as-is so data saved in either app keeps its meaning in the other.
+
 ## 0.1.0-beta.3 — a guide for the modulator and dither
 
 **Update:** `docker compose pull && docker compose up -d`. Settings are kept; the

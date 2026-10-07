@@ -23,6 +23,7 @@ import { settingsOf } from "./settings.ts";
 import { StatusPoller, type Snapshot, type StatusEvent } from "./poller.ts";
 import { ChangeEngine } from "./change-engine.ts";
 import { HttpError } from "./errors.ts";
+import { activeDac, scopeOf } from "./dac-scope.ts";
 
 export type { Snapshot, StatusEvent, VolumeJump } from "./poller.ts";
 export { HttpError } from "./errors.ts";
@@ -143,14 +144,33 @@ export class Instance {
       client: this.client,
       capabilities: (fresh) => this.capabilities(fresh),
       learned: this.learned,
-      instanceId: cfg.id,
+      scope: () => this.scope(),
       timing: opts.timing ?? { quick: DEFAULT_TIMING, major: MAJOR_TIMING },
       onVolumeWrite: (v) => this.poller.noteOwnVolume(v),
     });
   }
 
+  /** Where this instance's failures and answers are kept now: its id, or `id#dac` (dac-scope.ts). */
+  scope(): string {
+    return scopeOf(this.cfg.id, activeDac(this.cfg));
+  }
+
+  private running = 0;
+  /** A change (or another write) is in progress: the DAC in use mustn't be switched under it. */
+  get busy(): boolean {
+    return this.running > 0;
+  }
+
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
-    const run = this.queue.then(fn, fn);
+    const counted = async () => {
+      this.running++;
+      try {
+        return await fn();
+      } finally {
+        this.running--;
+      }
+    };
+    const run = this.queue.then(counted, counted);
     this.queue = run.catch(() => undefined);
     return run;
   }
@@ -170,7 +190,7 @@ export class Instance {
     const key = `${info.engine}|${state.mode}`;
     if (!fresh && this.caps?.key === key) {
       // Learned failures can change without a mode change.
-      return { ...this.caps.value, knownBad: this.learned.forInstance(this.cfg.id, info.engine, this.caps.value.mode.name) };
+      return { ...this.caps.value, knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name) };
     }
 
     const [modes, filters, shapers, rates, volumeRange, matrixProfiles] = await Promise.all([
@@ -205,7 +225,7 @@ export class Instance {
       rateSettable: mode.value !== -1,
       volumeRange,
       matrixProfiles,
-      knownBad: this.learned.forInstance(this.cfg.id, info.engine, mode.name),
+      knownBad: this.learned.forInstance(this.scope(), info.engine, mode.name),
     };
     this.caps = { key, value };
     return value;

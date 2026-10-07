@@ -30,7 +30,8 @@ export interface EngineDeps {
   /** The instance's lists for the current mode (fresh = re-read). */
   capabilities: (fresh?: boolean) => Promise<Capabilities>;
   learned: LearnedStore;
-  instanceId: string;
+  /** Where failures are learned: the instance's id, or `id#dac` for a named DAC (dac-scope.ts). */
+  scope: () => string;
   timing: { quick: WatchTiming; major: WatchTiming };
   /** hqpweb itself just set the volume (so the status poller doesn't call it a jump). */
   onVolumeWrite: (v: number) => void;
@@ -40,7 +41,7 @@ export class ChangeEngine {
   private readonly client: HqpClient;
   private readonly capabilities: EngineDeps["capabilities"];
   private readonly learned: LearnedStore;
-  private readonly instanceId: string;
+  private readonly scope: () => string;
   private readonly timing: EngineDeps["timing"];
   private readonly onVolumeWrite: EngineDeps["onVolumeWrite"];
   /** The previous values of the fields the last change touched, by name. */
@@ -53,7 +54,7 @@ export class ChangeEngine {
     this.client = d.client;
     this.capabilities = d.capabilities;
     this.learned = d.learned;
-    this.instanceId = d.instanceId;
+    this.scope = d.scope;
     this.timing = d.timing;
     this.onVolumeWrite = d.onVolumeWrite;
   }
@@ -69,6 +70,9 @@ export class ChangeEngine {
     const fields = (Object.keys(change) as Field[]).filter((k) => change[k] !== undefined);
     if (fields.length === 0) throw new HttpError(400, "empty change");
 
+    // The DAC in use when the change starts: a failure is learned against it, even if
+    // the choice moves while the change is being watched.
+    const scope = this.scope();
     const playingBefore = (await this.client.status()).state === 2;
     const applied = await this.applyFields(change, isUndo, lenient);
     const skipped = applied.skipped.length ? { skipped: applied.skipped } : {};
@@ -85,7 +89,7 @@ export class ChangeEngine {
       const incompatible = await this.explain().catch(() => undefined);
       // Never let bookkeeping (e.g. an unwritable config volume) block the rollback.
       if (!incompatible)
-        await this.recordFailure(playback.detail).catch((e: Error) =>
+        await this.recordFailure(playback.detail, scope).catch((e: Error) =>
           console.error(`could not record failed combination: ${e.message}`),
         );
       // Roll back. Volume is only ever lowered: nobody asked for a raise (volume.ts).
@@ -323,7 +327,7 @@ export class ChangeEngine {
     });
   }
 
-  private async recordFailure(reason: string) {
+  private async recordFailure(reason: string, scope: string) {
     const [caps, state, status] = await Promise.all([this.capabilities(true), this.client.state(), this.client.status()]);
     const s = settingsOf(caps, state);
     const combo: Combo = {
@@ -333,6 +337,6 @@ export class ChangeEngine {
       filter1x: s.filter1x,
       shaper: s.shaper,
     };
-    this.learned.record({ ...combo, instance: this.instanceId, engine: caps.engine, reason, at: new Date().toISOString() });
+    this.learned.record({ ...combo, instance: scope, engine: caps.engine, reason, at: new Date().toISOString() });
   }
 }

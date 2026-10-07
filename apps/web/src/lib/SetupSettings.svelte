@@ -5,6 +5,8 @@
   import { api, type Inst, type Setup } from "./api.ts";
   import { monthLabel } from "./dac-table.ts";
   import FindYourDac from "./FindYourDac.svelte";
+  import DacSettings from "./DacSettings.svelte";
+  import { dacName } from "./dac-scope.ts";
   import { savedMessage, SETUP_QUESTION_LIST, type SetupKey } from "./setup-questions.ts";
 
   let { instance, onchange }: { instance: Inst | null; onchange: () => Promise<void> } = $props();
@@ -35,13 +37,15 @@
   }
 </script>
 
-<h4>Your setup{instance ? ` · ${instance.name}` : ""}</h4>
+<h4>Your setup{instance ? ` · ${instance.name}` : ""}{dacName(instance) ? ` · ${dacName(instance)}` : ""}</h4>
 {#if !instance}
   <p class="help">Choose an instance first: these answers are kept for each one.</p>
 {/if}
 <p class="help">
   HQPlayer can't tell hqpweb which DAC or NAA it's feeding. If you point it at a different DAC, change or clear these.
 </p>
+
+<DacSettings {instance} {onchange} />
 
 <fieldset class="setup" class:off={!instance} disabled={!instance || saving}>
   {#each SETUP_QUESTION_LIST as q (q.key)}

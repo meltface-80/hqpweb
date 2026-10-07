@@ -28,6 +28,9 @@ export interface Failure extends Combo {
 const sameCombo = (a: Combo, b: Combo) =>
   a.mode === b.mode && a.rateHz === b.rateHz && a.filterNx === b.filterNx && a.filter1x === b.filter1x && a.shaper === b.shaper;
 
+/** A failure's scope belongs to an instance: its own id, or `id#dac` for one of its named DACs. */
+const ofInstance = (scope: string, instance: string) => scope === instance || scope.startsWith(`${instance}#`);
+
 export class LearnedStore {
   private failures: Failure[] = [];
   private readonly path: string | null;
@@ -53,12 +56,13 @@ export class LearnedStore {
     return this.failures.filter((f) => f.instance === instance && f.engine === engine && f.mode === mode);
   }
 
+  /** An instance's failures, for all its DACs (kept under `id` and `id#dac`, dac-scope.ts). */
   all(instance: string): Failure[] {
-    return this.failures.filter((f) => f.instance === instance);
+    return this.failures.filter((f) => ofInstance(f.instance, instance));
   }
 
   forget(instance: string) {
-    this.failures = this.failures.filter((f) => f.instance !== instance);
+    this.failures = this.failures.filter((f) => !ofInstance(f.instance, instance));
     this.save();
   }
 

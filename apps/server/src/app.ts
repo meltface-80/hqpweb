@@ -14,6 +14,7 @@ import { PeerError, type DiscoverOptions } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
 import { ROON_ACTIONS, RoonLink, type RoonAction } from "./roon/roon.ts";
 import { discoverCores } from "./roon/sood.ts";
+import { scopeOf } from "./dac-scope.ts";
 
 export interface AppOptions {
   pollMs?: number;
@@ -124,9 +125,9 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 function parsePresetBody(
   body: unknown,
   patch = false,
-): { name?: string; settings?: Change; fromInstance?: string; includeVolume?: boolean } {
+): { name?: string; settings?: Change; fromInstance?: string; includeVolume?: boolean; scope?: string | null } {
   if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
-  const { name, settings, fromInstance, includeVolume, ...rest } = body as Record<string, unknown>;
+  const { name, settings, fromInstance, includeVolume, scope, ...rest } = body as Record<string, unknown>;
   if (Object.keys(rest).length) throw new HttpError(400, `unknown field "${Object.keys(rest)[0]}"`);
   if (name !== undefined && typeof name !== "string") throw new HttpError(400, "name must be a string");
   if (!patch && name === undefined) throw new HttpError(400, "name is required");
@@ -134,11 +135,19 @@ function parsePresetBody(
     throw new HttpError(400, "fromInstance must be an instance id");
   if (includeVolume !== undefined && typeof includeVolume !== "boolean")
     throw new HttpError(400, "includeVolume must be a boolean");
+  // A DAC's scope (dac-scope.ts): "id" or "id#dac"; null (on a patch) shares it with all DACs.
+  if (
+    scope !== undefined &&
+    !(scope === null && patch) &&
+    !(typeof scope === "string" && /^[a-z0-9-]+(#[a-z0-9-]+)?$/.test(scope))
+  )
+    throw new HttpError(400, "scope must be an instance id, or id#dac");
   return {
     ...(name !== undefined ? { name: name as string } : {}),
     ...(settings !== undefined ? { settings: parseChange(settings) } : {}),
     ...(fromInstance !== undefined ? { fromInstance: fromInstance as string } : {}),
     ...(includeVolume !== undefined ? { includeVolume: includeVolume as boolean } : {}),
+    ...(scope !== undefined ? { scope: scope as string | null } : {}),
   };
 }
 
@@ -356,7 +365,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         let settings = body.settings;
         if (body.fromInstance) settings = await captureFrom(body.fromInstance, body.includeVolume ?? false);
         if (!settings || Object.keys(settings).length === 0) throw new HttpError(400, "a preset needs settings or fromInstance");
-        return send(res, 200, presets.create(body.name ?? "", settings));
+        return send(res, 200, presets.create(body.name ?? "", settings, body.scope ?? undefined));
       }
     }
     const pm = /^\/api\/presets\/([^/]+)$/.exec(path);
@@ -376,7 +385,11 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         return send(
           res,
           200,
-          presets.update(id, { ...(body.name !== undefined ? { name: body.name } : {}), ...(settings ? { settings } : {}) }),
+          presets.update(id, {
+            ...(body.name !== undefined ? { name: body.name } : {}),
+            ...(settings ? { settings } : {}),
+            ...(body.scope !== undefined ? { scope: body.scope } : {}),
+          }),
         );
       }
     }
@@ -385,7 +398,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       const inst = registry.get(decodeURIComponent(ipm[1]!));
       if (!inst) throw new HttpError(404, "unknown instance");
       if (!ipm[2] && req.method === "GET") {
-        const list = presets.list();
+        // The shared presets, and the in-use DAC's own (dac-scope.ts).
+        const list = presets.list().filter((p) => !p.scope || p.scope === inst.scope());
         const previews = await inst.previewPresets(list.map((p) => p.settings));
         return send(
           res,
@@ -396,6 +410,33 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       if (ipm[2] && req.method === "POST")
         return send(res, 200, await inst.applyPreset(presets.get(decodeURIComponent(ipm[2])).settings));
       throw new HttpError(404, "not found");
+    }
+
+    // ---- named DACs behind one HQPlayer (dac-scope.ts) ----
+    const dacsRoute = /^\/api\/instances\/([^/]+)\/dacs(?:\/([^/]+))?$/.exec(path);
+    if (dacsRoute) {
+      const id = decodeURIComponent(dacsRoute[1]!);
+      const dacId = dacsRoute[2] ? decodeURIComponent(dacsRoute[2]) : undefined;
+      const body = req.method === "DELETE" ? {} : ((await readJson(req)) as Record<string, unknown>);
+      if (!dacId && req.method === "POST")
+        return send(res, 200, registry.addDac(id, { name: body.name, currentName: body.currentName }));
+      if (dacId && req.method === "PATCH") {
+        registry.renameDac(id, dacId, body.name);
+        return send(res, 200, { ok: true });
+      }
+      if (dacId && req.method === "DELETE") {
+        registry.removeDac(id, dacId);
+        presets.unscope(scopeOf(id, dacId));
+        return send(res, 200, { ok: true });
+      }
+      throw new HttpError(404, "not found");
+    }
+    const dacRoute = /^\/api\/instances\/([^/]+)\/dac$/.exec(path);
+    if (dacRoute && req.method === "PUT") {
+      const body = (await readJson(req)) as { dac?: unknown };
+      if (typeof body?.dac !== "string") throw new HttpError(400, "body must be { dac }");
+      registry.selectDac(decodeURIComponent(dacRoute[1]!), body.dac);
+      return send(res, 200, { ok: true });
     }
 
     const setupRoute = /^\/api\/instances\/([^/]+)\/setup$/.exec(path);

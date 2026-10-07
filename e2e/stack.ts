@@ -140,6 +140,8 @@ const FLOWS: Record<string, Flow> = {
   behind: { name: "Behind", profile: "desktop5-mac-sdm", speed: () => 0.6 },
   // HQPlayer stops answering (a test closes it): the restart steps.
   down: { name: "Down", profile: "desktop5-mac-sdm" },
+  // Named DACs behind one HQPlayer: answers follow the DAC in use.
+  dacs: { name: "DACs", profile: "desktop5-mac-sdm" },
   // Settings → Your setup: answers saved on the server, per instance.
   setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };

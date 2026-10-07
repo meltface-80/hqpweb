@@ -199,7 +199,7 @@ test("Settings: add an instance by address, rename it, and remove it", async ({ 
   const item = () => sheet(page).locator("ul.instances li").filter({ hasText: "127.0.0.1:1" });
 
   // Port 1 never answers: it's added anyway, with a warning saying why.
-  await sheet(page).getByLabel("Name").fill("Spare test box");
+  await sheet(page).getByLabel("Name", { exact: true }).fill("Spare test box");
   await sheet(page).getByLabel("Host").fill("127.0.0.1");
   await sheet(page).getByLabel("Port").fill("1");
   await sheet(page).getByRole("button", { name: "Add", exact: true }).click();

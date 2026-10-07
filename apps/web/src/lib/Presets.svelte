@@ -10,13 +10,18 @@
     stateKey,
     busy,
     run,
+    dacScope = null,
   }: {
     instanceId: string;
     /** Changes whenever the instance's settings change, to refresh previews. */
     stateKey: string;
     busy: boolean;
     run: (label: string, fn: () => Promise<ApplyResult>) => Promise<void>;
+    /** With more than one named DAC: the DAC in use's scope (dac-scope.ts), for "this DAC only". */
+    dacScope?: string | null;
   } = $props();
+  /** With more than one DAC, a new preset is kept for the DAC in use by default (as MusicD does). */
+  let thisDacOnly = $state(true);
 
   let presets = $state<PresetView[] | null>(null);
   let error = $state("");
@@ -84,7 +89,12 @@
     e.preventDefault();
     saving = true;
     try {
-      await api.savePreset({ name: newName, fromInstance: instanceId, includeVolume });
+      await api.savePreset({
+        name: newName,
+        fromInstance: instanceId,
+        includeVolume,
+        ...(dacScope && thisDacOnly ? { scope: dacScope } : {}),
+      });
       newName = "";
       includeVolume = false;
       await load();
@@ -159,7 +169,7 @@
             <div class="row">
               <button class="main" onclick={() => apply(p)} disabled={busy || p.preview.kind === "active"}>
                 <span class="name">
-                  {p.name}
+                  {p.name}{#if p.scope}<small class="daconly">this DAC only</small>{/if}
                   <span class="badge {p.preview.kind}">{p.preview.kind === "active" ? "✓ active" : p.preview.kind}</span>
                 </span>
                 <small class="sum">{summary(p)}</small>
@@ -194,6 +204,7 @@
       <form class="save" onsubmit={save}>
         <input bind:value={newName} placeholder="Save current as…" maxlength="64" required aria-label="Preset name" />
         <label class="vol"><input type="checkbox" bind:checked={includeVolume} /> include volume</label>
+        {#if dacScope}<label class="vol"><input type="checkbox" bind:checked={thisDacOnly} /> this DAC only</label>{/if}
         <button class="small" type="submit" disabled={saving || !newName.trim()}>Save</button>
         {#if presets?.length}
           <button class="small link" type="button" onclick={() => (managing = !managing)}>{managing ? "Done" : "Edit"}</button>
@@ -205,6 +216,12 @@
 </dialog>
 
 <style>
+  .daconly {
+    margin-left: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--accent-text);
+  }
   .trigger {
     display: grid;
     grid-template-columns: auto 1fr auto;

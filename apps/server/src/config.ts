@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SETTINGS_FORMAT, checkFormat } from "./format.ts";
+import type { DacEntry } from "./dac-scope.ts";
 
 export interface InstanceConfig {
   id: string;
@@ -13,8 +14,13 @@ export interface InstanceConfig {
    * these are a second line of defence. Rates above them are never offered.
    */
   limits?: { maxPcmRate?: number; maxDsdRate?: number };
-  /** The listener's answers about this instance's DAC and use (setup.ts). Absent: not answered. */
+  /** The listener's answers about this instance's DAC and use (setup.ts). Absent: not answered.
+   *  With named DACs (dac-scope.ts), these are the main DAC's; another DAC keeps its own. */
   setup?: InstanceSetup;
+  /** Named DACs behind this HQPlayer (dac-scope.ts); absent: just the one. */
+  dacs?: DacEntry[];
+  /** The DAC in use, by id; absent: the main one. */
+  dac?: string;
 }
 
 /**
