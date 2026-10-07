@@ -62,7 +62,8 @@ environment. Read it if it exists; never commit anything from it.
    real HQPlayer, with its owner's OK for that session, and add a row to its results.
    A failure there blocks the release until it's understood.
 3. After the merge, push an annotated tag `vX.Y.Z[-beta.N]` on main; the `release`
-   workflow publishes the image.
+   workflow publishes the image, then a GitHub Release from that version's changelog section
+   (`tools/release/notes.ts`; the tag fails before building if the section is missing).
 
 ## Code quality
 

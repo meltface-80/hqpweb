@@ -1,7 +1,8 @@
 name: release
 
 # Publishes the container image when a version tag (vX.Y.Z, or a pre-release like vX.Y.Z-beta.N) is pushed:
-# ghcr.io/<owner>/hqpweb:<version> and :latest, for amd64 and arm64.
+# ghcr.io/<owner>/hqpweb:<version> and :latest, for amd64 and arm64. Then a GitHub Release, whose
+# title and notes are the version's section of CHANGELOG.md (tools/release/notes.ts).
 on:
   push:
     tags: ["v*"]
@@ -26,6 +27,13 @@ jobs:
         run: |
           want="v$(node -p 'require("./package.json").version')"
           [ "$want" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME but package.json says $want"; exit 1; }
+
+      # Fail before building when the changelog has no notes for this version.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Changelog has this version
+        run: node tools/release/notes.ts "$GITHUB_REF_NAME" > /dev/null
 
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -63,3 +71,25 @@ jobs:
           subject-name: ghcr.io/${{ github.repository_owner }}/hqpweb
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+
+  release:
+    # The Releases page, after the image is out: notes from CHANGELOG.md, betas marked as pre-releases.
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node tools/release/notes.ts "$GITHUB_REF_NAME" > notes.json
+          node -e 'process.stdout.write(require("./notes.json").body)' > notes.md
+          title="$(node -p 'require("./notes.json").title')"
+          pre="$(node -p 'require("./notes.json").prerelease ? "--prerelease" : ""')"
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$title" --notes-file notes.md $pre
