@@ -5,6 +5,11 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+## 0.1.0-beta.3 — a guide for the modulator and dither
+
+**Update:** `docker compose pull && docker compose up -d`. Settings are kept; the
+setup answers start empty, and failures hqpweb learned before are kept (counted as once).
+
 ### Added
 
 - **A guide for the modulator and dither (beta).** The Modulator / Dither row now opens
