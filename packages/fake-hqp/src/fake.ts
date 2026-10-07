@@ -2,11 +2,10 @@
 // on 2026-10-02 (design §2.1, §2.3). Where nothing was measured it picks the
 // least convenient plausible behaviour and says so in an "Inferred:" comment,
 // so client code that copes with the fake should cope with the real thing.
-import { createServer, type Server, type Socket } from "node:net";
-import { createSocket, type Socket as UdpSocket } from "node:dgram";
 import { element, parseDocument, type AttrValue, type Element } from "@app/protocol";
 import { defaultIncompatible, slotFor, type FakeOptions } from "./options.ts";
 import type { ModeLists, Profile, Remembered } from "./profile.ts";
+import { ControlServer } from "./server.ts";
 
 const DELAY = {
   /** First SetFilter for a filter: ~5 s (measured). */
@@ -500,100 +499,51 @@ export class FakeHqp {
     },
   };
 
-  // ---- network --------------------------------------------------------------
+  // ---- network (server.ts) ---------------------------------------------------
 
-  private server?: Server;
-  private udp?: UdpSocket;
-  readonly sockets = new Set<Socket>(); // open control connections
-
-  /** The bound TCP port, once listening. */
-  get port(): number {
-    const a = this.server?.address();
-    if (!a || typeof a !== "object") throw new Error("not listening");
-    return a.port;
-  }
-
-  /** Listen for TCP control connections. Defaults to loopback on an ephemeral port. */
-  listen(port = 0, host = "127.0.0.1"): Promise<{ host: string; port: number }> {
-    const server = createServer((sock) => this.serve(sock));
-    this.server = server;
-    return new Promise((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(port, host, () => {
-        const a = server.address();
-        resolve({ host, port: typeof a === "object" && a ? a.port : port });
-      });
-    });
-  }
-
-  connections = 0; // accepted so far
-
-  private serve(sock: Socket) {
-    this.connections++;
-    this.sockets.add(sock);
-    let first = true;
-    sock.setEncoding("utf8");
-    sock.setTimeout(this.opts.idleTimeoutMs, () => sock.destroy());
-    sock.on("close", () => this.sockets.delete(sock));
-    sock.on("error", () => sock.destroy());
-    let buf = "";
-    let chain = Promise.resolve();
-    sock.on("data", (d: string) => {
-      buf += d;
-      let nl: number;
-      // Inferred: requests are framed by newline, as clients send them. Several per
-      // connection are allowed and answered in order.
-      while ((nl = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, nl).trim();
-        buf = buf.slice(nl + 1);
-        if (!line) continue;
-        chain = chain.then(async () => {
-          if (first) {
-            first = false;
-            await this.sleep(DELAY.firstRequest);
-          }
-          const reply = await this.handle(line);
-          if (!sock.destroyed) sock.write(reply + "\n");
-        });
+  private readonly net = new ControlServer({
+    handle: (xml) => this.handle(xml),
+    discoverReply: () => {
+      if (this.dropProbes > 0) {
+        this.dropProbes--; // simulated UDP loss
+        return null;
       }
-    });
-  }
-
-  /**
-   * Answer `<discover>hqplayer</discover>` on UDP. Off by default: on a machine that
-   * runs a real HQPlayer, joining its multicast group would make the fake discoverable
-   * next to it. Reply shape measured.
-   */
-  listenDiscovery(port = 0, group = "239.192.0.199"): Promise<number> {
-    const udp = createSocket({ type: "udp4", reuseAddr: true });
-    this.udp = udp;
-    udp.on("message", (msg, rinfo) => {
-      if (!msg.toString().includes("<discover>hqplayer</discover>")) return;
-      if (this.dropProbes > 0) return void this.dropProbes--; // simulated UDP loss
-      const reply = this.doc(
+      return this.doc(
         "discover",
         { name: this.profile.info.name, result: "OK", version: this.profile.discover.version },
         "hqplayer",
       );
-      udp.send(reply, rinfo.port, rinfo.address);
-    });
-    return new Promise((resolve) =>
-      udp.bind(port, () => {
-        try {
-          udp.addMembership(group);
-        } catch {
-          // Loopback-only setups may not support multicast; unicast still works.
-        }
-        resolve(udp.address().port);
-      }),
-    );
+    },
+    idleTimeoutMs: () => this.opts.idleTimeoutMs,
+    firstRequest: () => this.sleep(DELAY.firstRequest),
+  });
+
+  /** The bound TCP port, once listening. */
+  get port(): number {
+    return this.net.port;
+  }
+  /** Open control connections. */
+  get sockets() {
+    return this.net.sockets;
+  }
+  /** Control connections accepted so far. */
+  get connections() {
+    return this.net.connections;
+  }
+
+  /** Listen for TCP control connections. Defaults to loopback on an ephemeral port. */
+  listen(port = 0, host = "127.0.0.1") {
+    return this.net.listen(port, host);
+  }
+
+  /** Answer discovery probes on UDP (off by default; see server.ts). */
+  listenDiscovery(port = 0, group = "239.192.0.199") {
+    return this.net.listenDiscovery(port, group);
   }
 
   async close() {
     for (const t of this.timers) clearTimeout(t);
     this.timers.clear();
-    for (const s of this.sockets) s.destroy();
-    this.udp?.close();
-    if (this.server) await new Promise<void>((r) => this.server!.close(() => r()));
+    await this.net.close();
   }
 }

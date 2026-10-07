@@ -37,6 +37,12 @@ describe("discover()", () => {
     expect(found).toHaveLength(1);
   });
 
+  it("finds nothing while every probe is lost (the fake really drops them)", async () => {
+    const { f, discoveryPort } = await fake();
+    f.dropProbes = 1000;
+    expect(await discover({ target: { address: "127.0.0.1", port: discoveryPort }, timeoutMs: 300 })).toEqual([]);
+  });
+
   it("returns nothing when nobody answers", async () => {
     expect(await discover({ target: { address: "127.0.0.1", port: 9 }, timeoutMs: 200 })).toEqual([]);
   });
