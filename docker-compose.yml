@@ -8,7 +8,7 @@ name: hqpweb
 
 services:
   controller:
-    # A release (HQPWEB_TAG=0.1.0-beta.1, say) or the newest (latest).
+    # A release (HQPWEB_TAG=0.1.0-beta.3, say) or the newest (latest).
     image: ghcr.io/statelycurmudgeon/hqpweb:${HQPWEB_TAG:-latest}
     container_name: hqpweb
     restart: unless-stopped

@@ -41,6 +41,7 @@ test("modulators: grouped list, then the guide's answers and its rate-and-modula
   await expect(sheet(page)).toContainText("No set of rules");
   await sheet(page).getByRole("button", { name: "Got it" }).click();
   await expect(sheet(page).getByRole("button", { name: "About this guide" })).toBeVisible();
+  await expect(sheet(page).getByText("A place to start, not the last word")).toBeVisible();
   await step(page, "Your DAC")
     .getByRole("button", { name: /^An older ESS chip/ })
     .click();

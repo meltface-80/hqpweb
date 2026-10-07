@@ -5,7 +5,7 @@
 **A web controller for HQPlayer.** Change filters, dither/modulator, volume, mode and
 rate from any phone or browser, and see whether HQPlayer is keeping up.
 
-**Status: beta (0.1.0-beta.1).** Works with HQPlayer Desktop 5 and HQPlayer 6
+**Status: beta (0.1.0-beta.3).** Works with HQPlayer Desktop 5 and HQPlayer 6
 Embedded. Desktop 6 and Windows are untested.
 
 > Not affiliated with, endorsed by, or supported by Signalyst or Roon Labs.
@@ -15,6 +15,7 @@ Embedded. Desktop 6 and Windows are untested.
 <p align="center">
   <img src="docs/images/now.png" width="300" alt="The Now card: now playing from Roon, output rate, source, HQPlayer's processing speed, the Apod counter, volume, and the filters and dither in use" />
   <img src="docs/images/filters.png" width="300" alt="The filter picker: star ratings, chips to narrow the list, and details for the selected filter" />
+  <img src="docs/images/guide.png" width="300" alt="The modulator guide: three answered questions about the DAC, amplifier and volume, then rate and modulator pairs with the posts they come from" />
 </p>
 
 ## Why hqpweb?
@@ -42,12 +43,20 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 ## What it does
 
 - **Quick changes:** 1x and Nx filters, dither or modulator, volume, presets.
+- **A guide for the modulator and dither (beta):** a few questions about your DAC,
+  amplifier, volume and connection, then where to start: rate and modulator together
+  (for example DSD256 with ASDM7EC-fast, or DSD1024 with AHM), or the dither for your
+  DAC. Each suggestion links the post it comes from
+  ([where the advice comes from](#where-the-guides-advice-comes-from)). It's a place to
+  start, not the last word; the full list, grouped by family, is always there.
 - **Advanced:** mode, output rate, convolution, matrix profile, polarity, 20 kHz
   filter, adaptive volume.
 - **Checked, with a safety net:** every change is read back from HQPlayer. If one stops
   playback or HQPlayer can't keep up, the app tries to put the old settings back,
-  remembers the combination, and warns you next time. An overloaded HQPlayer can stop
-  answering altogether; then only restarting it helps. Undo is one tap.
+  remembers the combination (and how often it failed), and warns you next time. A rate
+  and modulator that can't play together (AHM below DSD1024) are offered as a pair
+  instead. An overloaded HQPlayer can stop answering altogether; the app then says how
+  to restart it. Undo is one tap.
 - **Filter guide:** star ratings, what each filter favours, which ratios it can do,
   which are apodizing, and modulator generations
   ([where these come from](#where-filter-descriptions-come-from)).
@@ -121,13 +130,13 @@ updated.
 
 The repository's [docker-compose.yml](docker-compose.yml) reads these from a `.env`
 file next to it (then `docker compose up -d`). With the short example or `docker run`:
-pick the version in the image name (`hqpweb:0.1.0-beta.1`), the address and port in
+pick the version in the image name (`hqpweb:0.1.0-beta.3`), the address and port in
 the port mapping (`127.0.0.1:8080:4380`), and set `ALLOWED_HOSTS` as an environment
 variable (`environment:` or `-e`).
 
 | Variable        | Default   | Use                                                                                                   |
 | --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| `HQPWEB_TAG`    | `latest`  | Image version to run, e.g. `0.1.0-beta.1` to stay on a release.                                       |
+| `HQPWEB_TAG`    | `latest`  | Image version to run, e.g. `0.1.0-beta.3` to stay on a release.                                       |
 | `PORT`          | `4380`    | Port the app listens on.                                                                              |
 | `BIND_ADDRESS`  | `0.0.0.0` | Interface to publish on, e.g. `127.0.0.1` behind a local proxy.                                       |
 | `ALLOWED_HOSTS` | (none)    | Host names you open it by, comma-separated (IP addresses always work). Needed behind a reverse proxy. |
@@ -187,6 +196,16 @@ v5 user manual's rules, corrected where we measured otherwise. Which filters are
 apodizing comes from HQPlayer 6's own filter table. The few filters and modulators v6
 dropped are described from the v5 manual, in our own words, without ratings. Ratings
 are Signalyst's; nothing here is our own judgement of sound.
+
+## Where the guide's advice comes from
+
+From what Signalyst's developer has written in public, mostly his 2025–26 posts on the
+Roon forum, and from the HQPlayer manual (paraphrased, never copied). Each suggestion
+links the post it comes from, with its date, because the advice changes as HQPlayer
+does. The rules are kept as data in one file
+([policy.ts](apps/web/src/lib/advice/policy.ts)), so a correction is a small edit;
+please [open an issue](https://github.com/statelycurmudgeon/hqpweb/issues) if one is
+out of date. Modulator names always come from your HQPlayer's own list.
 
 ## Why can't I switch profiles or endpoints?
 
