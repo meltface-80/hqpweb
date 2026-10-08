@@ -17,8 +17,12 @@ const TYPES: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-/** Returns false if nothing was served. Unknown paths fall back to index.html. */
-export async function serveStatic(root: string, urlPath: string, res: ServerResponse): Promise<boolean> {
+/**
+ * Returns false if nothing was served. Unknown paths fall back to index.html. HEAD gets the
+ * same headers without the body: browsers may probe icons that way (Safari), and a 404
+ * there reads as "no icon".
+ */
+export async function serveStatic(root: string, urlPath: string, res: ServerResponse, head = false): Promise<boolean> {
   const base = resolve(root);
   let file = resolve(join(base, normalize(decodeURIComponent(urlPath))));
   if (file !== base && !file.startsWith(base + sep)) return false; // path traversal
@@ -40,7 +44,8 @@ export async function serveStatic(root: string, urlPath: string, res: ServerResp
     ...SECURITY_HEADERS,
     "content-type": TYPES[extname(file)] ?? "application/octet-stream",
     "cache-control": hashed ? "public, max-age=31536000, immutable" : "no-cache",
+    "content-length": body.length,
   });
-  res.end(body);
+  res.end(head ? undefined : body);
   return true;
 }

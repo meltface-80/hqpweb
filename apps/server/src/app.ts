@@ -493,7 +493,12 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
 
     const m = /^\/api\/instances\/([^/]+)\/([a-z]+)$/.exec(path);
     if (!m) {
-      if (req.method === "GET" && opts.staticDir && !path.startsWith("/api/") && (await serveStatic(opts.staticDir, path, res)))
+      if (
+        (req.method === "GET" || req.method === "HEAD") &&
+        opts.staticDir &&
+        !path.startsWith("/api/") &&
+        (await serveStatic(opts.staticDir, path, res, req.method === "HEAD"))
+      )
         return;
       throw new HttpError(404, "not found");
     }

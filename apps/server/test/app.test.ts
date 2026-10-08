@@ -157,6 +157,7 @@ describe("static web app", () => {
     mkdirSync(join(dir, "assets"));
     writeFileSync(join(dir, "index.html"), "<!doctype html><p>app</p>");
     writeFileSync(join(dir, "assets", "app-abc123.js"), "console.log(1)");
+    writeFileSync(join(dir, "favicon.ico"), Buffer.from([0, 0, 1, 0]));
     const s = buildApp({ instances: [] }, { staticDir: dir });
     const r = client(await s.listen(0, "127.0.0.1"));
     try {
@@ -167,6 +168,13 @@ describe("static web app", () => {
       expect(asset.headers["content-type"]).toMatch(/javascript/);
       expect(asset.headers["cache-control"]).toMatch(/immutable/);
       expect((await r("GET", "/settings")).status).toBe(200); // client-side route
+      // Icons answer HEAD too (Safari probes them; a 404 there means "no icon").
+      const icon = await r("HEAD", "/favicon.ico");
+      expect(icon.status).toBe(200);
+      expect(icon.headers["content-type"]).toBe("image/x-icon");
+      expect(icon.headers["content-length"]).toBe("4");
+      expect(icon.text()).toBe("");
+      expect((await r("GET", "/favicon.ico")).headers["content-length"]).toBe("4");
       expect((await r("GET", "/missing.js")).status).toBe(404);
       // Dot segments are collapsed by URL parsing, so these resolve inside the web
       // root and fall back to the app. What matters: never a file outside it.
