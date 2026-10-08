@@ -19,6 +19,7 @@ import type { InstanceConfig } from "./config.ts";
 import { LearnedStore, type Combo, type Failure, type KeptUp } from "./learned.ts";
 import { KEPT_TIMING, KeptUpTracker, type KeptTiming } from "./kept-up.ts";
 import { HistoryStore, changedFields, type ChangeSource } from "./history.ts";
+import { MeterStream, type MeterEvent, type MeterTiming } from "./meter-stream.ts";
 import { DEFAULT_TIMING, MAJOR_TIMING, type Verdict, type WatchTiming } from "./watch.ts";
 import { previewOne, type PresetPreview } from "./preset-preview.ts";
 import { settingsOf, type Settings } from "./settings.ts";
@@ -132,6 +133,8 @@ export interface InstanceOptions {
   keptTiming?: KeptTiming;
   /** Change history and settings last seen per mode (history.ts). Default: in memory. */
   history?: HistoryStore;
+  /** Meter stream timing (meter-stream.ts); tests shorten it. */
+  meterTiming?: Partial<MeterTiming>;
 }
 
 export class Instance {
@@ -152,6 +155,7 @@ export class Instance {
     this.learned = opts.learned ?? new LearnedStore(null);
     this.kept = new KeptUpTracker(opts.keptTiming ?? KEPT_TIMING);
     this.history = opts.history ?? new HistoryStore(null);
+    this.meterTiming = opts.meterTiming ?? {};
     this.poller = new StatusPoller(this.client, {
       speedWindowMs: opts.speedWindowMs ?? 30_000,
       queueEveryMs: opts.queueEveryMs ?? 5000,
@@ -463,8 +467,17 @@ export class Instance {
     return this.poller.dismissVolumeJump();
   }
 
+  /** HQPlayer's meter, while someone watches it (meter-stream.ts). */
+  private meter: MeterStream | null = null;
+  private readonly meterTiming: Partial<MeterTiming>;
+  subscribeMeter(fn: (e: MeterEvent) => void): () => void {
+    this.meter ??= new MeterStream(this.cfg.host, this.cfg.meterPort ?? this.cfg.port + 1, this.meterTiming);
+    return this.meter.subscribe(fn);
+  }
+
   close() {
     this.client.close();
     this.poller.close();
+    this.meter?.close();
   }
 }

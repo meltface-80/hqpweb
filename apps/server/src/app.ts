@@ -15,6 +15,7 @@ import { PeerError, type DiscoverOptions } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
 import type { RoonTransport } from "./change-engine.ts";
 import type { KeptTiming } from "./kept-up.ts";
+import type { MeterTiming } from "./meter-stream.ts";
 import { ROON_ACTIONS, RoonLink, type RoonAction } from "./roon/roon.ts";
 import { discoverCores } from "./roon/sood.ts";
 import { scopeOf } from "./dac-scope.ts";
@@ -47,6 +48,8 @@ export interface AppOptions {
   speedWindowMs?: number;
   /** Tests: shorten when a playing combination counts as settled (kept-up.ts). */
   keptTiming?: KeptTiming;
+  /** Tests: shorten the meter stream's timing (meter-stream.ts). */
+  meterTiming?: Partial<MeterTiming>;
   /** Playlist re-read interval while stopped (default 5 s). */
   queueEveryMs?: number;
   /** How long Play may take before "didn't start" (default 5 s). */
@@ -206,6 +209,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         ...(opts.timing ? { timing: opts.timing } : {}),
         ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
         ...(opts.keptTiming ? { keptTiming: opts.keptTiming } : {}),
+        ...(opts.meterTiming ? { meterTiming: opts.meterTiming } : {}),
         ...(opts.queueEveryMs ? { queueEveryMs: opts.queueEveryMs } : {}),
         ...(opts.playWaitMs ? { playWaitMs: opts.playWaitMs } : {}),
         roon: () => roonTransport(cfg.id),
@@ -285,6 +289,18 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     "GET history": async (_q, _r, i) => i.changeHistory(),
     "DELETE learned": async (_q, _r, i) => i.forgetFailures(),
     "GET events": events,
+    "GET meter": (req, res, inst) => {
+      res.writeHead(200, {
+        ...SECURITY_HEADERS,
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+        "x-accel-buffering": "no",
+      });
+      res.write(": connected\n\n");
+      const off = inst.subscribeMeter((e) => res.write(`event: meter\ndata: ${JSON.stringify(e)}\n\n`));
+      req.on("close", off);
+    },
     "PUT roonzone": async (q, _r, i) => {
       const body = (await readJson(q)) as { zone?: unknown };
       if (

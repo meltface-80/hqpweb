@@ -25,6 +25,10 @@ may change behaviour; upgrade notes say what you need to do.
   Two columns on wide screens. The current layout is unchanged.
   On a phone, a slim bar with the track, health, play/pause and volume takes over when
   the now card scrolls away. History leaves out volume changes.
+- **The meter's server side** (groundwork for the new layout's meter). While someone watches,
+  hqpweb reads HQPlayer's meter (the control port + 1), smooths its bursts, and streams
+  levels and 48 frequency bands to the browser, letting go a few seconds after the last
+  viewer leaves. `GET /api/instances/:id/meter` (server-sent events).
 
 ### Fixed
 

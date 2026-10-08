@@ -21,6 +21,8 @@ export interface InstanceConfig {
   dacs?: DacEntry[];
   /** The DAC in use, by id; absent: the main one. */
   dac?: string;
+  /** HQPlayer's meter port; absent: the control port + 1 (measured). Tests point it at the fake's. */
+  meterPort?: number;
 }
 
 /**
