@@ -19,6 +19,13 @@ may change behaviour; upgrade notes say what you need to do.
   remembers each mode's settings as last seen, per DAC, because HQPlayer only reports the
   mode in use. Kept in `history.json`; nothing shows them yet. `GET /api/instances/:id/history`.
 
+### Fixed
+
+- **The status no longer goes stale for several seconds after a mode switch.** HQPlayer
+  holds the connection while it switches, so the status reply was slow, and hqpweb took
+  that for HQPlayer being slow and backed off its polling (about 6 s). It now ignores slow
+  replies that waited behind its own changes.
+
 ## 0.1.0-beta.4 — named DACs, and a safer mode switch
 
 **Update:** `docker compose pull && docker compose up -d`. Settings, presets and learned

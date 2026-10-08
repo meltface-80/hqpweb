@@ -155,6 +155,7 @@ export class Instance {
     this.poller = new StatusPoller(this.client, {
       speedWindowMs: opts.speedWindowMs ?? 30_000,
       queueEveryMs: opts.queueEveryMs ?? 5000,
+      ownWrites: () => ({ count: this.started, active: this.running > 0 }),
       onTick: (status, state) => {
         void this.noteSpeed(status, state).catch(() => undefined);
         void this.noteSettings(state).catch(() => undefined);
@@ -273,6 +274,8 @@ export class Instance {
   }
 
   private running = 0;
+  /** Writes started so far (the poller's backoff ignores slow replies that overlapped one). */
+  private started = 0;
   /** A change (or another write) is in progress: the DAC in use mustn't be switched under it. */
   get busy(): boolean {
     return this.running > 0;
@@ -280,6 +283,7 @@ export class Instance {
 
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
     const counted = async () => {
+      this.started++;
       this.running++;
       try {
         return await fn();

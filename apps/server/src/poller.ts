@@ -43,15 +43,23 @@ export class StatusPoller {
 
   /** Every successful poll, for bookkeeping that needs the raw readings (kept-up.ts). */
   private readonly onTick: ((status: Status, state: State) => void) | undefined;
+  /** hqpweb's own writes (count, and whether one is running): a slow answer during one isn't HQPlayer being slow. */
+  private readonly ownWrites: (() => { count: number; active: boolean }) | undefined;
 
   constructor(
     client: HqpClient,
-    opts: { speedWindowMs: number; queueEveryMs: number; onTick?: (status: Status, state: State) => void },
+    opts: {
+      speedWindowMs: number;
+      queueEveryMs: number;
+      onTick?: (status: Status, state: State) => void;
+      ownWrites?: () => { count: number; active: boolean };
+    },
   ) {
     this.client = client;
     this.speedWindowMs = opts.speedWindowMs;
     this.queueEveryMs = opts.queueEveryMs;
     this.onTick = opts.onTick;
+    this.ownWrites = opts.ownWrites;
   }
 
   /** hqpweb itself just set the volume: not a jump. */
@@ -160,6 +168,7 @@ export class StatusPoller {
         let event: StatusEvent;
         let next = intervalMs;
         const t0 = Date.now();
+        const writesBefore = this.ownWrites?.();
         try {
           const [status, state] = await Promise.all([this.client.status(), this.client.state()]);
           const latencyMs = Date.now() - t0;
@@ -176,7 +185,11 @@ export class StatusPoller {
             health: { latencyMs, speed: this.trackSpeed(status), processSpeed: this.averageProcessSpeed(status) },
           };
           // Inferred threshold: normal replies take ~1 ms on a kept-open connection (measured).
-          if (latencyMs > 1000) next = Math.min(10_000, latencyMs * 3);
+          // Not when the reply waited behind hqpweb's own write (a mode switch holds the
+          // connection ~3 s): backing off then left the status ~6 s stale after every switch.
+          const after = this.ownWrites?.();
+          const waitedOnOwnWrite = !!after && (writesBefore!.active || after.active || after.count !== writesBefore!.count);
+          if (latencyMs > 1000 && !waitedOnOwnWrite) next = Math.min(10_000, latencyMs * 3);
         } catch (e) {
           event = { error: (e as Error).message };
           this.lastPollError = Date.now();

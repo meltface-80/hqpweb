@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
+import { setTimeout as slowReply } from "node:timers/promises";
 import { client } from "./http.ts";
 
 let fake: FakeHqp;
@@ -163,4 +164,69 @@ describe("live health in the status stream", () => {
     const d = await events(40, (x) => x.health?.speed != null);
     expect(d.health.speed).toBeLessThan(0.7);
   });
+});
+
+// A slow answer that overlapped hqpweb's own write (here a mode switch, which holds the
+// connection ~2.9 s on the real thing) isn't HQPlayer being slow: no backing off then.
+describe("polling after hqpweb's own slow write", () => {
+  it("keeps the status coming right after a mode switch", async () => {
+    fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0.5 }); // SetMode ~1.45 s
+    fake.playback = 0;
+    await fake.listen();
+    app = buildApp({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] }, { pollMs: 100 });
+    base = await app.listen(0, "127.0.0.1");
+    const ctl = new AbortController();
+    const res = await fetch(`${base}/api/instances/mac/events`, { signal: ctl.signal });
+    const reader = res.body!.getReader();
+    const seen: { at: number; mode: string }[] = [];
+    void (async () => {
+      let text = "";
+      for (;;) {
+        const r = await reader.read().catch(() => ({ done: true, value: undefined }));
+        if (r.done) return;
+        text += new TextDecoder().decode(r.value);
+        for (const m of text.matchAll(/event: now\ndata: (.*)\n/g))
+          seen.push({ at: Date.now(), mode: JSON.parse(m[1]!).status.activeMode });
+        text = text.slice(text.lastIndexOf("\n\n") + 2);
+      }
+    })();
+    await client(base)("POST", "/api/instances/mac/change", { body: { mode: "PCM" } });
+    const done = Date.now();
+    const t0 = Date.now();
+    while (!seen.some((s) => s.at > done && s.mode === "PCM") && Date.now() - t0 < 4000) {
+      await new Promise((r) => setTimeout(r, 20)); // polling for a condition, with a deadline
+    }
+    ctl.abort();
+    const next = seen.find((s) => s.at > done && s.mode === "PCM");
+    expect(next && next.at - done).toBeLessThan(1500);
+  });
+});
+
+describe("polling when HQPlayer itself is slow", () => {
+  it("backs off when a slow reply wasn't waiting on hqpweb's own write", async () => {
+    const { StatusPoller } = await import("../src/poller.ts");
+    const real = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
+    await real.listen();
+    const { HqpClient } = await import("@app/protocol");
+    const c = new HqpClient("127.0.0.1", { port: real.port });
+    // HQPlayer answering slowly (~1.1 s), with no write of hqpweb's in flight.
+    const slow = Object.assign(Object.create(c) as typeof c, {
+      status: () => slowReply(1100).then(() => c.status()),
+    });
+    const p = new StatusPoller(slow, {
+      speedWindowMs: 30_000,
+      queueEveryMs: 5000,
+      ownWrites: () => ({ count: 0, active: false }),
+    });
+    const at: number[] = [];
+    const stop = p.subscribe(() => at.push(Date.now()), 100);
+    const t0 = Date.now();
+    while (at.length < 2 && Date.now() - t0 < 8000) await new Promise((r) => setTimeout(r, 50)); // polling for a condition, with a deadline
+    stop();
+    p.close();
+    c.close();
+    await real.close();
+    // Backed off to ~3× the 1.1 s reply, not the 100 ms interval.
+    expect(at[1]! - at[0]!).toBeGreaterThan(3000);
+  }, 15_000);
 });
