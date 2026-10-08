@@ -5,7 +5,10 @@
   // App shares with the current layout come in as snippets.
   import type { Snippet } from "svelte";
   import SignalCard, { type Resume } from "./SignalCard.svelte";
-  import { knownBad, type Capabilities, type Change, type Snapshot } from "./api.ts";
+  import MiniBar from "./MiniBar.svelte";
+  import { healthWord } from "./signal.ts";
+  import { knownBad, type Capabilities, type Change, type RoonZone, type Snapshot, type Status } from "./api.ts";
+  import type { ResultMessage } from "./result.ts";
   import { nameAt, type rateItems as rateItemsOf } from "./hints.ts";
   import type { SpeedClass } from "./speed.ts";
 
@@ -28,6 +31,10 @@
     below,
     onguide,
     onhistory,
+    selected,
+    roonZone,
+    onstatus,
+    onmessage,
   }: {
     caps: Capabilities;
     snap: Snapshot;
@@ -47,7 +54,29 @@
     below: Snippet;
     onguide: () => void;
     onhistory: () => void;
+    selected: string;
+    roonZone: RoonZone | null;
+    onstatus: (status: Status) => void;
+    onmessage: (m: ResultMessage) => void;
   } = $props();
+
+  // The mini bar: on a narrow screen, once the now card has scrolled out of view.
+  let nowEl: HTMLElement;
+  let nowVisible = $state(true);
+  let narrow = $state(true);
+  $effect(() => {
+    const io = new IntersectionObserver(([e]) => (nowVisible = !!e?.isIntersecting));
+    io.observe(nowEl);
+    const mq = matchMedia("(max-width: 899px)");
+    narrow = mq.matches;
+    const onMq = () => (narrow = mq.matches);
+    mq.addEventListener("change", onMq);
+    return () => {
+      io.disconnect();
+      mq.removeEventListener("change", onMq);
+    };
+  });
+  const playing = $derived(snap.status.state === 2);
 
   /** How often the combination in use has failed here: the rate row flags auto with it. */
   const failedHere = $derived.by(() => {
@@ -63,7 +92,7 @@
 </script>
 
 <div class="v2">
-  <div class="v2-now">{@render nowCard()}</div>
+  <div class="v2-now" bind:this={nowEl}>{@render nowCard()}</div>
   <div class="v2-path">
     <SignalCard
       {caps}
@@ -87,6 +116,21 @@
     {@render below()}
   </div>
 </div>
+{#if narrow && !nowVisible}
+  <MiniBar
+    {snap}
+    {caps}
+    zone={roonZone}
+    {selected}
+    {busy}
+    {apply}
+    health={`${healthWord(speedClass, playing)}${playing ? ` ${speedText}` : ""}`}
+    healthClass={playing ? speedClass : ""}
+    onback={() => nowEl.scrollIntoView({ behavior: "smooth", block: "start" })}
+    {onstatus}
+    {onmessage}
+  />
+{/if}
 
 <style>
   .actions {

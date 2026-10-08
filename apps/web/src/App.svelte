@@ -15,7 +15,7 @@
   import { describe, type ResultMessage } from "./lib/result.ts";
   import { control, isRisky } from "./lib/control.ts";
   import * as hints from "./lib/hints.ts";
-  import { offerReload } from "./lib/update.ts";
+  import { watchForUpdate } from "./lib/update.ts";
   import * as speedRules from "./lib/speed.ts";
   import { recentChange, restartSteps } from "./lib/recovery.ts";
   import StatusBanners from "./lib/StatusBanners.svelte";
@@ -83,25 +83,9 @@
   let settings: Settings;
   // Local, so a re-render can't snap it shut; Settings only sets the starting state.
   let advancedOpen = $state(prefs.advancedOpen);
-  // ---- a newer hqpweb on the server ---------------------------------------------
-  // An installed app (PWA) can stay open for days on old code, with no reload button.
-  // The page knows the commit it was built from; when it comes back to the foreground,
-  // and every 10 minutes, it asks the server. A difference offers a reload.
+  // ---- a newer hqpweb on the server: offer a reload (lib/update.ts) ------------
   let updated = $state(false);
-  async function checkForUpdate() {
-    if (import.meta.env.DEV || !__APP_COMMIT__ || updated) return; // no request when it couldn't matter
-    const h = await api.health().catch(() => null);
-    if (offerReload(__APP_COMMIT__, h?.commit, import.meta.env.DEV)) updated = true;
-  }
-  $effect(() => {
-    const onVisible = () => document.visibilityState === "visible" && checkForUpdate();
-    document.addEventListener("visibilitychange", onVisible);
-    const t = setInterval(checkForUpdate, 10 * 60_000);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(t);
-    };
-  });
+  $effect(() => watchForUpdate(__APP_COMMIT__, import.meta.env.DEV, api.health, () => (updated = true)));
 
   const speed = $derived(snap?.health?.speed ?? null);
   let slowSince = $state<number | null>(null);
@@ -495,6 +479,10 @@
           {below}
           onguide={() => shaperPicker?.open({ tab: "guide" })}
           onhistory={() => historySheet?.open()}
+          selected={selected!}
+          {roonZone}
+          onstatus={(status) => snap && (snap = { ...snap, status })}
+          onmessage={(m) => (message = m)}
         />
       {:else}
         {@render nowCard()}

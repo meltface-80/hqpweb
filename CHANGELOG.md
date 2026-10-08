@@ -23,6 +23,8 @@ may change behaviour; upgrade notes say what you need to do.
   tabs (the other mode's settings as last seen, and a sheet that says what switching
   does), and the rate row saying what auto picked and why. History lists every change.
   Two columns on wide screens. The current layout is unchanged.
+  On a phone, a slim bar with the track, health, play/pause and volume takes over when
+  the now card scrolls away. History leaves out volume changes.
 
 ### Fixed
 

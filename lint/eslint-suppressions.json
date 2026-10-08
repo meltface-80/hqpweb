@@ -14,7 +14,7 @@
       "count": 2
     },
     "@typescript-eslint/no-misused-promises": {
-      "count": 4
+      "count": 1
     }
   },
   "apps/web/src/lib/Picker.svelte": {

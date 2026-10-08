@@ -17,9 +17,15 @@
     onrestart: () => void;
     onundo: () => void;
   } = $props();
+
+  // Its height while shown, so the v2 mini bar (MiniBar.svelte) can sit above it.
+  let height = $state(0);
+  $effect(() => {
+    document.documentElement.style.setProperty("--footer-h", show ? `${height}px` : "0px");
+  });
 </script>
 
-<footer class:show>
+<footer class:show bind:clientHeight={height}>
   {#if message}<p class="msg {message.kind}">{message.text}</p>{/if}
   {#if message?.restart}<button class="undo" onclick={onrestart} disabled={busy}>Restart playback</button>{/if}
   {#if undoAvailable}<button class="undo" onclick={onundo} disabled={busy}>Undo last change</button>{/if}

@@ -67,6 +67,14 @@ describe("history", () => {
     expect(undo).toMatchObject({ source: "undo", changes: [{ field: "shaper", from: "ASDM7EC", to: "AHM7EC8B" }] });
   });
 
+  it("leaves volume out: a volume tap alone isn't history (seen filling it on hqp-dev)", async () => {
+    await setup();
+    await req("POST", "/api/instances/mac/change", { body: { volume: -23 } });
+    await req("POST", "/api/instances/mac/change", { body: { volume: -24, shaper: "ASDM7EC" } });
+    const h = await history();
+    expect(h.map((e) => e.changes.map((c) => c.field))).toEqual([["shaper"]]);
+  });
+
   it("logs a change that was rolled back, and why", async () => {
     await setup({ speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) });
     await req("POST", "/api/instances/mac/change", { body: { filter1x: "poly-sinc-gauss-long" } });

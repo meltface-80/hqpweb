@@ -65,3 +65,29 @@ test("v2: auto explains itself in PCM", async ({ page }) => {
   await page.getByRole("dialog", { name: "Switch to PCM" }).getByRole("button", { name: "Switch", exact: true }).click();
   await expect(page.locator(".signal .auto")).toContainText("highest rate this filter can use");
 });
+
+test("v2: the mini bar takes over when the now card scrolls away", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  await openV2(page, "v2mini");
+  const mini = page.getByRole("region", { name: "Now playing, compact" });
+  await expect(mini).toHaveCount(0);
+  await page.getByRole("button", { name: "History" }).scrollIntoViewIfNeeded();
+  await page.mouse.wheel(0, 2000);
+  await expect(mini).toBeVisible();
+  await expect(mini).toContainText("keeping up");
+  await mini.getByRole("button", { name: /^Down/ }).click();
+  await expect(mini).toContainText("-23");
+  // It sits above the footer (the change's result), not over it.
+  const footer = page.locator("footer");
+  await expect(footer).toContainText("Volume");
+  // Both slide (0.4 s): once the footer is fully on screen, the bar must be above it.
+  await expect
+    .poll(async () => {
+      const [m, f, vh] = [await mini.boundingBox(), await footer.boundingBox(), await page.evaluate(() => innerHeight)];
+      return f!.y + f!.height <= vh + 1 && m!.y + m!.height <= f!.y + 1;
+    })
+    .toBe(true);
+  await shot(page, "v2-4-mini-bar");
+  await mini.getByRole("button", { name: "Back to now playing" }).click();
+  await expect(mini).toHaveCount(0);
+});

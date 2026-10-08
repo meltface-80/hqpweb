@@ -249,12 +249,16 @@ export class Instance {
         this.baseline = after ? { scope: this.scope(), settings: after } : null;
         this.writes++;
       }
-      if (before && r.results.length)
+      // Volume is left out, as for changes made elsewhere (history.ts): taps aren't history.
+      const changes = r.results
+        .filter((x) => x.field !== "volume")
+        .map((x) => ({ field: x.field, from: before?.[x.field], to: x.actual, applied: x.applied }));
+      if (before && changes.length)
         this.history.push({
           at: new Date().toISOString(),
           instance: scope,
           source,
-          changes: r.results.map((x) => ({ field: x.field, from: before[x.field], to: x.actual, applied: x.applied })),
+          changes,
           playback: r.playback.kind,
           ...("detail" in r.playback && r.playback.detail ? { detail: r.playback.detail } : {}),
           ...(r.rolledBack ? { rolledBack: true } : {}),

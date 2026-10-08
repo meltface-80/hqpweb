@@ -145,6 +145,7 @@ const FLOWS: Record<string, Flow> = {
   // The v2 layout preview (docs/design-v2-layout.md).
   v2: { name: "V2", profile: "desktop5-mac-sdm" },
   v2auto: { name: "V2 auto", profile: "desktop5-mac-sdm" },
+  v2mini: { name: "V2 mini", profile: "desktop5-mac-sdm" },
   // Settings → Your setup: answers saved on the server, per instance.
   setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };
