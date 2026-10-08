@@ -24,6 +24,9 @@ export interface Prefs {
   guideIntroSeen: boolean;
   /** The v2 layout (docs/design-v2-layout.md), a preview until it replaces the current one. */
   layout: "current" | "v2";
+  /** The v2 meter: open as a square, and which view. */
+  meterOpen: boolean;
+  meterView: "bars" | "line" | "levels" | "waterfall";
 }
 
 const KEY = "prefs-v1";
@@ -35,6 +38,8 @@ const DEFAULTS: Prefs = {
   adviceTab: "list",
   guideIntroSeen: false,
   layout: "current",
+  meterOpen: false,
+  meterView: "bars",
 };
 
 function load(): Prefs {

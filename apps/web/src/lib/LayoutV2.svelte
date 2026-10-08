@@ -6,6 +6,7 @@
   import type { Snippet } from "svelte";
   import SignalCard, { type Resume } from "./SignalCard.svelte";
   import MiniBar from "./MiniBar.svelte";
+  import MeterStrip from "./MeterStrip.svelte";
   import { healthWord } from "./signal.ts";
   import { knownBad, type Capabilities, type Change, type RoonZone, type Snapshot, type Status } from "./api.ts";
   import type { ResultMessage } from "./result.ts";
@@ -92,7 +93,10 @@
 </script>
 
 <div class="v2">
-  <div class="v2-now" bind:this={nowEl}>{@render nowCard()}</div>
+  <div class="v2-now">
+    <div bind:this={nowEl}>{@render nowCard()}</div>
+    <MeterStrip instanceId={selected} {playing} />
+  </div>
   <div class="v2-path">
     <SignalCard
       {caps}

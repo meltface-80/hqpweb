@@ -91,3 +91,24 @@ test("v2: the mini bar takes over when the now card scrolls away", async ({ page
   await mini.getByRole("button", { name: "Back to now playing" }).click();
   await expect(mini).toHaveCount(0);
 });
+
+test("v2: the meter opens to a square, and its views switch", async ({ page }) => {
+  await openV2(page, "v2meter");
+  const meter = page.getByRole("region", { name: "Meter" });
+  const open = meter.getByRole("button", { name: "Open the meter" });
+  await expect(open).toBeVisible();
+  await expect(meter.locator("canvas.mini")).toBeVisible(); // live: it draws instead of a note
+  await open.click();
+  await expect(meter.locator("canvas.big")).toBeVisible();
+  await meter.getByRole("button", { name: "Levels" }).click();
+  await expect(meter).toContainText("L peak -22.0 dB");
+  await meter.getByRole("button", { name: "Waterfall" }).click();
+  await shot(page, "v2-5-meter");
+  await meter.getByRole("button", { name: "Close the meter" }).click();
+  await expect(meter.locator("canvas.big")).toHaveCount(0);
+});
+
+test("v2: without a meter, the strip says so", async ({ page }) => {
+  await openV2(page, "v2");
+  await expect(page.getByRole("region", { name: "Meter" })).toContainText("No meter from this HQPlayer");
+});

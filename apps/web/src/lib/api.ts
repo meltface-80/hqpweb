@@ -104,6 +104,8 @@ export type HistoryEntry = {
   detail?: string;
   rolledBack?: boolean;
 };
+/** One meter update (server meter-stream.ts). */
+export type MeterEvent = { live: boolean; connected: boolean; levels?: number[][]; bands?: number[][] };
 export type Mode = { index: number; name: string; value: number };
 export type Capabilities = {
   engine: string;
@@ -279,6 +281,8 @@ export const api = {
   history: (id: string) => call<HistoryEntry[]>(`/api/instances/${id}/history`),
   forgetLearned: (id: string) => call<{ forgotten: number }>(`/api/instances/${id}/learned`, { method: "DELETE" }),
   events: (id: string) => new EventSource(`/api/instances/${id}/events`),
+  /** HQPlayer's meter, paced and condensed (server meter-stream.ts): event "meter". */
+  meter: (id: string) => new EventSource(`/api/instances/${id}/meter`),
   roon: () => call<RoonView>("/api/roon"),
   configureRoon: (body: { enabled?: boolean; host?: string; port?: number }) =>
     call<RoonView>("/api/roon", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),

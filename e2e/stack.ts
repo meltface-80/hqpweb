@@ -5,7 +5,7 @@
 // Each flow gets its own instance, so flows can't disturb each other.
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import { FakeHqp, loadProfile, type FakeOptions, type ProfileId } from "@app/fake-hqp";
+import { FakeHqp, FakeMeter, loadProfile, type FakeOptions, type ProfileId } from "@app/fake-hqp";
 import { buildApp } from "../apps/server/src/app.ts";
 import type { InstanceConfig } from "../apps/server/src/config.ts";
 import type { WatchTiming } from "../apps/server/src/watch.ts";
@@ -38,6 +38,8 @@ interface Flow {
   setup?: (fake: FakeHqp) => void;
   /** Simulated machine speed (1 = real time), e.g. a filter this machine can't keep up with. */
   speed?: FakeOptions["speed"];
+  /** A fake meter stream beside it (the fake's meter.ts); without one, nothing listens there. */
+  meter?: boolean;
 }
 
 // Keyed by instance id; the tests select an instance by id.
@@ -146,6 +148,7 @@ const FLOWS: Record<string, Flow> = {
   v2: { name: "V2", profile: "desktop5-mac-sdm" },
   v2auto: { name: "V2 auto", profile: "desktop5-mac-sdm" },
   v2mini: { name: "V2 mini", profile: "desktop5-mac-sdm" },
+  v2meter: { name: "V2 meter", profile: "desktop5-mac-sdm", meter: true },
   // Settings → Your setup: answers saved on the server, per instance.
   setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };
@@ -171,7 +174,9 @@ export async function startStack() {
     flow.setup?.(fake);
     await fake.listen();
     fakes.set(id, fake);
-    instances.push({ id, name: flow.name, host: "127.0.0.1", port: fake.port });
+    // Port 1: nothing listens, so a flow without a meter can't reach another fake's port.
+    const meterPort = flow.meter ? await new FakeMeter(fake).listen() : 1;
+    instances.push({ id, name: flow.name, host: "127.0.0.1", port: fake.port, meterPort });
   }
   const app = buildApp(
     { instances },

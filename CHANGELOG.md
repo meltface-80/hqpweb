@@ -29,6 +29,10 @@ may change behaviour; upgrade notes say what you need to do.
   hqpweb reads HQPlayer's meter (the control port + 1), smooths its bursts, and streams
   levels and 48 frequency bands to the browser, letting go a few seconds after the last
   viewer leaves. `GET /api/instances/:id/meter` (server-sent events).
+- **The meter, in the new layout.** Under the now card, a live strip marked "Meter" that
+  opens into a square with four views: Bars, Line (with a peak hold), Levels (left and
+  right, peak and loudness) and Waterfall. It says so when HQPlayer offers no meter, or
+  between tracks. The view you pick is remembered on this device.
 
 ### Fixed
 
