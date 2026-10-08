@@ -152,6 +152,7 @@ const FLOWS: Record<string, Flow> = {
   v2filters: { name: "V2 filters", profile: "desktop5-mac-sdm" },
   v2shaper: { name: "V2 modulators", profile: "desktop5-mac-sdm" },
   v2compare: { name: "V2 compare", profile: "desktop5-mac-sdm" },
+  v2guide: { name: "V2 guide", profile: "desktop5-mac-sdm" },
   v2apod: {
     name: "V2 apodization",
     profile: "desktop5-mac-sdm",

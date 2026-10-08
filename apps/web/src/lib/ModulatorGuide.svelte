@@ -26,6 +26,7 @@
     disabled = false,
     onanswer,
     onpick,
+    step,
   }: {
     setup: Setup;
     rateHz: number;
@@ -47,7 +48,10 @@
     disabled?: boolean;
     onanswer: (key: SetupKey, value: string) => Promise<void>;
     onpick: (name: string) => void;
+    /** Show only this step (the v2 layout's guide flow); all of them when absent. */
+    step?: number;
   } = $props();
+  const show = (n: number) => step === undefined || step === n;
 
   const advice = $derived(modulatorAdvice({ setup, rateHz, modulators: names, processSpeed }));
   const pairs = $derived(modulatorPairs({ setup, rates, modulators: names }));
@@ -142,53 +146,54 @@
 {/snippet}
 
 <ol class="steps">
-  <SetupStep
-    n={1}
-    title="Your DAC"
-    question={q.dsd.question}
-    help={q.dsd.help}
-    options={q.dsd.options}
-    current={setup.dsd}
-    summary={`${label("dsd", setup.dsd)}: ${advice.status === "use-pcm" ? "PCM output suits it." : `order ${advice.order}.`}`}
-    onchoose={(v) => onanswer("dsd", v)}
-  >
-    {#snippet after()}
-      {#if advice.status === "use-pcm"}
-        <p class="note">
-          Your DAC converts DSD, so PCM output usually sounds better. Switch to PCM, then choose a dither. To stay in DSD, the
-          choices below still apply.
-        </p>
-        <RuleList rules={[RULES.usePcm]} />
-        <button class="primary" {disabled} onclick={onpcm}>Switch to PCM</button>
-      {/if}
-    {/snippet}
-  </SetupStep>
-  <SetupStep
-    n={2}
-    title="Your amplifier"
-    off={advice.status === "needs-dac"}
-    question={q.amp.question}
-    help={q.amp.help}
-    options={q.amp.options}
-    current={setup.amp}
-    summary={described("amp", setup.amp)}
-    onchoose={(v) => onanswer("amp", v)}
-  />
-  <SetupStep
-    n={3}
-    title="Your volume"
-    off={advice.status === "needs-dac"}
-    question={q.volume.question}
-    help={q.volume.help}
-    options={q.volume.options}
-    current={setup.volume}
-    summary={described("volume", setup.volume)}
-    onchoose={(v) => onanswer("volume", v)}
-  >
-    {#snippet extra()}<RuleList rules={[RULES.gainOpt]} />{/snippet}
-  </SetupStep>
+  {#if show(1)}<SetupStep
+      n={1}
+      title="Your DAC"
+      question={q.dsd.question}
+      help={q.dsd.help}
+      options={q.dsd.options}
+      current={setup.dsd}
+      summary={`${label("dsd", setup.dsd)}: ${advice.status === "use-pcm" ? "PCM output suits it." : `order ${advice.order}.`}`}
+      onchoose={(v) => onanswer("dsd", v)}
+    >
+      {#snippet after()}
+        {#if advice.status === "use-pcm"}
+          <p class="note">
+            Your DAC converts DSD, so PCM output usually sounds better. Switch to PCM, then choose a dither. To stay in DSD, the
+            choices below still apply.
+          </p>
+          <RuleList rules={[RULES.usePcm]} />
+          <button class="primary" {disabled} onclick={onpcm}>Switch to PCM</button>
+        {/if}
+      {/snippet}
+    </SetupStep>{/if}
+  {#if show(2)}<SetupStep
+      n={2}
+      title="Your amplifier"
+      off={advice.status === "needs-dac"}
+      question={q.amp.question}
+      help={q.amp.help}
+      options={q.amp.options}
+      current={setup.amp}
+      summary={described("amp", setup.amp)}
+      onchoose={(v) => onanswer("amp", v)}
+    />{/if}
+  {#if show(3)}<SetupStep
+      n={3}
+      title="Your volume"
+      off={advice.status === "needs-dac"}
+      question={q.volume.question}
+      help={q.volume.help}
+      options={q.volume.options}
+      current={setup.volume}
+      summary={described("volume", setup.volume)}
+      onchoose={(v) => onanswer("volume", v)}
+    >
+      {#snippet extra()}<RuleList rules={[RULES.gainOpt]} />{/snippet}
+    </SetupStep>{/if}
 
-  {#if advice.status === "use-pcm"}
+  {#if !show(4)}<!-- the flow shows where to start as its last step -->
+  {:else if advice.status === "use-pcm"}
     <!-- PCM suits this DAC: the DSD choices stay available, folded away. -->
     <li class="card">
       <details>

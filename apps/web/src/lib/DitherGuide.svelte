@@ -18,6 +18,7 @@
     disabled = false,
     onanswer,
     onpick,
+    step,
   }: {
     setup: Setup;
     rateHz: number;
@@ -29,7 +30,10 @@
     disabled?: boolean;
     onanswer: (key: SetupKey, value: string) => Promise<void>;
     onpick: (name: string) => void;
+    /** Show only this step (the v2 layout's guide flow); all of them when absent. */
+    step?: number;
   } = $props();
+  const show = (n: number) => step === undefined || step === n;
 
   const advice = $derived(ditherAdvice({ setup, rateHz, shapers: names }));
   const q = SETUP_QUESTIONS;
@@ -43,29 +47,30 @@
 </script>
 
 <ol class="steps">
-  <SetupStep
-    n={1}
-    title="Your DAC"
-    question={q.pcm.question}
-    help={q.pcm.help}
-    options={q.pcm.options}
-    current={setup.pcm}
-    summary={label("pcm", setup.pcm)}
-    onchoose={(v) => onanswer("pcm", v)}
-  />
-  <SetupStep
-    n={2}
-    title="The connection"
-    off={advice.status === "needs-dac"}
-    question={q.link.question}
-    help={q.link.help}
-    options={q.link.options}
-    current={setup.link}
-    summary={label("link", setup.link)}
-    onchoose={(v) => onanswer("link", v)}
-  />
+  {#if show(1)}<SetupStep
+      n={1}
+      title="Your DAC"
+      question={q.pcm.question}
+      help={q.pcm.help}
+      options={q.pcm.options}
+      current={setup.pcm}
+      summary={label("pcm", setup.pcm)}
+      onchoose={(v) => onanswer("pcm", v)}
+    />{/if}
+  {#if show(2)}<SetupStep
+      n={2}
+      title="The connection"
+      off={advice.status === "needs-dac"}
+      question={q.link.question}
+      help={q.link.help}
+      options={q.link.options}
+      current={setup.link}
+      summary={label("link", setup.link)}
+      onchoose={(v) => onanswer("link", v)}
+    />{/if}
 
-  {#if advice.status === "needs-rate"}
+  {#if !show(3)}<!-- the flow shows where to start as its last step -->
+  {:else if advice.status === "needs-rate"}
     <li class="card">
       <div class="head">Where to start</div>
       <p>

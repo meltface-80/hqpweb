@@ -16,6 +16,7 @@
   import ShaperChipList from "./ShaperChipList.svelte";
   import ModulatorGuide from "./ModulatorGuide.svelte";
   import GuideIntro from "./GuideIntro.svelte";
+  import { canGoOn, firstOpen, flowSteps } from "./guide-flow.ts";
   import DitherGuide from "./DitherGuide.svelte";
 
   type Item = { name: string; warn?: string; note?: string; gen?: number; disabled?: boolean };
@@ -108,10 +109,26 @@
     withVolumeNotes(withGuideNotes(items, new Set(Object.keys(badges).filter((n) => badges[n]?.kind === "yours"))), answers),
   );
 
+  // The guide as a flow (v2 "Guide me"): its steps one at a time, Back and Next.
+  let flow = $state(false);
+  let step = $state(1);
+  const steps = $derived(flowSteps(isSdm));
+  // "Switch to PCM" from the flow carries on with the dither guide, from its start.
+  let flowMode: boolean | null = null;
+  $effect(() => {
+    if (flow && flowMode !== null && isSdm !== flowMode) step = firstOpen(flowSteps(isSdm), answers);
+    flowMode = isSdm;
+  });
+
   /** The result showing when the sheet opened: only newer ones are repeated here. */
   let resultAtOpen = $state<{ kind: string; text: string } | null>(null);
-  export async function open(opts: { tab?: "list" | "guide" } = {}) {
+  export async function open(opts: { tab?: "list" | "guide"; flow?: boolean } = {}) {
     resultAtOpen = result;
+    flow = !!opts.flow;
+    if (flow) {
+      setTab("guide");
+      step = firstOpen(steps, answers);
+    }
     if (opts.tab) setTab(opts.tab);
     message = "";
     await tick(); // let the tab render before looking for the current row
@@ -171,28 +188,45 @@
   <span class="chev" aria-hidden="true">›</span>
 </button>
 
-<dialog bind:this={dialog} onclick={(e) => e.target === dialog && dialog.close()} aria-label={label}>
+<dialog
+  bind:this={dialog}
+  class:flow
+  onclick={(e) => e.target === dialog && dialog.close()}
+  onclose={() => (flow = false)}
+  aria-label={flow ? "Guide" : label}
+>
   <div class="sheet">
-    <header>
-      <h3>{label}</h3>
-      <button class="close" onclick={() => dialog.close()} aria-label="Close"
-        ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button
-      >
-    </header>
-    <div class="tabs" role="tablist" aria-label="{label} view">
-      <button role="tab" aria-selected={prefs.adviceTab === "list"} onclick={() => setTab("list")}>List</button>
-      <button role="tab" aria-selected={prefs.adviceTab === "guide"} onclick={() => setTab("guide")}
-        >Guide <span class="beta">Beta</span></button
-      >
-    </div>
-    <p class="now">Now using <strong class:mono={v2}>{current || "—"}</strong></p>
+    {#if flow}
+      <header>
+        <button class="exit" onclick={() => dialog.close()}>Exit guide</button>
+        <span class="now">Now {rateText || "—"} · <strong class="mono">{current || "—"}</strong></span>
+      </header>
+      <div class="progress" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={step}>
+        {#each steps as s, i (s.title)}<span class:done={i < step}></span>{/each}
+      </div>
+      <p class="stepname">{label} · {step} of {steps.length}: {steps[step - 1]?.title}</p>
+    {:else}
+      <header>
+        <h3>{label}</h3>
+        <button class="close" onclick={() => dialog.close()} aria-label="Close"
+          ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button
+        >
+      </header>
+      <div class="tabs" role="tablist" aria-label="{label} view">
+        <button role="tab" aria-selected={prefs.adviceTab === "list"} onclick={() => setTab("list")}>List</button>
+        <button role="tab" aria-selected={prefs.adviceTab === "guide"} onclick={() => setTab("guide")}
+          >Guide <span class="beta">Beta</span></button
+        >
+      </div>
+      <p class="now">Now using <strong class:mono={v2}>{current || "—"}</strong></p>
+    {/if}
     {#if result && result !== resultAtOpen}
       <!-- A change made from here: its outcome (a rollback, say) would otherwise sit behind the sheet. -->
       <p class="msg result {result.kind}" role="status">{result.text}</p>
     {/if}
     {#if message}<p class="msg" class:failed role="status">{message}</p>{/if}
     <div class="body">
-      {#if prefs.adviceTab === "guide"}<GuideIntro />{/if}
+      {#if prefs.adviceTab === "guide" && (!flow || step === 1)}<GuideIntro />{/if}
       {#if prefs.adviceTab === "list"}
         {#if v2}
           <ShaperChipList
@@ -222,9 +256,10 @@
           {check}
           {onpickpair}
           onpcm={() => {
-            dialog.close();
+            if (!flow) dialog.close();
             onpcm();
           }}
+          step={flow ? step : undefined}
           {current}
           {disabled}
           onanswer={answer}
@@ -241,12 +276,23 @@
           {disabled}
           onanswer={answer}
           onpick={pick}
+          step={flow ? step : undefined}
         />
       {/if}
       {#if prefs.adviceTab === "list"}
         <p class="foot">Every {isSdm ? "modulator" : "dither"} HQPlayer offers stays in the list.</p>
       {/if}
     </div>
+    {#if flow}
+      <footer class="nav">
+        <button class="back" disabled={step === 1} onclick={() => (step -= 1)}>Back</button>
+        {#if step < steps.length}
+          <button class="next" disabled={!canGoOn(steps, step, answers)} onclick={() => (step += 1)}>Next</button>
+        {:else}
+          <button class="next" onclick={() => dialog.close()}>Done</button>
+        {/if}
+      </footer>
+    {/if}
   </div>
 </dialog>
 
@@ -420,5 +466,70 @@
   .mono {
     font-family: var(--font-mono);
     font-weight: 500;
+  }
+  /* The guide as a flow: full height, Back and Next at the foot (canvas D2). */
+  dialog.flow .sheet {
+    min-height: min(100%, 92vh);
+  }
+  .exit {
+    font: inherit;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .progress {
+    display: flex;
+    gap: 6px;
+    margin: 12px 16px 0;
+  }
+  .progress span {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+  .progress span.done {
+    background: var(--accent);
+  }
+  .stepname {
+    margin: 8px 16px 4px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  .nav {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-elev);
+  }
+  .nav button {
+    font: inherit;
+    font-weight: 600;
+    min-height: 48px;
+    padding: 0 20px;
+    border-radius: 24px;
+    cursor: pointer;
+  }
+  .back {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .next {
+    flex: 1;
+    border: 0;
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .nav button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 </style>

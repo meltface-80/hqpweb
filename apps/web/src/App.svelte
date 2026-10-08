@@ -473,7 +473,7 @@
           {filters}
           {shaping}
           {below}
-          onguide={() => shaperPicker?.open({ tab: "guide" })}
+          onguide={() => shaperPicker?.open({ flow: true })}
           onhistory={() => historySheet?.open()}
           selected={selected!}
           {roonZone}

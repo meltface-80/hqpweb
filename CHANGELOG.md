@@ -7,6 +7,13 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Added
 
+- **Guide me as a flow, in the new layout.** The button on the signal card opens the guide
+  full height, one question at a time: your DAC, amplifier and volume, then where to start
+  (in PCM: your DAC, the connection, then where to start), with Back and Next. Next waits
+  for an answer; opened again, it starts at the first question left. "Switch to PCM" from
+  the guide carries on with the dither guide. Its questions, wording and advice are the
+  guide's own, unchanged.
+
 - **Compare, in the new layout.** A button below the signal card opens two full settings
   cards side by side: A as it was playing, B to choose (mode, filters, modulator or dither,
   rate), and a preset can be loaded into either. The big A and B buttons switch what
