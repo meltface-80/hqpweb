@@ -42,6 +42,15 @@ test("v2: the signal card, the other mode as last seen, switching mode, and Hist
   await expect(card).toContainText("AHM7EC8B");
   await shot(page, "v2-2-dsd-last-seen");
 
+  // Back to DSD: its last rate was auto (the highest in DSD), so the sheet asks for one.
+  await card.getByRole("button", { name: "Switch to DSD" }).click();
+  const back = page.getByRole("dialog", { name: "Switch to DSD" });
+  await expect(back).toContainText("At which rate");
+  await back.getByRole("button", { name: "DSD256" }).click();
+  await back.getByRole("button", { name: "Switch", exact: true }).click();
+  await expect(card.getByRole("tab", { name: /DSD.*in use/ })).toBeVisible();
+  await expect(card.getByRole("button", { name: /^Rate/ })).toContainText("DSD256");
+
   // History has the switch.
   await page.getByRole("button", { name: "History" }).click();
   const history = page.getByRole("dialog", { name: "History" });

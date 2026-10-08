@@ -360,7 +360,20 @@ export class Instance {
   }
 
   applyChange(change: Change): Promise<ApplyResult> {
-    return this.logged("hqpweb", () => this.engine.apply(change, false));
+    return this.logged("hqpweb", () => this.engine.apply(this.withModeRate(change), false));
+  }
+
+  /**
+   * A mode switch brings back that mode's filters and shaping, but resets the rate to
+   * auto, which in DSD is the highest rate (measured 2026-10-08, Desktop 5.35.10). A
+   * modulator that kept up at DSD256 then fell behind at DSD1024 and was rolled back on
+   * every attempt: no way back into DSD. So a switch that names no rate takes the mode's
+   * last-seen fixed rate for the DAC in use (history.ts), set while still paused.
+   */
+  private withModeRate(change: Change): Change {
+    if (change.mode === undefined || change.rate !== undefined) return change;
+    const rate = this.history.lastSeen(this.scope())[change.mode]?.rate;
+    return rate ? { ...change, rate } : change;
   }
 
   /**
@@ -369,7 +382,7 @@ export class Instance {
    * raise past the guard) are skipped and reported instead of failing it all.
    */
   applyPreset(settings: Change): Promise<ApplyResult> {
-    return this.logged("preset", () => this.engine.apply(settings, false, true));
+    return this.logged("preset", () => this.engine.apply(this.withModeRate(settings), false, true));
   }
 
   undo(): Promise<ApplyResult> {

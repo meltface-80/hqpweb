@@ -10,6 +10,7 @@
   import { prefs } from "./prefs.svelte.ts";
   import { notStartedMessage, type ResultMessage } from "./result.ts";
   import type { SpeedClass } from "./speed.ts";
+  import { rateInMode } from "./signal.ts";
 
   let {
     selected,
@@ -58,6 +59,8 @@
   // apodizing filter, which corrects them without stopping the count (5.17.2, Linux).
   // Clips: inferred from the name; never seen above 0.
   const CLIPS_TITLE = "HQPlayer's clip counter (likely samples it had to clip). Lowering the volume gives it headroom.";
+  /** Not a stale reading from the other mode (after a switch while paused: signal.ts rateInMode). */
+  const liveRate = $derived(rateInMode(snap.status.activeRate, snap.status.activeMode));
   const apod = $derived(snap.status.apod ?? 0);
   const clips = $derived(snap.status.clips ?? 0);
   const apodState = $derived(apodization(apod, inUseApodizing));
@@ -224,7 +227,7 @@
     </p>
   {/if}
   <div class="headline">
-    <span class="big">{formatRate(snap.status.activeRate, snap.status.activeMode)}</span>
+    <span class="big">{liveRate ? formatRate(liveRate, snap.status.activeMode) : "—"}</span>
     <span class="sub">
       <span class="mode">{snap.status.activeMode}</span>
       <span class="state s{snap.status.state}">{PLAYBACK[snap.status.state]}</span>

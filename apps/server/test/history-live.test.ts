@@ -107,3 +107,31 @@ describe("settings last seen in each mode", () => {
     expect(Object.keys((await caps()).lastSeen)).not.toContain("SDM (DSD)");
   });
 });
+
+// Measured 2026-10-08 (Desktop 5.35.10, macOS): a mode switch brings back that mode's
+// filters and shaping but resets the rate to auto, which in DSD is the highest rate. A
+// modulator that kept up at DSD256 then fell behind at DSD1024 and was rolled back, every
+// time: no way back into DSD. The mode's last-seen rate goes with the switch.
+describe("switching back to a mode", () => {
+  it("puts back the rate last used there, not auto", async () => {
+    await setup();
+    fake.playback = 0; // stopped: no pause step needed
+    await watch();
+    await req("POST", "/api/instances/mac/change", { body: { shaper: "ASDM7EC", rate: 11_289_600 } });
+    await until(caps, (c) => c.lastSeen["SDM (DSD)"]?.rate === 11_289_600);
+    await req("POST", "/api/instances/mac/change", { body: { mode: "PCM" } });
+    const back = (await req("POST", "/api/instances/mac/change", { body: { mode: "SDM (DSD)" } })).json();
+    expect(back.results.map((r: { field: string; actual: unknown }) => [r.field, r.actual])).toEqual([
+      ["mode", "SDM (DSD)"],
+      ["rate", 11_289_600],
+    ]);
+    expect(fake.activeRateHz).toBe(11_289_600);
+  });
+
+  it("leaves the rate alone when the change names one, or the mode was never seen", async () => {
+    await setup();
+    fake.playback = 0;
+    const r = (await req("POST", "/api/instances/mac/change", { body: { mode: "PCM" } })).json();
+    expect(r.results.map((x: { field: string }) => x.field)).toEqual(["mode"]);
+  });
+});

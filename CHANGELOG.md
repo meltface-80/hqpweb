@@ -30,6 +30,14 @@ may change behaviour; upgrade notes say what you need to do.
   holds the connection while it switches, so the status reply was slow, and hqpweb took
   that for HQPlayer being slow and backed off its polling (about 6 s). It now ignores slow
   replies that waited behind its own changes.
+- **Switching back to DSD no longer lands on its highest rate.** HQPlayer brings back a
+  mode's filters and modulator when you switch, but resets the rate to auto, which in DSD
+  is the highest rate. A modulator that kept up at DSD256 then fell behind at DSD1024 and
+  was rolled back every time, with no way back into DSD. hqpweb now puts back the rate you
+  last used in that mode; if it has none for DSD, the new layout's switch sheet asks.
+- **No more stale rate after a switch while paused.** HQPlayer keeps reporting the old
+  mode's last rate until playback starts (768 kHz shown under DSD). A rate that doesn't
+  belong to the mode in use is now shown as unknown until a real one arrives.
 
 ## 0.1.0-beta.4 — named DACs, and a safer mode switch
 

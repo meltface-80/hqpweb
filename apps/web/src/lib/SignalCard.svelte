@@ -8,7 +8,7 @@
   import { formatRate, type Capabilities, type Change, type Snapshot } from "./api.ts";
   import type { rateItems as rateItemsOf } from "./hints.ts";
   import { pickRate } from "./rate-pick.ts";
-  import { autoNote, healthWord, otherMode, pathSteps, seenWhen } from "./signal.ts";
+  import { autoNote, DSD_CHOICES, healthWord, otherMode, pathSteps, rateInMode, seenWhen, switchPlan } from "./signal.ts";
   import type { SpeedClass } from "./speed.ts";
 
   /** How playback carries on after a mode switch (change-engine.ts, pauseForModeSwitch). */
@@ -52,13 +52,17 @@
   } = $props();
 
   const sdm = $derived(caps.mode.name.startsWith("SDM"));
+  /** The rate in use, unless it's a stale reading from the other mode (signal.ts rateInMode). */
+  const out = $derived(rateInMode(outRate, caps.mode.name));
   const shaper = $derived(caps.shapers.find((s) => s.index === snap.state.shaper)?.name ?? "");
-  const steps = $derived(pathSteps({ source, filter: inUseFilter, shaper, outRate, modeName: caps.mode.name, dac: dacName }));
+  const steps = $derived(
+    pathSteps({ source, filter: inUseFilter, shaper, outRate: out, modeName: caps.mode.name, dac: dacName }),
+  );
   const auto = $derived(
     autoNote({
       sdm,
       auto: snap.state.rate === 0,
-      outRate,
+      outRate: out,
       filter: inUseFilter,
       source,
       shaper,
@@ -87,9 +91,12 @@
 
   let sheet: HTMLDialogElement;
   const playing = $derived(snap.status.state === 2);
+  const plan = $derived(switchPlan(other.label, seen?.rate));
+  let chosen = $state<number>(DSD_CHOICES[0]!);
+  /** The server puts back the last rate itself; a chosen one is sent with the switch. */
   function switchMode() {
     sheet.close();
-    if (other.name) void apply({ mode: other.name });
+    if (other.name) void apply(plan.ask ? { mode: other.name, rate: chosen } : { mode: other.name });
   }
 </script>
 
@@ -178,7 +185,22 @@
   <ol>
     {#if playing && resume === "roon-linked"}<li>Roon pauses the music.</li>
     {:else if playing}<li>HQPlayer pauses.</li>{/if}
-    <li>HQPlayer switches to {other.label}. About 5 seconds.</li>
+    <li>
+      HQPlayer switches to {other.label}{#if plan.rate}, at {formatRate(plan.rate, other.name ?? "")} as last time{/if}. About 5
+      seconds.
+    </li>
+    {#if plan.ask}
+      <li>
+        At which rate? Left on auto, DSD would use its highest rate, which many modulators can't keep up with.
+        <span class="fixed">
+          {#each DSD_CHOICES as r (r)}
+            <button class="chip" class:picked={chosen === r} aria-pressed={chosen === r} onclick={() => (chosen = r)}
+              >{formatRate(r, "SDM (DSD)")}</button
+            >
+          {/each}
+        </span>
+      </li>
+    {/if}
     <li>{other.label}'s own settings come back. Change them after if you like.</li>
     {#if playing && resume === "roon-linked"}<li>Roon carries on from the same spot.</li>
     {:else if playing && resume === "roon"}<li>
@@ -283,6 +305,11 @@
     display: flex;
     gap: 8px;
     margin-top: 8px;
+  }
+  .chip.picked {
+    background: var(--accent);
+    color: var(--on-accent);
+    border-color: var(--accent);
   }
   .chip {
     font: inherit;
