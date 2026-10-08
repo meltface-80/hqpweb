@@ -1,7 +1,16 @@
 // HQPlayer's meter stream (control port + 1): the frame layout decoded on 2026-10-08 from
 // Desktop 5.35.10 (Linux, PCM) and 5.x (macOS, DSD), matching the MIT SDK's clMeterInterface.
 import { describe, expect, it } from "vitest";
-import { bandEdges, condense, encodeMeterFrame, frameSize, NO_LEVEL, parseMeterFrame, type MeterFrame } from "../src/meter.ts";
+import {
+  bandEdges,
+  condense,
+  edgeHz,
+  encodeMeterFrame,
+  frameSize,
+  NO_LEVEL,
+  parseMeterFrame,
+  type MeterFrame,
+} from "../src/meter.ts";
 
 /** The header as measured on both machines: 2 ch, 1025 bins, 16 bits, 22050 Hz, 23.2 ms, gain 2. */
 function frame(o: { re?: (i: number) => number; levels?: [number, number, number, number] } = {}): MeterFrame {
@@ -34,13 +43,26 @@ describe("meter frames", () => {
 });
 
 describe("condensing a frame for the browser", () => {
-  const edges = bandEdges(1025, 22050, 48);
+  const edges = bandEdges(1025, 22050);
 
-  it("spaces 48 bands logarithmically from 20 Hz to the bandwidth", () => {
-    expect(edges).toHaveLength(49);
-    expect(edges[0]).toBe(1); // ~21.5 Hz per bin: 20 Hz is bin 1
-    expect(edges[48]).toBe(1024);
-    for (let i = 1; i < edges.length; i++) expect(edges[i]!).toBeGreaterThanOrEqual(edges[i - 1]!);
+  it("spaces bands logarithmically from 20 Hz to the bandwidth, each with bins of its own", () => {
+    // ~21.5 Hz per bin: below a few hundred Hz, log bands are narrower than a bin. Before,
+    // several bands shared one bin and moved together in groups (seen on the owner's test build, 2026-10-08).
+    expect(edges[0]).toBe(1);
+    expect(edges[edges.length - 1]).toBe(1024);
+    for (let i = 1; i < edges.length; i++) expect(edges[i]!).toBeGreaterThan(edges[i - 1]!);
+    expect(edges.length - 1).toBe(40);
+  });
+
+  it("never gives two bands the same bins: a different value in every bin, a different value in every band", () => {
+    const c = condense(frame({ re: (i) => 0.001 * (i + 1) }), edges);
+    expect(new Set(c.bands[0]).size).toBe(c.bands[0]!.length);
+  });
+
+  it("gives each band's frequency span, for drawing low bands wider", () => {
+    const hz = edgeHz(edges, 1025, 22050);
+    expect(hz[0]).toBeCloseTo(21.5, 0);
+    expect(hz[hz.length - 1]).toBeCloseTo(22050, 0);
   });
 
   it("puts a 1 kHz tone in the band that holds 1 kHz, loudest there", () => {

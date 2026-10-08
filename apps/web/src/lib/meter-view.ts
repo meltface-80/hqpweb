@@ -45,3 +45,15 @@ export function meterNote(e: { live: boolean; connected: boolean }, playing: boo
   if (!e.connected) return "No meter from this HQPlayer";
   return playing ? "Quiet" : "Not playing";
 }
+
+/**
+ * Where each band sits across a width, by its real frequency span on a log scale
+ * (edges in Hz, one more than bands). Low bands cover a bin each, so they come out wider
+ * than they would as equal slots: drawn as they are, not duplicated (seen on the owner's test build).
+ */
+export function bandBoxes(edgesHz: number[], width: number): { x: number; w: number }[] {
+  const lo = Math.log(edgesHz[0]!);
+  const span = Math.log(edgesHz[edgesHz.length - 1]!) - lo;
+  const at = (hz: number) => ((Math.log(hz) - lo) / span) * width;
+  return edgesHz.slice(0, -1).map((hz, i) => ({ x: at(hz), w: at(edgesHz[i + 1]!) - at(hz) }));
+}

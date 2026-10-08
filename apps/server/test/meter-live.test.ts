@@ -48,12 +48,13 @@ async function watchMeter(ok: (e: MeterEvent) => boolean, ms = 3000) {
 }
 
 describe("the meter stream", () => {
-  it("connects only while watched, and sends 48 bands per channel and the levels", async () => {
+  it("connects only while watched, and sends 40 real bands per channel, their edges and the levels", async () => {
     await setup();
     expect(meter!.connections).toBe(0);
     const w = await watchMeter((e) => e.live);
     expect(meter!.connections).toBe(1);
-    expect(w.hit!.bands!.map((b) => b.length)).toEqual([48, 48]);
+    expect(w.hit!.bands!.map((b) => b.length)).toEqual([40, 40]);
+    expect(w.hit!.edgesHz).toHaveLength(41);
     expect(w.hit!.levels![0]![1]).toBeCloseTo(-22, 0); // peak follows the fake's volume
     w.close();
   });

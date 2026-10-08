@@ -124,7 +124,7 @@ describe("switching mode: what the rate will be", () => {
   });
 });
 
-// Seen on hqp-dev (2026-10-08): switched to DSD while paused, HQPlayer still reported
+// Seen on the owner's test build (2026-10-08): switched to DSD while paused, HQPlayer still reported
 // PCM's last rate (768k) until playback started, and the card showed it as DSD's.
 describe("a rate only counts in its own mode", () => {
   it("drops a PCM rate reported while in DSD, and a DSD rate while in PCM", () => {

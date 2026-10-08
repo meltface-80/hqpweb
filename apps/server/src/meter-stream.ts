@@ -5,7 +5,7 @@
 // Read-only: the port takes no commands. Measured cost to HQPlayer: none (2026-10-08, PCM
 // 384k on Linux; DSD256 and DSD1024 on macOS, alternating runs).
 import { createConnection, type Socket } from "node:net";
-import { bandEdges, condense, frameSize, parseMeterFrame, type MeterFrame } from "@app/protocol";
+import { bandEdges, condense, edgeHz, frameSize, parseMeterFrame, type MeterFrame } from "@app/protocol";
 import { MeterPacer } from "./meter-pace.ts";
 
 export interface MeterEvent {
@@ -15,8 +15,10 @@ export interface MeterEvent {
   connected: boolean;
   /** Per channel: peakMax, peak, rms, rmsMax (dB). */
   levels?: number[][];
-  /** Per channel: 48 log-spaced bands from 20 Hz, dB. */
+  /** Per channel: log-spaced bands from 20 Hz (40 at 1025 bins), dB. */
   bands?: number[][];
+  /** The bands' edges in Hz (one more than bands), so low bands are drawn as wide as they are. */
+  edgesHz?: number[];
 }
 
 export interface MeterTiming {
@@ -35,7 +37,7 @@ export class MeterStream {
   private connected = false;
   private buf: Buffer = Buffer.alloc(0);
   private pacer = new MeterPacer<MeterFrame>();
-  private edges: { key: string; edges: number[] } | null = null;
+  private edges: { key: string; edges: number[]; hz: number[] } | null = null;
   private tick: NodeJS.Timeout | null = null;
   private linger: NodeJS.Timeout | null = null;
   private retry: NodeJS.Timeout | null = null;
@@ -95,8 +97,11 @@ export class MeterStream {
     const e: MeterEvent = { live, connected: this.connected };
     if (live && frame) {
       const key = `${frame.length}|${frame.bandwidth}`;
-      if (this.edges?.key !== key) this.edges = { key, edges: bandEdges(frame.length, frame.bandwidth) };
-      Object.assign(e, condense(frame, this.edges.edges));
+      if (this.edges?.key !== key) {
+        const edges = bandEdges(frame.length, frame.bandwidth);
+        this.edges = { key, edges, hz: edgeHz(edges, frame.length, frame.bandwidth).map((x) => Math.round(x)) };
+      }
+      Object.assign(e, condense(frame, this.edges.edges), { edgesHz: this.edges.hz });
     }
     for (const l of this.listeners) {
       try {

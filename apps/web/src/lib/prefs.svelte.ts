@@ -26,6 +26,7 @@ export interface Prefs {
   layout: "current" | "v2";
   /** The v2 meter: open as a square, and which view. */
   meterOpen: boolean;
+  /** "levels" was a view before it moved to the strip; MeterStrip opens Bars for it. */
   meterView: "bars" | "line" | "levels" | "waterfall";
 }
 

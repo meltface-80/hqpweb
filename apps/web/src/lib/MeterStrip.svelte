@@ -3,7 +3,9 @@
   // opens, and the open square with its views. Data from the server's meter stream (paced,
   // condensed: meter-stream.ts); drawing rules in meter-view.ts. It only connects while shown.
   import { api, type MeterEvent } from "./api.ts";
-  import { heat, meterNote, mono, norm, PeakHold } from "./meter-view.ts";
+  import { bandBoxes, heat, meterNote, mono, norm, PeakHold } from "./meter-view.ts";
+
+  type Box = { x: number; w: number };
   import { prefs, savePrefs } from "./prefs.svelte.ts";
 
   let { instanceId, playing }: { instanceId: string; playing: boolean } = $props();
@@ -11,13 +13,15 @@
   const VIEWS = [
     { id: "bars", label: "Bars" },
     { id: "line", label: "Line" },
-    { id: "levels", label: "Levels" },
     { id: "waterfall", label: "Waterfall" },
   ] as const;
 
   let latest = $state<MeterEvent>({ live: false, connected: true });
   let open = $state(prefs.meterOpen);
-  let view = $state(prefs.meterView);
+  // Levels moved to the strip (owner's feedback, 2026-10-08): an old stored choice of it opens Bars.
+  type View = (typeof VIEWS)[number]["id"];
+  const stored = VIEWS.find((v) => v.id === prefs.meterView)?.id;
+  let view = $state<View>(stored ?? "bars");
   let mini: HTMLCanvasElement | undefined = $state();
   let big: HTMLCanvasElement | undefined = $state();
   const hold = new PeakHold();
@@ -58,22 +62,22 @@
     g.setTransform(d, 0, 0, d, 0, 0);
     return { g, w: r.width, h: r.height };
   }
-  function bars(c: HTMLCanvasElement, bands: number[], color: string) {
+  function bars(c: HTMLCanvasElement, bands: number[], boxes: Box[]) {
     const { g, w, h } = fit(c);
     g.clearRect(0, 0, w, h);
-    g.fillStyle = color;
-    const bw = w / bands.length;
+    g.fillStyle = css("--accent");
     bands.forEach((db, i) => {
+      const b = boxes[i]!;
       const y = norm(db) * h;
-      g.fillRect(i * bw + 1, h - y, Math.max(1, bw - 2), y);
+      g.fillRect(b.x * w + 1, h - y, Math.max(1, b.w * w - 2), y);
     });
   }
-  function line(c: HTMLCanvasElement, bands: number[], peaks: number[]) {
+  function line(c: HTMLCanvasElement, bands: number[], peaks: number[], boxes: Box[]) {
     const { g, w, h } = fit(c);
     g.clearRect(0, 0, w, h);
     const path = (vals: number[]) => {
       g.beginPath();
-      vals.forEach((db, i) => g[i ? "lineTo" : "moveTo"]((i / (vals.length - 1)) * w, h - norm(db) * h));
+      vals.forEach((db, i) => g[i ? "lineTo" : "moveTo"]((boxes[i]!.x + boxes[i]!.w / 2) * w, h - norm(db) * h));
       g.stroke();
     };
     g.lineWidth = 1.5;
@@ -85,12 +89,13 @@
     g.strokeStyle = css("--accent");
     path(bands);
   }
+  /** The strip: left and right, loudness (solid), peak (light) and the highest recent peak (tick). */
   function levels(c: HTMLCanvasElement, lv: number[][]) {
     const { g, w, h } = fit(c);
     g.clearRect(0, 0, w, h);
-    const rowH = Math.min(36, (h - 30) / lv.length - 20);
-    lv.forEach(([pkMax = -120, pk = -120, rms = -120], ch) => {
-      const y = 20 + ch * (rowH + 30);
+    const rowH = (h - 4) / 2;
+    lv.slice(0, 2).forEach(([pkMax = -120, pk = -120, rms = -120], ch) => {
+      const y = ch * (rowH + 4);
       g.fillStyle = css("--border");
       g.fillRect(0, y, w, rowH);
       g.fillStyle = css("--accent-soft");
@@ -98,17 +103,16 @@
       g.fillStyle = css("--accent");
       g.fillRect(0, y, norm(rms) * w, rowH);
       g.fillStyle = css("--warn");
-      g.fillRect(norm(pkMax) * w - 1, y - 3, 3, rowH + 6);
+      g.fillRect(norm(pkMax) * w - 1, y, 2, rowH);
     });
   }
-  function waterfall(c: HTMLCanvasElement, bands: number[]) {
+  function waterfall(c: HTMLCanvasElement, bands: number[], boxes: Box[]) {
     const { g, w, h } = fit(c);
     const d = devicePixelRatio || 1;
     g.drawImage(c, 0, 0, c.width, c.height - 3 * d, 0, 3, w, h - 3); // scroll down 3 px
-    const bw = w / bands.length;
     bands.forEach((db, i) => {
       g.fillStyle = heat(db);
-      g.fillRect(i * bw, 0, bw + 1, 3);
+      g.fillRect(boxes[i]!.x * w, 0, boxes[i]!.w * w + 1, 3);
     });
   }
 
@@ -123,12 +127,7 @@
       if (!e.live || !e.bands || !e.levels) return;
       const m = mono(e.bands);
       hold.update(m, performance.now());
-      if (mini)
-        bars(
-          mini,
-          m.filter((_, i) => i % 2 === 0),
-          css("--accent"),
-        );
+      if (mini) levels(mini, e.levels);
       if (!big || !open) return;
       // A new view starts clean: the waterfall scrolls whatever is on the canvas.
       if (drawn !== view) {
@@ -136,10 +135,11 @@
         g.clearRect(0, 0, w, h);
         drawn = view;
       }
-      if (view === "bars") bars(big, m, css("--accent"));
-      else if (view === "line") line(big, m, hold.values);
-      else if (view === "levels") levels(big, e.levels);
-      else waterfall(big, m);
+      // Bands placed by their real frequency span (the server sends the edges in Hz).
+      const boxes = bandBoxes(e.edgesHz ?? m.map((_, i) => 20 * 1000 ** (i / m.length)).concat(20_000), 1);
+      if (view === "bars") bars(big, m, boxes);
+      else if (view === "line") line(big, m, hold.values, boxes);
+      else waterfall(big, m, boxes);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
@@ -152,7 +152,8 @@
 
 <section class="meter" aria-label="Meter">
   <button class="strip" aria-expanded={open} aria-label={open ? "Close the meter" : "Open the meter"} onclick={toggle}>
-    {#if note}<span class="note">{note}</span>{:else}<canvas bind:this={mini} class="mini" aria-hidden="true"></canvas>{/if}
+    {#if note}<span class="note">{note}</span>{:else}<canvas bind:this={mini} class="mini" aria-hidden="true"></canvas>
+      <span class="peak" title="Peak, left and right">{peaks.join(" · ")}</span>{/if}
     <span class="label"
       >Meter <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
         >{#if open}<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />{:else}<path
@@ -172,9 +173,7 @@
     {:else}
       <canvas bind:this={big} class="big" aria-hidden="true"></canvas>
       <p class="sr">Peak levels: {peaks.join(", ") || "none yet"}</p>
-      <p class="scale">
-        {#if view === "levels"}L peak {peaks[0] ?? "—"} · R peak {peaks[1] ?? "—"}{:else}20 Hz · 200 · 2k · 20 kHz{/if}
-      </p>
+      <p class="scale">20 Hz · 200 · 2k · 20 kHz · the music as HQPlayer receives it, before upsampling</p>
     {/if}
   {/if}
 </section>
@@ -210,6 +209,12 @@
     text-align: left;
     font-size: 0.85rem;
     color: var(--text-dim);
+  }
+  .peak {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
   }
   .label {
     display: flex;

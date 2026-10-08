@@ -92,20 +92,34 @@ test("v2: the mini bar takes over when the now card scrolls away", async ({ page
   await expect(mini).toHaveCount(0);
 });
 
-test("v2: the meter opens to a square, and its views switch", async ({ page }) => {
+test("v2: the strip shows levels; it opens to a square of spectrum views", async ({ page }) => {
   await openV2(page, "v2meter");
   const meter = page.getByRole("region", { name: "Meter" });
   const open = meter.getByRole("button", { name: "Open the meter" });
-  await expect(open).toBeVisible();
   await expect(meter.locator("canvas.mini")).toBeVisible(); // live: it draws instead of a note
+  await expect(open).toContainText("-22.0 dB"); // the peak, from the fake's volume
   await open.click();
   await expect(meter.locator("canvas.big")).toBeVisible();
-  await meter.getByRole("button", { name: "Levels" }).click();
-  await expect(meter).toContainText("L peak -22.0 dB");
+  await expect(meter.getByRole("button", { name: "Levels" })).toHaveCount(0); // Levels lives in the strip
+  await meter
+    .locator("canvas.big")
+    .screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-bars.png", import.meta.url)) });
   await meter.getByRole("button", { name: "Waterfall" }).click();
   await shot(page, "v2-5-meter");
   await meter.getByRole("button", { name: "Close the meter" }).click();
   await expect(meter.locator("canvas.big")).toHaveCount(0);
+});
+
+test("v2: a meter view stored as Levels (from before) opens as Bars", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("instance", "v2meter");
+    localStorage.setItem("prefs-v1", JSON.stringify({ layout: "v2", meterOpen: true, meterView: "levels" }));
+  });
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: "Meter" }).getByRole("button", { name: "Bars" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });
 
 test("v2: without a meter, the strip says so", async ({ page }) => {

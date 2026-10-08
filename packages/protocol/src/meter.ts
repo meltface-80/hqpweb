@@ -83,19 +83,27 @@ export function encodeMeterFrame(f: MeterFrame): Buffer {
   return buf;
 }
 
-/** Bin indices bounding `count` log-spaced bands from 20 Hz to the bandwidth. */
+/**
+ * Bin indices bounding log-spaced bands from 20 Hz to the bandwidth: aiming for `count`,
+ * but each band gets bins of its own. A bin is ~21.5 Hz wide (1025 bins over 22050 Hz), so
+ * below a few hundred Hz log bands are narrower than a bin; those merge (48 aimed → 40 real).
+ * Before, they shared a bin and moved together in groups (seen on the owner's test build, 2026-10-08).
+ */
 export function bandEdges(length: number, bandwidth: number, count = 48, low = 20): number[] {
   const binHz = bandwidth / (length - 1);
-  return Array.from({ length: count + 1 }, (_, i) => {
-    const hz = low * (bandwidth / low) ** (i / count);
-    return Math.min(length - 1, Math.max(1, Math.round(hz / binHz)));
-  });
+  const edges = Array.from({ length: count + 1 }, (_, i) =>
+    Math.min(length - 1, Math.max(1, Math.round((low * (bandwidth / low) ** (i / count)) / binHz))),
+  );
+  return edges.filter((e, i) => i === 0 || e > edges[i - 1]!);
 }
+
+/** Each edge's frequency (Hz), so the low bands can be drawn as wide as they really are. */
+export const edgeHz = (edges: number[], length: number, bandwidth: number) => edges.map((e) => (e * bandwidth) / (length - 1));
 
 const db = (x: number) => (x > 0 ? Math.max(NO_LEVEL, 20 * Math.log10(x)) : NO_LEVEL);
 const r1 = (x: number) => Math.round(x * 10) / 10;
 
-/** Per channel: the four levels and the loudest bin in each band, in dB. */
+/** Per channel: the four levels and the loudest bin in each band (bands from bandEdges), in dB. */
 export function condense(f: MeterFrame, edges: number[]): { levels: number[][]; bands: number[][] } {
   return {
     levels: f.chans.map((c) => c.levels.map((v) => (v < -300 ? NO_LEVEL : r1(v)))),
@@ -103,7 +111,7 @@ export function condense(f: MeterFrame, edges: number[]): { levels: number[][]; 
       const out: number[] = [];
       for (let b = 0; b + 1 < edges.length; b++) {
         let m = 0;
-        for (let i = edges[b]!; i < Math.max(edges[b + 1]!, edges[b]! + 1); i++) m = Math.max(m, Math.hypot(c.re[i]!, c.im[i]!));
+        for (let i = edges[b]!; i < edges[b + 1]!; i++) m = Math.max(m, Math.hypot(c.re[i]!, c.im[i]!));
         out.push(r1(db(m * f.gain)));
       }
       return out;

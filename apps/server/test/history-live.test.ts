@@ -67,7 +67,7 @@ describe("history", () => {
     expect(undo).toMatchObject({ source: "undo", changes: [{ field: "shaper", from: "ASDM7EC", to: "AHM7EC8B" }] });
   });
 
-  it("leaves volume out: a volume tap alone isn't history (seen filling it on hqp-dev)", async () => {
+  it("leaves volume out: a volume tap alone isn't history (seen filling it on the owner's test build)", async () => {
     await setup();
     await req("POST", "/api/instances/mac/change", { body: { volume: -23 } });
     await req("POST", "/api/instances/mac/change", { body: { volume: -24, shaper: "ASDM7EC" } });

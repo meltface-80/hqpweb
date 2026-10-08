@@ -32,7 +32,11 @@ may change behaviour; upgrade notes say what you need to do.
 - **The meter, in the new layout.** Under the now card, a live strip marked "Meter" that
   opens into a square with four views: Bars, Line (with a peak hold), Levels (left and
   right, peak and loudness) and Waterfall. It says so when HQPlayer offers no meter, or
-  between tracks. The view you pick is remembered on this device.
+  between tracks. The view you pick is remembered on this device. The strip shows left and
+  right levels with the peak; the square shows the spectrum (Bars, Line, Waterfall). The
+  meter shows the music as HQPlayer receives it, before upsampling. Low bands are drawn
+  as wide as they really are (at the bottom, one band per ~21.5 Hz bin) instead of
+  repeating one value across several bars.
 
 ### Fixed
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { heat, meterNote, mono, norm, PeakHold } from "./meter-view.ts";
+import { bandBoxes, heat, meterNote, mono, norm, PeakHold } from "./meter-view.ts";
 
 describe("meter drawing rules", () => {
   it("scales -100..0 dB to 0..1, clamped", () => {
@@ -37,5 +37,17 @@ describe("meter drawing rules", () => {
     expect(meterNote({ live: false, connected: true }, true)).toBe("Quiet");
     expect(meterNote({ live: false, connected: true }, false)).toBe("Not playing");
     expect(meterNote({ live: true, connected: true }, true)).toBe("");
+  });
+});
+
+describe("placing bands by frequency", () => {
+  it("fills the width in order, the lowest band wider than a top one (it spans a whole bin)", () => {
+    const edges = [21.5, 43, 64.6, 86.1, 10000, 20000, 22050];
+    const boxes = bandBoxes(edges, 600);
+    expect(boxes[0]!.x).toBe(0);
+    const last = boxes[boxes.length - 1]!;
+    expect(last.x + last.w).toBeCloseTo(600, 6);
+    for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.x).toBeCloseTo(boxes[i - 1]!.x + boxes[i - 1]!.w, 6);
+    expect(boxes[0]!.w).toBeGreaterThan(last.w);
   });
 });
