@@ -266,7 +266,9 @@ export const api = {
   undo: (id: string) => call<ApplyResult>(`/api/instances/${id}/undo`, { method: "POST" }),
   dismissVolumeJump: (id: string) => call<{ ok: boolean }>(`/api/instances/${id}/dismissjump`, { method: "POST" }),
   presets: (id: string) => call<PresetView[]>(`/api/instances/${id}/presets`),
-  savePreset: (body: { name: string; fromInstance: string; includeVolume: boolean; scope?: string }) =>
+  savePreset: (
+    body: { name: string; scope?: string } & ({ fromInstance: string; includeVolume: boolean } | { settings: Change }),
+  ) =>
     call<Preset>("/api/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
   renamePreset: (pid: string, name: string) =>
     call<Preset>(`/api/presets/${pid}`, {

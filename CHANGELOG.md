@@ -7,6 +7,14 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Added
 
+- **Compare, in the new layout.** A button below the signal card opens two full settings
+  cards side by side: A as it was playing, B to choose (mode, filters, modulator or dither,
+  rate), and a preset can be loaded into either. The big A and B buttons switch what
+  plays; which one you're hearing is read back from HQPlayer, not assumed. It says what a
+  switch costs (a pause across modes, a gap across rates) and that levels aren't matched
+  between DSD and PCM. Keep A, Keep B, or save B as a preset. A mode hqpweb hasn't seen on
+  this HQPlayer yet offers its last-seen settings only, and says so.
+
 - **hqpweb remembers each mode's lists.** HQPlayer only lists the filters, modulators or
   dithers and rates of the mode in use. hqpweb now keeps each mode's lists, by name, as it
   last read them on that HQPlayer and engine, so the other mode's choices can be offered

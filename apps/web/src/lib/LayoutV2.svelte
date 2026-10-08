@@ -7,6 +7,7 @@
   import SignalCard, { type Resume } from "./SignalCard.svelte";
   import MiniBar from "./MiniBar.svelte";
   import MeterStrip from "./MeterStrip.svelte";
+  import CompareSheet from "./CompareSheet.svelte";
   import { healthWord } from "./signal.ts";
   import { knownBad, type Capabilities, type Change, type RoonZone, type Snapshot, type Status } from "./api.ts";
   import type { ResultMessage } from "./result.ts";
@@ -60,6 +61,8 @@
     onstatus: (status: Status) => void;
     onmessage: (m: ResultMessage) => void;
   } = $props();
+
+  let compare = $state<CompareSheet>();
 
   // The mini bar: on a narrow screen, once the now card has scrolled out of view.
   let nowEl: HTMLElement;
@@ -116,7 +119,11 @@
       {shaping}
       {onguide}
     />
-    <div class="actions"><button class="action" onclick={onhistory}>History</button></div>
+    <div class="actions">
+      <button class="action" onclick={() => compare?.open()}>Compare</button>
+      <button class="action" onclick={onhistory}>History</button>
+    </div>
+    <CompareSheet bind:this={compare} {caps} {snap} {busy} {selected} {apply} />
     {@render below()}
   </div>
 </div>
