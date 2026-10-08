@@ -12,6 +12,7 @@ import { parseSetupChange } from "./setup.ts";
 import { PresetStore } from "./presets.ts";
 import { PeerError, type DiscoverOptions } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
+import type { RoonTransport } from "./change-engine.ts";
 import { ROON_ACTIONS, RoonLink, type RoonAction } from "./roon/roon.ts";
 import { discoverCores } from "./roon/sood.ts";
 import { scopeOf } from "./dac-scope.ts";
@@ -46,6 +47,8 @@ export interface AppOptions {
   playWaitMs?: number;
   /** Optional Roon link. Default: off, in memory only. */
   roon?: RoonLink;
+  /** Tests: stand in for Roon's transport per instance (default: the RoonLink's linked zone). */
+  roonTransport?: (instanceId: string) => RoonTransport | null;
 }
 
 const LOOPBACK = ["localhost", "127.0.0.1", "[::1]", "::1"];
@@ -179,6 +182,12 @@ type Handler = (req: IncomingMessage, res: ServerResponse, inst: Instance) => Pr
 export function buildApp(config: AppConfig, opts: AppOptions = {}) {
   const learned = opts.learned ?? new LearnedStore(null);
   const presets = opts.presets ?? new PresetStore(null);
+  const roon = opts.roon ?? new RoonLink(null);
+  // Pausing for a mode switch goes through Roon when hqpweb has the instance's zone (change-engine.ts).
+  const roonTransport =
+    opts.roonTransport ??
+    ((id: string): RoonTransport | null =>
+      roon.zoneFor(id) ? { pause: () => roon.control(id, "pause"), play: () => roon.control(id, "play") } : null);
   const registry = new Registry(config, {
     configDir: opts.configDir ?? null,
     discovery: opts.discovery ?? false,
@@ -190,9 +199,9 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
         ...(opts.queueEveryMs ? { queueEveryMs: opts.queueEveryMs } : {}),
         ...(opts.playWaitMs ? { playWaitMs: opts.playWaitMs } : {}),
+        roon: () => roonTransport(cfg.id),
       }),
   });
-  const roon = opts.roon ?? new RoonLink(null);
   const listedHosts = new Set((opts.allowedHosts ?? []).map((h) => h.toLowerCase()));
   const allowed = new Set([...LOOPBACK, ...listedHosts]);
 

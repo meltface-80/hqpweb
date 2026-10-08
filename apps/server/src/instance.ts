@@ -21,7 +21,7 @@ import { DEFAULT_TIMING, MAJOR_TIMING, type Verdict, type WatchTiming } from "./
 import { previewOne, type PresetPreview } from "./preset-preview.ts";
 import { settingsOf } from "./settings.ts";
 import { StatusPoller, type Snapshot, type StatusEvent } from "./poller.ts";
-import { ChangeEngine } from "./change-engine.ts";
+import { ChangeEngine, type RoonTransport } from "./change-engine.ts";
 import { HttpError } from "./errors.ts";
 import { activeDac, scopeOf } from "./dac-scope.ts";
 
@@ -117,6 +117,8 @@ export interface InstanceOptions {
   queueEveryMs?: number;
   /** How long to wait for Play to take before saying it didn't. Default 5 s. */
   playWaitMs?: number;
+  /** Roon's transport for this instance's zone, when Roon is on and linked (change-engine.ts). */
+  roon?: () => RoonTransport | null;
 }
 
 export class Instance {
@@ -147,6 +149,7 @@ export class Instance {
       scope: () => this.scope(),
       timing: opts.timing ?? { quick: DEFAULT_TIMING, major: MAJOR_TIMING },
       onVolumeWrite: (v) => this.poller.noteOwnVolume(v),
+      ...(opts.roon ? { roon: opts.roon } : {}),
     });
   }
 

@@ -15,6 +15,14 @@ may change behaviour; upgrade notes say what you need to do.
   saved before stays with the first DAC. The model is MusicD-Remote's (by meltface-80),
   adopted as-is so data saved in either app keeps its meaning in the other.
 
+### Fixed
+
+- **Switching between DSD and PCM no longer crashes HQPlayer.** Switching mode while
+  music played crashed HQPlayer Desktop on macOS (seen twice, the same way). hqpweb now
+  pauses first, switches, sets the rest, then carries on: through Roon when Roon is
+  switched on in Settings and the zone is linked; from HQPlayer's own playlist by itself.
+  Otherwise, with Roon playing, it stays paused and says so: press play in Roon.
+
 ## 0.1.0-beta.3 — a guide for the modulator and dither
 
 **Update:** `docker compose pull && docker compose up -d`. Settings are kept; the

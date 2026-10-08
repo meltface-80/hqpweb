@@ -66,6 +66,8 @@ export class FakeHqp {
   readonly ignore = new Set<string>();
   /** Every request received, for tests. */
   readonly received: string[] = [];
+  /** Set when a command killed HQPlayer (modeSwitchWhilePlayingCrashes). */
+  crashed = false;
 
   constructor(profile: Profile, opts: FakeOptions = {}) {
     this.profile = profile;
@@ -78,6 +80,7 @@ export class FakeHqp {
       matrixProfiles: opts.matrixProfiles ?? [],
       convolutionConfigured: opts.convolutionConfigured ?? false,
       log: opts.log,
+      modeSwitchWhilePlayingCrashes: opts.modeSwitchWhilePlayingCrashes ?? true,
     };
     const i = profile.initial;
     this.modeIndex = Number(i.mode);
@@ -358,6 +361,11 @@ export class FakeHqp {
       // Inferred: an out-of-range index replies OK and changes nothing. Not measured;
       // chosen because it punishes clients that trust OK.
       if (i === null || !this.profile.modes.some((m) => m.index === i)) return this.ok("SetMode");
+      if (this.playback === 2 && this.opts.modeSwitchWhilePlayingCrashes) {
+        this.crashed = true; // HQPlayer is gone: every connection drops, nothing listens
+        void this.net.close();
+        return this.ok("SetMode"); // never delivered
+      }
       await this.sleep(DELAY.mode);
       this.tick();
       this.modeIndex = i;

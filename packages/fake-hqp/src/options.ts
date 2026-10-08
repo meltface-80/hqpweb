@@ -24,6 +24,13 @@ export interface FakeOptions {
   /** The clock playback position advances by, in ms. Default Date.now; tests pass one they advance. */
   now?: () => number;
   log?: (line: string) => void;
+  /**
+   * Whether SetMode during playback kills HQPlayer. Measured 2026-10-08 (Desktop 5.35.10,
+   * macOS, Roon source, SDM DSD256 → PCM): a segfault, twice, same crash site; paused, the
+   * switch works (~4.7 s). Unmeasured elsewhere (the Linux Desktop has one output mode;
+   * Embedded untested), so the fake assumes the worst. Default true.
+   */
+  modeSwitchWhilePlayingCrashes?: boolean;
 }
 
 /**

@@ -34,6 +34,12 @@ afterEach(async () => {
 
 const change = (body: object) => req("POST", "/api/instances/mac/change", { body });
 const undo = () => req("POST", "/api/instances/mac/undo");
+// With Roon as the source (the fake's default), a mode switch leaves HQPlayer paused; the
+// listener carries on from Roon. For tests that only need to be playing in PCM.
+const toPcm = async () => {
+  await change({ mode: "PCM" });
+  fake.playback = 2; // play pressed in Roon
+};
 const caps = async () => (await req("GET", "/api/instances/mac/capabilities")).json();
 
 describe("capabilities", () => {
@@ -145,7 +151,7 @@ describe("rollback when playback fails", () => {
 
   it("rolls back a rule-explained stop without learning it (sinc-M, 44.1k → 192k)", async () => {
     await setup();
-    await change({ mode: "PCM" }); // 44.1 kHz source, so the 1x filter is in use
+    await toPcm(); // 44.1 kHz source, so the 1x filter is in use
     await change({ filter1x: "sinc-M", rate: 176400 }); // 4×: fine
     const body = (await change({ rate: 192000 })).json(); // 4.35×: can't
     expect(body.playback.kind).toBe("stopped");
@@ -158,7 +164,7 @@ describe("rollback when playback fails", () => {
     // Measured (5.35.10): it doesn't resume by itself, and neither Play nor Stop-then-Play
     // resumes it reliably, so hqpweb leaves it plainly stopped and the user chooses (design §2.3).
     await setup();
-    await change({ mode: "PCM" }); // 44.1 kHz source, so the 1x filter is in use
+    await toPcm(); // 44.1 kHz source, so the 1x filter is in use
     fake.feeder = "playlist";
     fake.playlist = ["/music/Example Artist/Example Album/01 - Example.flac"];
     await change({ filter1x: "sinc-M", rate: 176400 }); // 4×: fine
@@ -171,7 +177,7 @@ describe("rollback when playback fails", () => {
 
   it("after a rollback with Roon as the source, leaves resuming to it (no Stop or Play sent)", async () => {
     await setup();
-    await change({ mode: "PCM" });
+    await toPcm();
     await change({ filter1x: "sinc-M", rate: 176400 });
     const plays = () => fake.received.filter((x) => x.includes("<Play") || x.includes("<Stop")).length;
     const before = plays();
@@ -228,7 +234,7 @@ describe("mode and rate", () => {
     const toPcm = (await change({ mode: "PCM" })).json();
     expect(toPcm.class).toBe("major");
     expect(toPcm.results[0]).toMatchObject({ field: "mode", actual: "PCM", applied: true });
-    expect(toPcm.playback).toEqual({ kind: "playing" });
+    expect(toPcm.playback).toMatchObject({ kind: "not-checked", detail: expect.stringMatching(/press play in Roon/) });
 
     const back = (await undo()).json();
     expect(back.state).toMatchObject({ mode: 2, rate: 4 }); // SDM, DSD512
