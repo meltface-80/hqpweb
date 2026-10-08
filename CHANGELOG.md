@@ -72,6 +72,14 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Fixed
 
+- **The meter's axes are real.** The frequency labels (20 Hz, 200, 2k, 20 kHz) sit where
+  the log scale puts them, with faint gridlines, and the open meter has a dB scale every
+  20 dB. The strip says "Peak L … · R … dB", and the meter explains what the bars, line
+  and strip show (each bar is the loudest frequency in its band, not averaged). Its
+  open/close cue is a plain chevron.
+- **On an iPhone home-screen app, the page no longer scrolls under the clock.** A
+  backdrop covers the status bar's height.
+
 - **The status no longer goes stale for several seconds after a mode switch.** HQPlayer
   holds the connection while it switches, so the status reply was slow, and hqpweb took
   that for HQPlayer being slow and backed off its polling (about 6 s). It now ignores slow

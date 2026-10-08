@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bandBoxes, heat, meterNote, mono, norm, PeakHold } from "./meter-view.ts";
+import { bandBoxes, dbTicks, freqTicks, heat, meterNote, mono, norm, PeakHold, peakWords } from "./meter-view.ts";
 
 describe("meter drawing rules", () => {
   it("scales -100..0 dB to 0..1, clamped", () => {
@@ -49,5 +49,43 @@ describe("placing bands by frequency", () => {
     expect(last.x + last.w).toBeCloseTo(600, 6);
     for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.x).toBeCloseTo(boxes[i - 1]!.x + boxes[i - 1]!.w, 6);
     expect(boxes[0]!.w).toBeGreaterThan(last.w);
+  });
+});
+
+describe("the axes", () => {
+  it("puts 20 Hz, 200, 2k and 20 kHz where the log scale puts them, not evenly", () => {
+    const t = freqTicks([20, 22_050]);
+    expect(t.map((x) => x.label)).toEqual(["20 Hz", "200", "2k", "20 kHz"]);
+    expect(t[0]!.x).toBeCloseTo(0);
+    expect(t[1]!.x).toBeCloseTo(Math.log(10) / Math.log(22_050 / 20)); // a decade is ~a third
+    expect(t[3]!.x).toBeLessThan(1);
+  });
+  it("puts 20 Hz on the edge when the first band starts just above it (one 21.5 Hz bin)", () => {
+    expect(freqTicks([21.5, 22_050])[0]).toEqual({ label: "20 Hz", x: 0 });
+  });
+  it("leaves out a tick well outside the bands", () => {
+    expect(freqTicks([40, 22_050]).map((x) => x.label)).toEqual(["200", "2k", "20 kHz"]);
+  });
+  it("marks every 20 dB on the same scale as the bars", () => {
+    expect(dbTicks().map((t) => [t.label, t.y])).toEqual([
+      ["0 dB", 1],
+      ["-20", 0.8],
+      ["-40", 0.6],
+      ["-60", 0.4],
+      ["-80", 0.2],
+    ]);
+  });
+});
+
+describe("the strip's words", () => {
+  it("names the channels and says peak", () => {
+    expect(
+      peakWords([
+        [-30, -32.5, -40, -35],
+        [-30, -31.6, -40, -35],
+      ]),
+    ).toBe("Peak L −32.5 · R −31.6 dB");
+    expect(peakWords([[-30, -130, -40, -35]])).toBe("Peak — dB");
+    expect(peakWords(undefined)).toBe("");
   });
 });

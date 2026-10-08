@@ -98,3 +98,15 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
 }
+/* Under iOS's translucent status bar (home-screen app, viewport-fit=cover) the page would
+   scroll beneath the clock: a backdrop the height of the inset keeps it readable. */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--bg);
+  z-index: 50;
+}

@@ -57,3 +57,32 @@ export function bandBoxes(edgesHz: number[], width: number): { x: number; w: num
   const at = (hz: number) => ((Math.log(hz) - lo) / span) * width;
   return edgesHz.slice(0, -1).map((hz, i) => ({ x: at(hz), w: at(edgesHz[i + 1]!) - at(hz) }));
 }
+
+/**
+ * Frequency ticks for the axis, placed by the same log scale as the bands (0..1 across):
+ * 20 Hz, 200, 2k and 20 kHz where they fall inside the edges, or within 2% of them.
+ */
+export function freqTicks(edgesHz: number[]): { label: string; x: number }[] {
+  const lo = Math.log(edgesHz[0]!);
+  const span = Math.log(edgesHz[edgesHz.length - 1]!) - lo;
+  return [
+    [20, "20 Hz"],
+    [200, "200"],
+    [2000, "2k"],
+    [20_000, "20 kHz"],
+  ]
+    .map(([hz, label]) => ({ label: label as string, x: (Math.log(hz as number) - lo) / span }))
+    .filter((t) => t.x >= -0.02 && t.x <= 1.02) // a tick just past an edge (20 Hz vs a 21.5 Hz first bin) sits on it
+    .map((t) => ({ ...t, x: Math.min(1, Math.max(0, t.x)) }));
+}
+
+/** dB gridlines every 20 dB over norm's range, as heights 0..1 from the bottom. */
+export const dbTicks = (): { label: string; y: number }[] =>
+  [0, -20, -40, -60, -80].map((db) => ({ label: db === 0 ? "0 dB" : `${db}`, y: norm(db) }));
+
+/** The strip's words for the two channels' peaks, e.g. "Peak L −32.5 · R −31.6 dB". */
+export function peakWords(levels: number[][] | undefined): string {
+  const pk = (l: number[] | undefined) => (l?.[1] === undefined || l[1] <= -120 ? "—" : l[1].toFixed(1).replace("-", "−"));
+  if (!levels?.length) return "";
+  return levels.length === 1 ? `Peak ${pk(levels[0])} dB` : `Peak L ${pk(levels[0])} · R ${pk(levels[1])} dB`;
+}

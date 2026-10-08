@@ -97,13 +97,18 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   const meter = page.getByRole("region", { name: "Meter" });
   const open = meter.getByRole("button", { name: "Open the meter" });
   await expect(meter.locator("canvas.mini")).toBeVisible(); // live: it draws instead of a note
-  await expect(open).toContainText("-22.0 dB"); // the peak, from the fake's volume
+  await expect(open).toContainText("Peak L −22.0 · R −22.0 dB"); // the peak, from the fake's volume
   await open.click();
   await expect(meter.locator("canvas.big")).toBeVisible();
   await expect(meter.getByRole("button", { name: "Levels" })).toHaveCount(0); // Levels lives in the strip
-  await meter
-    .locator("canvas.big")
-    .screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-bars.png", import.meta.url)) });
+  // The axis labels sit where the log scale puts them: 200 Hz about a third across, not a caption.
+  const plot = (await meter.locator("canvas.big").boundingBox())!;
+  const at200 = (await meter.locator(".axis span", { hasText: /^200$/ }).boundingBox())!;
+  const frac = (at200.x + at200.width / 2 - plot.x) / plot.width;
+  expect(frac).toBeGreaterThan(0.25);
+  expect(frac).toBeLessThan(0.4);
+  await expect(meter.locator(".dbs")).toContainText("-40");
+  await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-bars.png", import.meta.url)) });
   await meter.getByRole("button", { name: "Waterfall" }).click();
   await shot(page, "v2-5-meter");
   await meter.getByRole("button", { name: "Close the meter" }).click();
