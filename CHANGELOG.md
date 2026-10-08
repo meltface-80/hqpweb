@@ -37,6 +37,11 @@ may change behaviour; upgrade notes say what you need to do.
   meter shows the music as HQPlayer receives it, before upsampling. Low bands are drawn
   as wide as they really are (at the bottom, one band per ~21.5 Hz bin) instead of
   repeating one value across several bars.
+- **Filter pickers with chips, in the new layout.** Each filter shows up to four chips:
+  in use, ✓ kept up here (with its speed on this machine), ✗ fell behind here or won't
+  play this ratio, ★ 5/5, its phase (from the name), apodizing, the ratio it needs, its
+  focus and length. The same chips filter the list, with a count. "+n · why?" shows the
+  rest and the reason. The current layout's pickers are unchanged.
 
 ### Fixed
 

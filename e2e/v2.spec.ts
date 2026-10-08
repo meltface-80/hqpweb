@@ -126,3 +126,35 @@ test("v2: without a meter, the strip says so", async ({ page }) => {
   await openV2(page, "v2");
   await expect(page.getByRole("region", { name: "Meter" })).toContainText("No meter from this HQPlayer");
 });
+
+test("v2: filter sheets carry chips, narrow by them, and pick", async ({ page }) => {
+  await openV2(page, "v2filters");
+  await page
+    .locator(".signal")
+    .getByRole("button", { name: /^1x filter/ })
+    .click();
+  const sheet = page.getByRole("dialog", { name: "1x filter: choose" });
+  await expect(sheet).toBeVisible();
+  const count = sheet.locator(".count");
+  const all = await count.textContent();
+  // The filter in use carries "in use"; rows carry facts such as their phase.
+  await expect(sheet.locator(".row.current")).toContainText("in use");
+  await expect(sheet).toContainText("linear phase");
+  // A chip narrows the list, and the count follows.
+  await sheet.getByRole("group", { name: "Show only" }).getByRole("button", { name: "apodizing", exact: true }).click();
+  await expect(count).not.toHaveText(all!);
+  await shot(page, "v2-6-filter-sheet");
+  await sheet.getByRole("button", { name: /^IIR\b/ }).click();
+  await expect(page.locator(".signal").getByRole("button", { name: /^1x filter/ })).toContainText("IIR");
+});
+
+test("v2: the apodization notice opens the new filter sheet, narrowed to apodizing", async ({ page }) => {
+  await openV2(page, "v2apod");
+  await page
+    .locator("p", { hasText: /apodization/ })
+    .getByRole("button")
+    .click();
+  const sheet = page.getByRole("dialog", { name: "1x filter: choose" });
+  await expect(sheet.getByRole("button", { name: "apodizing", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(sheet.getByRole("button", { name: /^poly-sinc-hb\b/ })).toHaveCount(0);
+});

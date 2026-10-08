@@ -2,7 +2,7 @@
   // Live "Now" card, quick changes, Advanced (mode and rate), undo. Changes that
   // can disturb playback are checked by the server and rolled back if they fail.
   import { tick, untrack } from "svelte";
-  import Picker from "./lib/Picker.svelte";
+  import FilterRows, { type Opener } from "./lib/FilterRows.svelte";
   import AdviceSheet from "./lib/AdviceSheet.svelte";
   import Settings from "./lib/Settings.svelte";
   import Presets from "./lib/Presets.svelte";
@@ -235,8 +235,8 @@
 
   // ---- a queued track that can't start (guard 1; the rule is hints.wedge) -----------
   // Say why and offer rates, but leave Play to the user: no surprise playback.
-  let picker1x = $state<Picker>();
-  let pickerNx = $state<Picker>();
+  let picker1x = $state<Opener>();
+  let pickerNx = $state<Opener>();
   let shaperPicker = $state<AdviceSheet>();
   function fixWedge() {
     if (!wedge) return;
@@ -382,29 +382,22 @@
   {/snippet}
   {#snippet filters()}
     {#if snap && caps}
-      <Picker
-        bind:this={picker1x}
-        label="1x filter"
-        hint={inUse === "1x" ? "in use" : ""}
-        active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
-        items={filterItems("1x")}
-        groupByRating={prefs.filterOrder === "rating"}
-        current={nameAt(caps.filters, snap.state.filter1x)}
-        disabled={busy}
+      <FilterRows
+        {caps}
+        {snap}
+        items1x={filterItems("1x")}
+        itemsNx={filterItems("Nx")}
+        {inUse}
+        taken1x={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
+        takenNx={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
         {ratioLabel}
-        onpick={(i) => pickFilter("filter1x", i)}
-      />
-      <Picker
-        bind:this={pickerNx}
-        label="Nx filter"
-        hint={inUse === "Nx" ? "in use" : ""}
-        active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
-        items={filterItems("Nx")}
+        {busy}
+        v2={prefs.layout === "v2"}
         groupByRating={prefs.filterOrder === "rating"}
-        current={nameAt(caps.filters, snap.state.filterNx)}
-        disabled={busy}
-        {ratioLabel}
-        onpick={(i) => pickFilter("filterNx", i)}
+        {outRate}
+        onpick={pickFilter}
+        bind:picker1x
+        bind:pickerNx
       />
     {/if}
   {/snippet}
