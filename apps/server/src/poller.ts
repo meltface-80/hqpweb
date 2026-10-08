@@ -41,10 +41,17 @@ export class StatusPoller {
   private readonly speedWindowMs: number;
   private readonly queueEveryMs: number;
 
-  constructor(client: HqpClient, opts: { speedWindowMs: number; queueEveryMs: number }) {
+  /** Every successful poll, for bookkeeping that needs the raw readings (kept-up.ts). */
+  private readonly onTick: ((status: Status, state: State) => void) | undefined;
+
+  constructor(
+    client: HqpClient,
+    opts: { speedWindowMs: number; queueEveryMs: number; onTick?: (status: Status, state: State) => void },
+  ) {
     this.client = client;
     this.speedWindowMs = opts.speedWindowMs;
     this.queueEveryMs = opts.queueEveryMs;
+    this.onTick = opts.onTick;
   }
 
   /** hqpweb itself just set the volume: not a jump. */
@@ -158,6 +165,7 @@ export class StatusPoller {
           const latencyMs = Date.now() - t0;
           const queuedRate = await this.queuedRateFor(status);
           this.noteVolume(state.volume);
+          this.onTick?.(status, state);
           event = {
             snapshot: {
               status,

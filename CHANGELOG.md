@@ -5,6 +5,15 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+### Added
+
+- **hqpweb remembers what kept up here.** While hqpweb is open and music plays, it notes
+  how fast HQPlayer processed each combination once settled (it skips the first seconds,
+  which are often slow, and keeps the lowest 5-second average), per DAC and source rate.
+  Nothing shows it yet; the new pickers will ("kept up here, 2.1×"). Failures now also
+  record the source rate they happened with. Both are kept in `learned.json`; older files
+  load as before.
+
 ## 0.1.0-beta.4 — named DACs, and a safer mode switch
 
 **Update:** `docker compose pull && docker compose up -d`. Settings, presets and learned

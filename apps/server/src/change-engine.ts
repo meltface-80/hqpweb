@@ -391,6 +391,20 @@ export class ChangeEngine {
       filter1x: s.filter1x,
       shaper: s.shaper,
     };
-    this.learned.record({ ...combo, instance: scope, engine: caps.engine, reason, at: new Date().toISOString() });
+    // A stopped track has no source in Status (measured): use the queued one, as explain() does.
+    const source =
+      status.source?.sampleRate ??
+      (await this.client
+        .request(cmd.playlistGet())
+        .then((el) => queuedRate(el, status.track))
+        .catch(() => null));
+    this.learned.record({
+      ...combo,
+      instance: scope,
+      engine: caps.engine,
+      reason,
+      at: new Date().toISOString(),
+      ...(source ? { sourceRates: [source] } : {}),
+    });
   }
 }

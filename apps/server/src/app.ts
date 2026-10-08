@@ -13,6 +13,7 @@ import { PresetStore } from "./presets.ts";
 import { PeerError, type DiscoverOptions } from "@app/protocol";
 import type { WatchTiming } from "./watch.ts";
 import type { RoonTransport } from "./change-engine.ts";
+import type { KeptTiming } from "./kept-up.ts";
 import { ROON_ACTIONS, RoonLink, type RoonAction } from "./roon/roon.ts";
 import { discoverCores } from "./roon/sood.ts";
 import { scopeOf } from "./dac-scope.ts";
@@ -41,6 +42,8 @@ export interface AppOptions {
   timing?: { quick: WatchTiming; major: WatchTiming };
   /** Live playback-speed window (default 30 s). */
   speedWindowMs?: number;
+  /** Tests: shorten when a playing combination counts as settled (kept-up.ts). */
+  keptTiming?: KeptTiming;
   /** Playlist re-read interval while stopped (default 5 s). */
   queueEveryMs?: number;
   /** How long Play may take before "didn't start" (default 5 s). */
@@ -197,6 +200,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         learned,
         ...(opts.timing ? { timing: opts.timing } : {}),
         ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
+        ...(opts.keptTiming ? { keptTiming: opts.keptTiming } : {}),
         ...(opts.queueEveryMs ? { queueEveryMs: opts.queueEveryMs } : {}),
         ...(opts.playWaitMs ? { playWaitMs: opts.playWaitMs } : {}),
         roon: () => roonTransport(cfg.id),

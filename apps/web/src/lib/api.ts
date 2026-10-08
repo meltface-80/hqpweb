@@ -82,6 +82,17 @@ export type Failure = {
   /** How many times it has failed here (the server keeps a history); absent: once. */
   count?: number;
   first?: string;
+  /** Source sample rates it failed with; absent in older records. */
+  sourceRates?: number[];
+};
+/** A combination that kept up here once settled (server: kept-up.ts), per source rate. */
+export type KeptUp = Omit<Failure, "reason" | "count" | "sourceRates"> & {
+  sourceRate: number;
+  /** Lowest settled 5-second average, times faster than real time. */
+  low: number;
+  typical: number;
+  sessions: number;
+  first: string;
 };
 export type Capabilities = {
   engine: string;
@@ -94,6 +105,7 @@ export type Capabilities = {
   matrixProfiles: string[];
   volumeRange: { min: number; max: number; enabled: boolean };
   knownBad: Failure[];
+  keptUp: KeptUp[];
 };
 export type Change = Partial<{
   mode: string;

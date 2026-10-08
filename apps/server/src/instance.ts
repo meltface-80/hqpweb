@@ -16,7 +16,8 @@ import {
   type VolumeRange,
 } from "@app/protocol";
 import type { InstanceConfig } from "./config.ts";
-import { LearnedStore, type Failure } from "./learned.ts";
+import { LearnedStore, type Combo, type Failure, type KeptUp } from "./learned.ts";
+import { KEPT_TIMING, KeptUpTracker, type KeptTiming } from "./kept-up.ts";
 import { DEFAULT_TIMING, MAJOR_TIMING, type Verdict, type WatchTiming } from "./watch.ts";
 import { previewOne, type PresetPreview } from "./preset-preview.ts";
 import { settingsOf } from "./settings.ts";
@@ -70,6 +71,8 @@ export interface Capabilities {
   matrixProfiles: string[];
   /** Combinations that failed here before, for this engine and mode. */
   knownBad: Failure[];
+  /** Combinations that kept up here, settled, with how fast (kept-up.ts). */
+  keptUp: KeptUp[];
 }
 
 export interface FieldResult {
@@ -107,6 +110,9 @@ export interface ApplyResult {
 export const TRANSPORT_ACTIONS = ["play", "pause", "stop", "previous", "next"] as const;
 export type TransportAction = (typeof TRANSPORT_ACTIONS)[number];
 
+/** What a kept-up session is about: DAC scope, engine, combination and source rate. */
+type KeptKey = Combo & { instance: string; engine: string; sourceRate: number };
+
 export interface InstanceOptions {
   client?: HqpClient;
   learned?: LearnedStore;
@@ -119,6 +125,8 @@ export interface InstanceOptions {
   playWaitMs?: number;
   /** Roon's transport for this instance's zone, when Roon is on and linked (change-engine.ts). */
   roon?: () => RoonTransport | null;
+  /** When a playing combination counts as settled (kept-up.ts). Default KEPT_TIMING; tests shorten it. */
+  keptTiming?: KeptTiming;
 }
 
 export class Instance {
@@ -137,9 +145,11 @@ export class Instance {
     this.cfg = cfg;
     this.client = opts.client ?? new HqpClient(cfg.host, { port: cfg.port });
     this.learned = opts.learned ?? new LearnedStore(null);
+    this.kept = new KeptUpTracker(opts.keptTiming ?? KEPT_TIMING);
     this.poller = new StatusPoller(this.client, {
       speedWindowMs: opts.speedWindowMs ?? 30_000,
       queueEveryMs: opts.queueEveryMs ?? 5000,
+      onTick: (status, state) => void this.noteSpeed(status, state).catch(() => undefined),
     });
     this.playWaitMs = opts.playWaitMs ?? 5000;
     this.engine = new ChangeEngine({
@@ -151,6 +161,38 @@ export class Instance {
       onVolumeWrite: (v) => this.poller.noteOwnVolume(v),
       ...(opts.roon ? { roon: opts.roon } : {}),
     });
+  }
+
+  /**
+   * "Kept up here" (kept-up.ts): while something plays and no change is running, feed
+   * HQPlayer's processing speed to the tracker, keyed by DAC, combination and source
+   * rate, and record what it settles on. Only while someone is watching (the poller
+   * runs then), so hqpweb learns this as it's used.
+   */
+  private readonly kept: KeptUpTracker;
+  private async noteSpeed(status: Status, state: State) {
+    const t = Date.now();
+    const playing = status.state === 2 && !this.busy && status.source && (status.processSpeed ?? 0) > 0;
+    let result;
+    if (!playing) result = this.kept.feed({ t, key: null, speed: null });
+    else {
+      const caps = await this.capabilities();
+      const s = settingsOf(caps, state);
+      const sample: KeptKey = {
+        instance: this.scope(),
+        engine: caps.engine,
+        sourceRate: status.source!.sampleRate,
+        mode: s.mode,
+        rateHz: status.activeRate,
+        filterNx: s.filterNx,
+        filter1x: s.filter1x,
+        shaper: s.shaper,
+      };
+      result = this.kept.feed({ t, key: JSON.stringify(sample), speed: status.processSpeed });
+    }
+    if (!result) return;
+    const k = JSON.parse(result.key) as KeptKey;
+    this.learned.recordKept({ ...k, low: result.low, typical: result.typical, at: new Date(t).toISOString() }, result.final);
   }
 
   /** Where this instance's failures and answers are kept now: its id, or `id#dac` (dac-scope.ts). */
@@ -193,7 +235,11 @@ export class Instance {
     const key = `${info.engine}|${state.mode}`;
     if (!fresh && this.caps?.key === key) {
       // Learned failures can change without a mode change.
-      return { ...this.caps.value, knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name) };
+      return {
+        ...this.caps.value,
+        knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name),
+        keptUp: this.learned.keptFor(this.scope(), info.engine, this.caps.value.mode.name),
+      };
     }
 
     const [modes, filters, shapers, rates, volumeRange, matrixProfiles] = await Promise.all([
@@ -229,6 +275,7 @@ export class Instance {
       volumeRange,
       matrixProfiles,
       knownBad: this.learned.forInstance(this.scope(), info.engine, mode.name),
+      keptUp: this.learned.keptFor(this.scope(), info.engine, mode.name),
     };
     this.caps = { key, value };
     return value;

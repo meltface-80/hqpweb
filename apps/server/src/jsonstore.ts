@@ -21,3 +21,17 @@ export function loadList<T>(path: string, key: string): T[] {
     return [];
   }
 }
+
+/**
+ * A list added to a file after it first shipped: absent in older files, which is
+ * normal (empty), not a sign of corruption. Call after loadList has read the file.
+ */
+export function loadOptionalList<T>(path: string, key: string): T[] {
+  if (!existsSync(path)) return [];
+  try {
+    const list = (JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>)[key];
+    return Array.isArray(list) ? (list as T[]) : [];
+  } catch {
+    return [];
+  }
+}
