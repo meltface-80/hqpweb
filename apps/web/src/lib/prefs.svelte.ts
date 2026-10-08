@@ -22,6 +22,8 @@ export interface Prefs {
   adviceTab: "list" | "guide";
   /** The guide's intro has been read once: show it as one line from then on. */
   guideIntroSeen: boolean;
+  /** The v2 layout (docs/design-v2-layout.md), a preview until it replaces the current one. */
+  layout: "current" | "v2";
 }
 
 const KEY = "prefs-v1";
@@ -32,6 +34,7 @@ const DEFAULTS: Prefs = {
   filterOrder: "hqplayer",
   adviceTab: "list",
   guideIntroSeen: false,
+  layout: "current",
 };
 
 function load(): Prefs {

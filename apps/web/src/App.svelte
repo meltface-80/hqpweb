@@ -19,7 +19,9 @@
   import * as speedRules from "./lib/speed.ts";
   import { recentChange, restartSteps } from "./lib/recovery.ts";
   import StatusBanners from "./lib/StatusBanners.svelte";
-  import { hasDacs, scopeOf } from "./lib/dac-scope.ts";
+  import LayoutV2 from "./lib/LayoutV2.svelte";
+  import HistorySheet from "./lib/HistorySheet.svelte";
+  import { dacName, hasDacs, scopeOf } from "./lib/dac-scope.ts";
   import { nameAt } from "./lib/hints.ts";
   import { isApodizing, filterSlot } from "@app/protocol/compat";
   import {
@@ -215,6 +217,7 @@
   const shaperItems = $derived(ctx ? hints.shaperItems(ctx) : []);
   const rateItems = $derived(ctx ? hints.rateItems(ctx) : []);
   const inUse = $derived(snap ? hints.inUseSlot(snap) : null);
+  let historySheet = $state<HistorySheet>();
 
   const show = (field: keyof Change, v: string | number | boolean) =>
     field === "rate" ? formatRate(Number(v), caps?.mode.name ?? "") : field === "volume" ? `${v} dB` : String(v);
@@ -341,7 +344,7 @@
   }
 </script>
 
-<main>
+<main class:wide={prefs.layout === "v2"}>
   <Header {instances} bind:selected {online} {slow} {dotTitle} onsettings={() => settings.open()} ondacs={refreshInstances} />
   {#if updated}
     <p class="updated">
@@ -369,9 +372,8 @@
     {restart}
   />
 
-  {#if snap}
-    <!-- While HQPlayer doesn't answer, what's shown is its last known state: dimmed and inert. -->
-    <div class="live" class:stale={online === "unreachable"} inert={online === "unreachable" || undefined}>
+  {#snippet nowCard()}
+    {#if snap}
       <NowCard
         {selected}
         {snap}
@@ -392,87 +394,140 @@
         onstatus={(status) => snap && (snap = { ...snap, status })}
         onmessage={(m) => (message = m)}
       />
+    {/if}
+  {/snippet}
+  {#snippet filters()}
+    {#if snap && caps}
+      <Picker
+        bind:this={picker1x}
+        label="1x filter"
+        hint={inUse === "1x" ? "in use" : ""}
+        active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
+        items={filterItems("1x")}
+        groupByRating={prefs.filterOrder === "rating"}
+        current={nameAt(caps.filters, snap.state.filter1x)}
+        disabled={busy}
+        {ratioLabel}
+        onpick={(i) => pickFilter("filter1x", i)}
+      />
+      <Picker
+        bind:this={pickerNx}
+        label="Nx filter"
+        hint={inUse === "Nx" ? "in use" : ""}
+        active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
+        items={filterItems("Nx")}
+        groupByRating={prefs.filterOrder === "rating"}
+        current={nameAt(caps.filters, snap.state.filterNx)}
+        disabled={busy}
+        {ratioLabel}
+        onpick={(i) => pickFilter("filterNx", i)}
+      />
+    {/if}
+  {/snippet}
+  {#snippet shaping()}
+    {#if snap && caps}
+      <AdviceSheet
+        bind:this={shaperPicker}
+        {isSdm}
+        active={hints.shaperTaken(snap, nameAt(caps.shapers, snap.state.shaper))}
+        items={shaperItems}
+        current={nameAt(caps.shapers, snap.state.shaper)}
+        disabled={busy}
+        instanceId={selected}
+        setup={instances.find((i) => i.id === selected)?.setup ?? {}}
+        rateHz={outRate}
+        rateText={outRate ? formatRate(outRate, caps.mode.name) : ""}
+        {processSpeed}
+        rates={caps.rates.filter((r) => r.allowed).map((r) => r.rate)}
+        check={(c) => (ctx ? hints.checkPair(ctx, c) : null)}
+        onpick={(name) => apply({ shaper: name })}
+        onpickpair={(c) => apply(c.rateHz === outRate ? { shaper: c.shaper } : { rate: c.rateHz, shaper: c.shaper })}
+        onpcm={() => apply({ mode: "PCM" })}
+        result={message}
+        onsaved={refreshInstances}
+      />
+    {/if}
+  {/snippet}
 
-      {#if caps}
-        <!-- Most frequent jobs, kept above the fold: filters, then dither/modulator, then presets. -->
-        <section class="card list quick" title="1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.">
-          <Picker
-            bind:this={picker1x}
-            label="1x filter"
-            hint={inUse === "1x" ? "in use" : ""}
-            active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
-            items={filterItems("1x")}
-            groupByRating={prefs.filterOrder === "rating"}
-            current={nameAt(caps.filters, snap.state.filter1x)}
-            disabled={busy}
-            {ratioLabel}
-            onpick={(i) => pickFilter("filter1x", i)}
-          />
-          <Picker
-            bind:this={pickerNx}
-            label="Nx filter"
-            hint={inUse === "Nx" ? "in use" : ""}
-            active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
-            items={filterItems("Nx")}
-            groupByRating={prefs.filterOrder === "rating"}
-            current={nameAt(caps.filters, snap.state.filterNx)}
-            disabled={busy}
-            {ratioLabel}
-            onpick={(i) => pickFilter("filterNx", i)}
-          />
-        </section>
-        {#if otherSourceNotes.length}
-          <p class="card-note">
-            At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
-          </p>
+  {#snippet presets()}
+    {#if snap && selected}
+      <Presets
+        instanceId={selected}
+        stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}|${dacInUse}`}
+        {busy}
+        {run}
+        dacScope={selInst && hasDacs(selInst) ? scopeOf(selInst.id, selInst.dac) : null}
+      />
+    {/if}
+  {/snippet}
+  {#snippet below()}
+    {#if snap && caps}
+      {#if otherSourceNotes.length}
+        <p class="card-note">
+          At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
+        </p>
+      {/if}
+      {#if selected}<section class="card list quick">{@render presets()}</section>{/if}
+      <Advanced {caps} {snap} {busy} {rateItems} {apply} bind:open={advancedOpen} modeAndRate={false} />
+    {/if}
+  {/snippet}
+
+  {#if snap}
+    <!-- While HQPlayer doesn't answer, what's shown is its last known state: dimmed and inert. -->
+    <div class="live" class:stale={online === "unreachable"} inert={online === "unreachable" || undefined}>
+      {#if prefs.layout === "v2" && caps}
+        <LayoutV2
+          {caps}
+          {snap}
+          {busy}
+          {apply}
+          {rateItems}
+          {inUseFilter}
+          {source}
+          {outRate}
+          dacName={selInst && hasDacs(selInst) ? dacName(selInst) : undefined}
+          resume={snap.status.state !== 2 ? "stopped" : roonZone ? "roon-linked" : fromRoon ? "roon" : "hqplayer"}
+          {speedClass}
+          {speedText}
+          {nowCard}
+          {filters}
+          {shaping}
+          {below}
+          onguide={() => shaperPicker?.open({ tab: "guide" })}
+          onhistory={() => historySheet?.open()}
+        />
+      {:else}
+        {@render nowCard()}
+        {#if caps}
+          <!-- Most frequent jobs, kept above the fold: filters, then dither/modulator, then presets. -->
+          <section class="card list quick" title="1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.">
+            {@render filters()}
+          </section>
+          {#if otherSourceNotes.length}
+            <p class="card-note">
+              At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
+            </p>
+          {/if}
+          <section class="card list quick">{@render shaping()}</section>
+          {#if selected}<section class="card list quick">{@render presets()}</section>{/if}
+          <Advanced {caps} {snap} {busy} {rateItems} {apply} bind:open={advancedOpen} />
         {/if}
+      {/if}
+      {#if caps}
         <RateSwitch
           request={rateSwitch}
           onchoose={chooseRate}
           onalternative={chooseAlternative}
           oncancel={() => (rateSwitch = null)}
         />
-        <section class="card list quick">
-          <AdviceSheet
-            bind:this={shaperPicker}
-            {isSdm}
-            active={hints.shaperTaken(snap, nameAt(caps.shapers, snap.state.shaper))}
-            items={shaperItems}
-            current={nameAt(caps.shapers, snap.state.shaper)}
-            disabled={busy}
-            instanceId={selected}
-            setup={instances.find((i) => i.id === selected)?.setup ?? {}}
-            rateHz={outRate}
-            rateText={outRate ? formatRate(outRate, caps.mode.name) : ""}
-            {processSpeed}
-            rates={caps.rates.filter((r) => r.allowed).map((r) => r.rate)}
-            check={(c) => (ctx ? hints.checkPair(ctx, c) : null)}
-            onpick={(name) => apply({ shaper: name })}
-            onpickpair={(c) => apply(c.rateHz === outRate ? { shaper: c.shaper } : { rate: c.rateHz, shaper: c.shaper })}
-            onpcm={() => apply({ mode: "PCM" })}
-            result={message}
-            onsaved={refreshInstances}
-          />
-        </section>
-        {#if selected}
-          <section class="card list quick">
-            <Presets
-              instanceId={selected}
-              stateKey={`${snap.state.mode}|${snap.state.rate}|${snap.state.filter1x}|${snap.state.filterNx}|${snap.state.shaper}|${snap.state.invert}|${snap.state.filter20k}|${snap.state.adaptive}|${snap.state.volume}|${snap.state.convolution}|${snap.state.matrixProfile}|${snap.status.source?.sampleRate ?? 0}|${dacInUse}`}
-              {busy}
-              {run}
-              dacScope={selInst && hasDacs(selInst) ? scopeOf(selInst.id, selInst.dac) : null}
-            />
-          </section>
-        {/if}
-
-        <Advanced {caps} {snap} {busy} {rateItems} {apply} bind:open={advancedOpen} />
       {/if}
     </div>
   {:else if online === "connecting" && instances.length}
     <p class="muted">Connecting…</p>
   {/if}
 </main>
+
+<HistorySheet bind:this={historySheet} instanceId={selected} />
 
 <Footer
   show={footerOpen || (speedClass === "bad" && undoAvailable)}
@@ -500,7 +555,6 @@
   .quick {
     margin-top: 10px;
   }
-
   .stale {
     opacity: 0.45;
     filter: grayscale(0.6);

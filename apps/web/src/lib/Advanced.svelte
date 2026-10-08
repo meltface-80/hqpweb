@@ -4,6 +4,7 @@
   import Picker from "./Picker.svelte";
   import { formatRate, type ApplyResult, type Capabilities, type Change, type Snapshot } from "./api.ts";
   import type { rateItems as rateItemsOf } from "./hints.ts";
+  import { applyMajor, pickRate } from "./rate-pick.ts";
 
   let {
     caps,
@@ -12,6 +13,7 @@
     rateItems,
     apply,
     open = $bindable(),
+    modeAndRate = true,
   }: {
     caps: Capabilities;
     snap: Snapshot;
@@ -19,27 +21,10 @@
     rateItems: ReturnType<typeof rateItemsOf>;
     apply: (change: Change) => Promise<ApplyResult | void>;
     open: boolean;
+    /** The v2 layout has mode and rate on its signal card: here only the rare switches. */
+    modeAndRate?: boolean;
   } = $props();
 
-  const applyMajor = (what: string, change: Change) => {
-    const ok = confirm(
-      `Change ${what}?\n\nPlayback may pause for a few seconds. If it doesn't recover, the change is rolled back automatically.`,
-    );
-    if (ok) void apply(change); // apply reports its own errors in the footer
-  };
-  /**
-   * A rate the current modulator can't play at goes with a modulator that can, as one change.
-   * One that can't play at all (and has no fix here) isn't written: it would only stop playback.
-   */
-  function pickRate(r: (typeof rateItems)[number]) {
-    if (r.companion) {
-      const ok = confirm(
-        `${r.warn ?? "The current modulator can't play there"}.\n\nChange the output rate to ${r.name} and the modulator to ${r.companion}, together?`,
-      );
-      if (ok) void apply({ rate: r.rate, shaper: r.companion });
-    } else if (r.cantPlay) alert(`${r.name}: ${r.warn ?? "can't play with the current settings"}.`);
-    else applyMajor(`output rate to ${r.name}`, { rate: r.rate });
-  }
   /** Apply a switch, then show what HQPlayer actually reports (it can say OK and not change). */
   const toggle = async (el: HTMLInputElement, key: "invert" | "filter20k" | "adaptive" | "convolution") => {
     await apply({ [key]: el.checked });
@@ -50,25 +35,27 @@
 <details class="advanced" bind:open>
   <summary>Advanced</summary>
   <p class="help">These can stop playback. The app checks that playback recovers, and tries to roll back if it doesn't.</p>
-  <section class="card list">
-    <Picker
-      label="Mode"
-      items={caps.modes}
-      current={caps.mode.name}
-      disabled={busy}
-      onpick={(i) => applyMajor(`mode to ${i.name}`, { mode: i.name })}
-    />
-    {#if caps.rateSettable}
+  {#if modeAndRate}
+    <section class="card list">
       <Picker
-        label="Output rate"
-        hint={snap.state.rate === 0 ? `now ${formatRate(snap.status.activeRate, caps.mode.name)}` : ""}
-        items={rateItems}
-        current={formatRate(caps.rates.find((r) => r.index === snap!.state.rate)?.rate ?? 0, caps.mode.name)}
+        label="Mode"
+        items={caps.modes}
+        current={caps.mode.name}
         disabled={busy}
-        onpick={(i) => pickRate(i as (typeof rateItems)[number])}
+        onpick={(i) => applyMajor(`mode to ${i.name}`, { mode: i.name }, apply)}
       />
-    {/if}
-  </section>
+      {#if caps.rateSettable}
+        <Picker
+          label="Output rate"
+          hint={snap.state.rate === 0 ? `now ${formatRate(snap.status.activeRate, caps.mode.name)}` : ""}
+          items={rateItems}
+          current={formatRate(caps.rates.find((r) => r.index === snap!.state.rate)?.rate ?? 0, caps.mode.name)}
+          disabled={busy}
+          onpick={(i) => pickRate(i as (typeof rateItems)[number], apply)}
+        />
+      {/if}
+    </section>
+  {/if}
 
   <h2 class="sub-h">Convolution and matrix</h2>
   <section class="card list">

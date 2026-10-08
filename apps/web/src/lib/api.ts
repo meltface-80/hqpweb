@@ -104,10 +104,11 @@ export type HistoryEntry = {
   detail?: string;
   rolledBack?: boolean;
 };
+export type Mode = { index: number; name: string; value: number };
 export type Capabilities = {
   engine: string;
-  mode: { index: number; name: string; value: number };
-  modes: { index: number; name: string; value: number }[];
+  mode: Mode;
+  modes: Mode[];
   filters: Named[];
   shapers: Named[];
   rates: { index: number; rate: number; allowed: boolean; note?: string }[];

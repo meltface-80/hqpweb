@@ -131,6 +131,17 @@
         />
       </label>
 
+      <label class="row">
+        <span>Try the new layout (preview)</span>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={prefs.layout === "v2"}
+          onchange={(e) => set("layout", e.currentTarget.checked ? "v2" : "current")}
+        />
+      </label>
+      <p class="help">The signal path as one card, with DSD and PCM as tabs. On this device only; switch back any time.</p>
+
       <h4>Learned failures{instance ? ` · ${instance.name}` : ""}</h4>
       <p class="help">
         Combinations that stopped playback or couldn't keep up here, so they were rolled back. They show as warnings in the

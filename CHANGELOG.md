@@ -18,6 +18,11 @@ may change behaviour; upgrade notes say what you need to do.
   and changes made elsewhere, such as in HQPlayer's own window (volume aside). It also
   remembers each mode's settings as last seen, per DAC, because HQPlayer only reports the
   mode in use. Kept in `history.json`; nothing shows them yet. `GET /api/instances/:id/history`.
+- **A preview of the new layout** (Settings → "Try the new layout", this device only). The
+  signal path is one card: a line showing what the music goes through now, DSD and PCM as
+  tabs (the other mode's settings as last seen, and a sheet that says what switching
+  does), and the rate row saying what auto picked and why. History lists every change.
+  Two columns on wide screens. The current layout is unchanged.
 
 ### Fixed
 

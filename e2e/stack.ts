@@ -142,6 +142,9 @@ const FLOWS: Record<string, Flow> = {
   down: { name: "Down", profile: "desktop5-mac-sdm" },
   // Named DACs behind one HQPlayer: answers follow the DAC in use.
   dacs: { name: "DACs", profile: "desktop5-mac-sdm" },
+  // The v2 layout preview (docs/design-v2-layout.md).
+  v2: { name: "V2", profile: "desktop5-mac-sdm" },
+  v2auto: { name: "V2 auto", profile: "desktop5-mac-sdm" },
   // Settings → Your setup: answers saved on the server, per instance.
   setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };

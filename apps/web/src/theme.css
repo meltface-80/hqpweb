@@ -11,6 +11,8 @@
 :root,
 [data-theme="dark"][data-palette="classic"] {
   --font-sans: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* HQPlayer's identifiers (filters, modulators, dithers, rates): docs/design-v2-layout.md. */
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --bg: #1d2125;
   --bg-elev: #252a2f;
   --bg-elev-2: #2c3238;
