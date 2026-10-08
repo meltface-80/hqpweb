@@ -42,7 +42,11 @@ may change behaviour; upgrade notes say what you need to do.
   play this ratio, ★ 5/5, its phase (from the name), apodizing, the ratio it needs, its
   focus and length. The same chips filter the list, with a count; phase, ratio, focus and
   length are drop-downs there, so the filters fit on a phone. "+n · why?" shows the
-  rest and the reason. The current layout's pickers are unchanged.
+  rest and the reason. The modulator and dither lists get the same: in use, kept up or
+  fell behind here, won't play at this rate, the guide's starting point, heavy at this
+  rate, load within its line ("EC line: lightest"), order, family and generation, with
+  family, order, load and generation as drop-downs. Their sections, cited notes and the
+  guide are unchanged. The current layout's pickers are unchanged.
 
 ### Fixed
 

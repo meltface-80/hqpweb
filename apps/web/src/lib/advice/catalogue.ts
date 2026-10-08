@@ -36,6 +36,15 @@ const NOTES: Partial<Record<Family, Rule>> = { olderEc: RULES.olderGen, basic: R
 export function modulatorFamily(name: string): Family | null {
   return FAMILY_TESTS.find(([, re]) => re.test(name))?.[0] ?? null;
 }
+/** A modulator's family as the list titles it, e.g. "Newest EC line"; null when unknown. */
+export function familyTitle(name: string): string | null {
+  const f = modulatorFamily(name);
+  return f ? FAMILY_TITLES[f] : null;
+}
+/** A dither's group as the list titles it, e.g. "Flat dither"; null when unknown. */
+export function ditherGroupTitle(name: string): string | null {
+  return DITHER_GROUPS.find(([, , ns]) => ns.includes(name))?.[1] ?? null;
+}
 /** A modulator's order, from its name (ASDM7…, AHM5…); null when the name doesn't say. */
 export const orderOf = (name: string): 5 | 7 | null => {
   const m = /^[A-Z]+([57])/.exec(name);

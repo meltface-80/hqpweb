@@ -7,8 +7,9 @@
   import { tick } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import Chip from "./Chip.svelte";
+  import ChipFacets from "./ChipFacets.svelte";
   import type { KeptUp } from "./api.ts";
-  import { chooseInGroup, facets, filterChips, grouped, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
+  import { facets, filterChips, grouped, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
 
   type Item = FilterItemLike & { note?: string; disabled?: boolean };
 
@@ -54,7 +55,6 @@
   );
   // Loose chips, and phase, ratio, focus and length as drop-downs (too many chips for a phone).
   const offered = $derived(grouped(facets(rows.map((r) => r.chips))));
-  const chosen = (prefix: string) => [...keys].find((k) => k.startsWith(prefix)) ?? "";
   const visible = $derived(narrow(rows, keys).filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase())));
 
   /** Open the sheet; `chips` pre-selects filters, e.g. ["apodizing"] (as Picker.open). */
@@ -66,10 +66,6 @@
     await tick();
     dialog.showModal();
     dialog.querySelector(".row.current")?.scrollIntoView({ block: "center" });
-  }
-  function toggle(key: string) {
-    if (keys.has(key)) keys.delete(key);
-    else keys.add(key);
   }
   function pick(i: Item) {
     dialog.close();
@@ -90,24 +86,7 @@
     <button class="done" onclick={() => dialog.close()}>Done</button>
   </div>
   <input class="search" type="search" placeholder="Search" aria-label="Search filters" bind:value={query} />
-  <div class="facets" role="group" aria-label="Show only">
-    {#each offered.chips as f (f.key)}
-      <Chip kind={f.kind} label={f.label} pressed={keys.has(f.key)} onclick={() => toggle(f.key)} />
-    {/each}
-    {#each offered.groups as g (g.prefix)}
-      <select
-        class="group"
-        class:on={!!chosen(g.prefix)}
-        aria-label={g.label}
-        value={chosen(g.prefix)}
-        onchange={(e) => chooseInGroup(keys, g.prefix, e.currentTarget.value)}
-      >
-        <option value="">{g.label}: any</option>
-        {#each g.options as o (o.key)}<option value={o.key}>{o.label}</option>{/each}
-      </select>
-    {/each}
-  </div>
-  <p class="count">{visible.length} of {rows.length}</p>
+  <ChipFacets {offered} {keys} count="{visible.length} of {rows.length}" />
   <ul>
     {#each visible as r (r.name)}
       {@const s = shown(r.chips)}
@@ -213,32 +192,6 @@
     background: var(--bg);
     color: var(--text);
     font: inherit;
-  }
-  .facets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .group {
-    font: inherit;
-    font-size: 0.82rem;
-    font-weight: 600;
-    min-height: 36px;
-    padding: 0 10px;
-    border-radius: 18px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-  }
-  .group.on {
-    background: var(--text);
-    color: var(--bg);
-    border-color: var(--text);
-  }
-  .count {
-    margin: 8px 0 0;
-    font-size: 0.8rem;
-    color: var(--text-dim);
   }
   ul {
     list-style: none;

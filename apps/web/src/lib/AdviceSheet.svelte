@@ -4,7 +4,7 @@
   // to start. Answers are saved to the instance (Settings shows them too). The tab used
   // last is remembered on this device.
   import { tick } from "svelte";
-  import { api, formatRate, type Setup } from "./api.ts";
+  import { api, formatRate, type KeptUp, type Setup } from "./api.ts";
   import { cantPlay, companionRate } from "./hints.ts";
   import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { groupDithers, groupModulators } from "./advice/catalogue.ts";
@@ -13,6 +13,7 @@
   import { ditherAdvice } from "./advice/dither.ts";
   import { savedMessage, type SetupKey } from "./setup-questions.ts";
   import ShaperList from "./ShaperList.svelte";
+  import ShaperChipList from "./ShaperChipList.svelte";
   import ModulatorGuide from "./ModulatorGuide.svelte";
   import GuideIntro from "./GuideIntro.svelte";
   import DitherGuide from "./DitherGuide.svelte";
@@ -36,6 +37,9 @@
     onpcm,
     result,
     onsaved,
+    v2 = false,
+    mode = "",
+    keptUp = [],
   }: {
     isSdm: boolean;
     items: Item[];
@@ -61,6 +65,10 @@
     result: { kind: string; text: string } | null;
     /** After answers are saved, so the instance list (and Settings) catch up. */
     onsaved: () => void;
+    /** The v2 layout's list: chips that describe and filter (ShaperChipList). */
+    v2?: boolean;
+    mode?: string;
+    keptUp?: KeptUp[];
   } = $props();
 
   let dialog: HTMLDialogElement;
@@ -186,7 +194,22 @@
     <div class="body">
       {#if prefs.adviceTab === "guide"}<GuideIntro />{/if}
       {#if prefs.adviceTab === "list"}
-        <ShaperList {sections} items={listItems} {current} {badges} {disabled} onpick={pick} />
+        {#if v2}
+          <ShaperChipList
+            {sections}
+            items={listItems}
+            {current}
+            {badges}
+            {isSdm}
+            {rateHz}
+            {mode}
+            {keptUp}
+            {disabled}
+            onpick={pick}
+          />
+        {:else}
+          <ShaperList {sections} items={listItems} {current} {badges} {disabled} onpick={pick} />
+        {/if}
       {:else if isSdm}
         <ModulatorGuide
           setup={answers}

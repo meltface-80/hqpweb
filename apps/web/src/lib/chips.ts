@@ -81,8 +81,8 @@ export function narrow<T extends { chips: Chip[] }>(rows: T[], keys: Set<string>
   return rows.filter((r) => [...keys].every((k) => r.chips.some((c) => c.key === k)));
 }
 
-/** The order filters are offered in: status first, then rating, phase, apodizing, ratio, focus, length. */
-const RANK = ["trouble", "blocked", "kept", "5/5", "phase:", "apodizing", "ratio:", "tag:", "length:"];
+/** The order filters are offered in: status, the guide's start, then rating, phase, apodizing, ratio, focus, length. */
+const RANK = ["trouble", "blocked", "kept", "start:", "5/5", "phase:", "apodizing", "ratio:", "tag:", "length:", "heavy"];
 const rank = (key: string) => {
   const i = RANK.findIndex((r) => key === r || (r.endsWith(":") && key.startsWith(r)) || key.startsWith(r));
   return i < 0 ? RANK.length : i;
@@ -122,13 +122,16 @@ export const GROUPS = [
 ] as const;
 
 /** The offered facets split into loose chips and drop-down groups (owner's call, 2026-10-08). */
-export function grouped(f: (Chip & { count: number })[]): {
+export function grouped(
+  f: (Chip & { count: number })[],
+  families: readonly { prefix: string; label: string }[] = GROUPS,
+): {
   chips: (Chip & { count: number })[];
   groups: { prefix: string; label: string; options: (Chip & { count: number })[] }[];
 } {
   return {
-    chips: f.filter((c) => !GROUPS.some((g) => c.key.startsWith(g.prefix))),
-    groups: GROUPS.map((g) => ({ ...g, options: f.filter((c) => c.key.startsWith(g.prefix)) })).filter((g) => g.options.length),
+    chips: f.filter((c) => !families.some((g) => c.key.startsWith(g.prefix))),
+    groups: families.map((g) => ({ ...g, options: f.filter((c) => c.key.startsWith(g.prefix)) })).filter((g) => g.options.length),
   };
 }
 

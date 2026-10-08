@@ -165,3 +165,23 @@ test("v2: the apodization notice opens the new filter sheet, narrowed to apodizi
   await expect(sheet.getByRole("button", { name: "apodizing", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(sheet.getByRole("button", { name: /^poly-sinc-hb\b/ })).toHaveCount(0);
 });
+
+test("v2: the modulator list carries chips, narrows by order and load, and picks", async ({ page }) => {
+  await openV2(page, "v2shaper");
+  await page
+    .locator(".signal")
+    .getByRole("button", { name: /^Modulator/ })
+    .click();
+  const sheet = page.getByRole("dialog", { name: "Modulator" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator(".row.current")).toContainText("in use");
+  await expect(sheet).toContainText("Newest EC line");
+  const count = sheet.locator(".count");
+  await expect(count).toHaveText(/^36 of 36$/);
+  await sheet.getByRole("combobox", { name: "Order" }).selectOption({ label: "fifth order" });
+  await sheet.getByRole("combobox", { name: "Load in its line" }).selectOption({ label: "EC line: heaviest" });
+  await expect(count).toHaveText(/^2 of 36$/);
+  await shot(page, "v2-7-modulator-sheet");
+  await sheet.getByRole("button", { name: "ASDM5EC-super", exact: true }).click();
+  await expect(page.locator(".signal").getByRole("button", { name: /^Modulator/ })).toContainText("ASDM5EC-super");
+});

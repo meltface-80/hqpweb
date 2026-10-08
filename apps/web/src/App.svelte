@@ -422,6 +422,9 @@
         onpcm={() => apply({ mode: "PCM" })}
         result={message}
         onsaved={refreshInstances}
+        v2={prefs.layout === "v2"}
+        mode={caps.mode.name}
+        keptUp={caps.keptUp}
       />
     {/if}
   {/snippet}
