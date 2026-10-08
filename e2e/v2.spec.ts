@@ -143,6 +143,13 @@ test("v2: filter sheets carry chips, narrow by them, and pick", async ({ page })
   // A chip narrows the list, and the count follows.
   await sheet.getByRole("group", { name: "Show only" }).getByRole("button", { name: "apodizing", exact: true }).click();
   await expect(count).not.toHaveText(all!);
+  // Families are drop-downs: one phase at a time.
+  const narrowed = await count.textContent();
+  await sheet.getByRole("combobox", { name: "Phase" }).selectOption({ label: "minimum phase" });
+  await expect(count).not.toHaveText(narrowed!);
+  await expect(sheet.locator(".row").first()).toContainText("minimum phase");
+  await sheet.getByRole("combobox", { name: "Phase" }).selectOption({ label: "Phase: any" });
+  await expect(count).toHaveText(narrowed!);
   await shot(page, "v2-6-filter-sheet");
   await sheet.getByRole("button", { name: /^IIR\b/ }).click();
   await expect(page.locator(".signal").getByRole("button", { name: /^1x filter/ })).toContainText("IIR");

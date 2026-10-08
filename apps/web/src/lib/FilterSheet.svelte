@@ -1,14 +1,14 @@
 <script lang="ts">
   // The v2 filter picker (docs/design-v2-layout.md rule 2): a row like today's Picker's,
   // opening a sheet where every filter carries up to four chips, and the chips that would
-  // narrow the list are offered as filters, with a count. "+n" shows the rest and the
+  // narrow the list are offered as filters (families as drop-downs), with a count. "+n" shows the rest and the
   // why (a ratio it can't play, a failure here). Rules in chips.ts; picking goes through
   // the caller (App's pickFilter: a filter that can't play the ratio offers rates).
   import { tick } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import Chip from "./Chip.svelte";
   import type { KeptUp } from "./api.ts";
-  import { facets, filterChips, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
+  import { chooseInGroup, facets, filterChips, grouped, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
 
   type Item = FilterItemLike & { note?: string; disabled?: boolean };
 
@@ -52,7 +52,9 @@
       }),
     })),
   );
-  const offered = $derived(facets(rows.map((r) => r.chips)));
+  // Loose chips, and phase, ratio, focus and length as drop-downs (too many chips for a phone).
+  const offered = $derived(grouped(facets(rows.map((r) => r.chips))));
+  const chosen = (prefix: string) => [...keys].find((k) => k.startsWith(prefix)) ?? "";
   const visible = $derived(narrow(rows, keys).filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase())));
 
   /** Open the sheet; `chips` pre-selects filters, e.g. ["apodizing"] (as Picker.open). */
@@ -89,8 +91,20 @@
   </div>
   <input class="search" type="search" placeholder="Search" aria-label="Search filters" bind:value={query} />
   <div class="facets" role="group" aria-label="Show only">
-    {#each offered as f (f.key)}
+    {#each offered.chips as f (f.key)}
       <Chip kind={f.kind} label={f.label} pressed={keys.has(f.key)} onclick={() => toggle(f.key)} />
+    {/each}
+    {#each offered.groups as g (g.prefix)}
+      <select
+        class="group"
+        class:on={!!chosen(g.prefix)}
+        aria-label={g.label}
+        value={chosen(g.prefix)}
+        onchange={(e) => chooseInGroup(keys, g.prefix, e.currentTarget.value)}
+      >
+        <option value="">{g.label}: any</option>
+        {#each g.options as o (o.key)}<option value={o.key}>{o.label}</option>{/each}
+      </select>
     {/each}
   </div>
   <p class="count">{visible.length} of {rows.length}</p>
@@ -204,6 +218,22 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+  }
+  .group {
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    min-height: 36px;
+    padding: 0 10px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .group.on {
+    background: var(--text);
+    color: var(--bg);
+    border-color: var(--text);
   }
   .count {
     margin: 8px 0 0;

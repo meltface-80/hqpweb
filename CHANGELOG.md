@@ -40,7 +40,8 @@ may change behaviour; upgrade notes say what you need to do.
 - **Filter pickers with chips, in the new layout.** Each filter shows up to four chips:
   in use, ✓ kept up here (with its speed on this machine), ✗ fell behind here or won't
   play this ratio, ★ 5/5, its phase (from the name), apodizing, the ratio it needs, its
-  focus and length. The same chips filter the list, with a count. "+n · why?" shows the
+  focus and length. The same chips filter the list, with a count; phase, ratio, focus and
+  length are drop-downs there, so the filters fit on a phone. "+n · why?" shows the
   rest and the reason. The current layout's pickers are unchanged.
 
 ### Fixed

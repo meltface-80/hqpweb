@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { KeptUp } from "./api.ts";
-import { facets, filterChips, keptLowFor, lengthOf, narrow, phaseOf, shown } from "./chips.ts";
+import { chooseInGroup, facets, filterChips, grouped, keptLowFor, lengthOf, narrow, phaseOf, shown } from "./chips.ts";
 
 describe("what a filter's name says", () => {
   it("reads the phase from the suffix", () => {
@@ -101,5 +101,28 @@ describe("kept up here, for a filter", () => {
     ];
     expect(keptLowFor(list, { mode: "SDM (DSD)", rateHz: 11_289_600, slot: "1x", name: "f" })).toBe(1.6);
     expect(keptLowFor(list, { mode: "SDM (DSD)", rateHz: 11_289_600, slot: "Nx", name: "f" })).toBeNull();
+  });
+});
+
+describe("grouping the chip filters (too many to show on a phone)", () => {
+  const f = facets([
+    filterChips({ index: 0, name: "a-lp", rating: 5, apodizing: true }, { inUse: false }),
+    filterChips({ index: 1, name: "b-mp" }, { inUse: false }),
+    filterChips({ index: 2, name: "c-short-lp" }, { inUse: false }),
+  ]);
+  it("keeps status, 5/5 and apodizing as chips, and puts phase, ratio, focus and length in drop-downs", () => {
+    const g = grouped(f);
+    expect(g.chips.map((c) => c.key)).toEqual(["5/5", "apodizing"]);
+    expect(g.groups.map((x) => [x.label, x.options.map((o) => o.label)])).toEqual([
+      ["Phase", ["linear phase", "minimum phase"]],
+      ["Length", ["short"]],
+    ]);
+  });
+  it("takes one choice per drop-down", () => {
+    const keys = new Set(["5/5", "phase:linear phase"]);
+    chooseInGroup(keys, "phase:", "phase:minimum phase");
+    expect([...keys]).toEqual(["5/5", "phase:minimum phase"]);
+    chooseInGroup(keys, "phase:", "");
+    expect([...keys]).toEqual(["5/5"]);
   });
 });

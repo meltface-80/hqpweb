@@ -112,3 +112,28 @@ export function keptLowFor(list: KeptUp[], q: { mode: string; rateHz: number; sl
     .map((k) => k.low);
   return lows.length ? Math.min(...lows) : null;
 }
+
+/** Chip families shown as one drop-down each (a choice of one), the rest stay chips. */
+export const GROUPS = [
+  { prefix: "phase:", label: "Phase" },
+  { prefix: "ratio:", label: "Ratio" },
+  { prefix: "tag:", label: "Focus" },
+  { prefix: "length:", label: "Length" },
+] as const;
+
+/** The offered facets split into loose chips and drop-down groups (owner's call, 2026-10-08). */
+export function grouped(f: (Chip & { count: number })[]): {
+  chips: (Chip & { count: number })[];
+  groups: { prefix: string; label: string; options: (Chip & { count: number })[] }[];
+} {
+  return {
+    chips: f.filter((c) => !GROUPS.some((g) => c.key.startsWith(g.prefix))),
+    groups: GROUPS.map((g) => ({ ...g, options: f.filter((c) => c.key.startsWith(g.prefix)) })).filter((g) => g.options.length),
+  };
+}
+
+/** Choose one option in a group (or none: ""), dropping the group's other choice. */
+export function chooseInGroup(keys: Set<string>, prefix: string, key: string): void {
+  for (const k of [...keys]) if (k.startsWith(prefix)) keys.delete(k);
+  if (key) keys.add(key);
+}
