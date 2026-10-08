@@ -1,6 +1,6 @@
 {
   "name": "@app/lint",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "private": true,
   "type": "module",
   "description": "ESLint and its own TypeScript 6.0: typescript-eslint doesn't support TypeScript 7 yet.",

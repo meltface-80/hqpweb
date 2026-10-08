@@ -5,6 +5,11 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+## 0.1.0-beta.4 — named DACs, and a safer mode switch
+
+**Update:** `docker compose pull && docker compose up -d`. Settings, presets and learned
+failures are kept; everything saved before belongs to the first DAC.
+
 ### Added
 
 - **Named DACs behind one HQPlayer.** If one HQPlayer plays to more than one DAC (a

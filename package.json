@@ -1,6 +1,6 @@
 {
   "name": "hqpweb",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "description": "A web controller for Signalyst HQPlayer",
   "repository": {
     "type": "git",
