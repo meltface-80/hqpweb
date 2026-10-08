@@ -59,6 +59,15 @@ export const RISKY: readonly (keyof Change)[] = [
 ];
 export const isRisky = (change: Change) => (Object.keys(change) as (keyof Change)[]).some((k) => RISKY.includes(k));
 
+/**
+ * A volume change on its own is frequent and undoes itself (the slider): no result
+ * message unless it went wrong, and no Undo (owner's call, 2026-10-08).
+ */
+export const isQuiet = (change: Change) => {
+  const keys = Object.keys(change);
+  return keys.length === 1 && keys[0] === "volume";
+};
+
 /** The −/+ buttons: one step, clamped to HQPlayer's range; null when it wouldn't move. */
 export function stepVolume(current: number, step: number, range: { min: number; max: number }): number | null {
   const v = Math.min(range.max, Math.max(range.min, current + step));

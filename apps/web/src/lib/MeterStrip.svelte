@@ -208,7 +208,7 @@
       <p class="sr">{peaks || "No levels yet"}</p>
       <p class="scale">
         {VIEW_NOTES[view]} The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak.
-        All of it is the music as HQPlayer receives it, before upsampling.
+        All of it is the music before upsampling, after HQPlayer's volume.
       </p>
     {/if}
   {/if}

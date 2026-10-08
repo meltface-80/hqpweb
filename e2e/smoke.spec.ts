@@ -157,6 +157,9 @@ test("the volume buttons step by 1 dB", async ({ page }) => {
 
   await page.getByRole("button", { name: "Up 1 dB" }).click();
   await expect(slider).toHaveValue("-30");
+  // Volume is quiet: no result message and no Undo (the slider undoes itself).
+  await expect(page.locator("footer.show")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
 });
 
 test("a recording that keeps needing apodization suggests apodizing filters", async ({ page }) => {

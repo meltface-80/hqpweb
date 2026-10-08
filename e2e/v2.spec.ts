@@ -71,15 +71,24 @@ test("v2: the mini bar takes over when the now card scrolls away", async ({ page
   await openV2(page, "v2mini");
   const mini = page.getByRole("region", { name: "Now playing, compact" });
   await expect(mini).toHaveCount(0);
+  // A filter change brings up the footer (its result); a volume change alone is quiet.
+  await page
+    .locator(".signal")
+    .getByRole("button", { name: /^1x filter/ })
+    .click();
+  await page
+    .getByRole("dialog", { name: "1x filter: choose" })
+    .getByRole("button", { name: /^IIR\b/ })
+    .click();
+  const footer = page.locator("footer");
+  await expect(footer).toContainText("IIR");
   await page.getByRole("button", { name: "History" }).scrollIntoViewIfNeeded();
   await page.mouse.wheel(0, 2000);
   await expect(mini).toBeVisible();
   await expect(mini).toContainText("keeping up");
   await mini.getByRole("button", { name: /^Down/ }).click();
   await expect(mini).toContainText("-23");
-  // It sits above the footer (the change's result), not over it.
-  const footer = page.locator("footer");
-  await expect(footer).toContainText("Volume");
+  // It sits above the footer (the filter change's result), not over it.
   // Both slide (0.4 s): once the footer is fully on screen, the bar must be above it.
   await expect
     .poll(async () => {

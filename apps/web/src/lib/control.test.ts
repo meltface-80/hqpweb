@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoonZone, Snapshot } from "./api.ts";
-import { control, isRisky, roonPosition, stepVolume, zoneMismatch } from "./control.ts";
+import { control, isQuiet, isRisky, roonPosition, stepVolume, zoneMismatch } from "./control.ts";
 
 const snap = (state: 0 | 1 | 2, song: string | null): Snapshot =>
   ({
@@ -85,5 +85,14 @@ describe("playing state (found by mutation testing)", () => {
   it("follows HQPlayer while it plays its own playlist, even with a Roon zone mapped", () => {
     expect(control(snap(2, "01 - Example.flac"), zone("paused")).playing).toBe(true);
     expect(control(snap(0, null), null).playing).toBe(false);
+  });
+});
+
+describe("a quiet change", () => {
+  it("is a volume change on its own, nothing else", () => {
+    expect(isQuiet({ volume: -30 })).toBe(true);
+    expect(isQuiet({ volume: -30, shaper: "NS9" })).toBe(false);
+    expect(isQuiet({ shaper: "NS9" })).toBe(false);
+    expect(isQuiet({})).toBe(false);
   });
 });

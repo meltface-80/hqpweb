@@ -72,6 +72,11 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Fixed
 
+- **A volume change is quiet.** No "Applying…" or result message unless it goes wrong,
+  and no Undo: the slider undoes itself. Undo stays for filters, shaping, rate and mode.
+- **The meter says it's after HQPlayer's volume** (measured: a −30 dBFS tone read −53 dB
+  at −23 dB volume).
+
 - **The meter's axes are real.** The frequency labels (20 Hz, 200, 2k, 20 kHz) sit where
   the log scale puts them, with faint gridlines, and the open meter has a dB scale every
   20 dB. The strip says "Peak L … · R … dB", and the meter explains what the bars, line

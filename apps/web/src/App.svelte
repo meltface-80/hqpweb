@@ -13,7 +13,7 @@
   import RateSwitch, { type RateSwitchRequest } from "./lib/RateSwitch.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
   import { describe, type ResultMessage } from "./lib/result.ts";
-  import { control, isRisky } from "./lib/control.ts";
+  import { control, isQuiet, isRisky } from "./lib/control.ts";
   import * as hints from "./lib/hints.ts";
   import { watchForUpdate } from "./lib/update.ts";
   import * as speedRules from "./lib/speed.ts";
@@ -264,16 +264,18 @@
     slot?.open({ chips: ["apodizing"] });
   }
 
-  async function run(label: string, fn: () => Promise<ApplyResult>) {
+  async function run(label: string, fn: () => Promise<ApplyResult>, quiet = false) {
     if (!selected || busy) return;
     busy = true;
     const wasFromRoon = fromRoon;
-    message = { kind: "info", text: `${label}…` };
+    if (!quiet) message = { kind: "info", text: `${label}…` };
     try {
       const r = await fn();
       if (snap) snap = { ...snap, state: r.state };
-      undoAvailable = r.undoAvailable;
-      message = describe(r, show, wasFromRoon);
+      // A volume change hides Undo: the server's Undo would now undo the volume, not what came before.
+      undoAvailable = quiet ? false : r.undoAvailable;
+      const said = describe(r, show, wasFromRoon);
+      if (!quiet || said.kind !== "ok") message = said;
       // A rollback teaches the server a failed combination: refresh the warnings.
       if (r.rolledBack && selected) caps = await api.capabilities(selected);
     } catch (e) {
@@ -295,7 +297,7 @@
   const apply = (change: Change) => {
     if (isRisky(change)) riskyAt = Date.now();
     const label = isRisky(change) && snap?.status.state === 2 ? "Applying and checking playback" : "Applying";
-    return run(label, () => api.change(selected!, change));
+    return run(label, () => api.change(selected!, change), isQuiet(change));
   };
 
   // Roon's zone for this instance, when Roon is on and a zone is mapped.
