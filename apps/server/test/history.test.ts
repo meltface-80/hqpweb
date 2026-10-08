@@ -4,7 +4,7 @@ import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { HistoryStore, changedFields } from "../src/history.ts";
+import { HistoryStore, changedFields, type ModeLists } from "../src/history.ts";
 import type { Settings } from "../src/settings.ts";
 
 const S: Settings = {
@@ -76,5 +76,44 @@ describe("history", () => {
     writeFileSync(path, JSON.stringify({ format: 1, entries: [entry()] }));
     expect(new HistoryStore(path).forInstance("mac")).toHaveLength(1);
     expect(readdirSync(dir)).toEqual(["history.json"]);
+  });
+});
+
+describe("each mode's lists as last read", () => {
+  const l = (o: Partial<ModeLists> = {}): ModeLists => ({
+    instance: "mac",
+    engine: "5.35.10",
+    mode: "PCM",
+    filters: ["poly-sinc-gauss-xla"],
+    shapers: ["NS9", "TPDF"],
+    rates: [0, 705_600],
+    at: "2026-10-08T15:00:00.000Z",
+    ...o,
+  });
+  it("keeps the latest per instance, engine and mode, and forgets with the instance", () => {
+    const h = new HistoryStore(null);
+    h.listsSeen(l());
+    h.listsSeen(l({ shapers: ["NS9"] }));
+    h.listsSeen(l({ mode: "SDM (DSD)", shapers: ["AHM7EC8B"] }));
+    h.listsSeen(l({ engine: "6.1.0", shapers: ["LNS15"] }));
+    h.listsSeen(l({ instance: "office" }));
+    expect(h.modeLists("mac", "5.35.10")).toEqual({
+      PCM: expect.objectContaining({ shapers: ["NS9"] }),
+      "SDM (DSD)": expect.objectContaining({ shapers: ["AHM7EC8B"] }),
+    });
+    h.forget("mac");
+    expect(h.modeLists("mac", "5.35.10")).toEqual({});
+    expect(Object.keys(h.modeLists("office", "5.35.10"))).toEqual(["PCM"]);
+  });
+  it("persists, and rewrites the file only when the lists change", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hqpweb-lists-"));
+    const path = join(dir, "history.json");
+    const h = new HistoryStore(path);
+    h.listsSeen(l());
+    writeFileSync(path, JSON.stringify({ format: 1, entries: [], lists: [l({ shapers: ["marker"] })] }));
+    h.listsSeen(l({ at: "2026-10-08T16:00:00.000Z" })); // same lists: no write
+    expect(new HistoryStore(path).modeLists("mac", "5.35.10").PCM?.shapers).toEqual(["marker"]);
+    h.listsSeen(l({ shapers: ["TPDF"] })); // changed: written
+    expect(new HistoryStore(path).modeLists("mac", "5.35.10").PCM?.shapers).toEqual(["TPDF"]);
   });
 });

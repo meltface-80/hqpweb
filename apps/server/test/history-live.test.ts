@@ -22,11 +22,11 @@ afterEach(async () => {
   await fake.close();
 });
 
-async function setup(opts: FakeOptions = {}) {
+async function setup(opts: FakeOptions = {}, limits?: { maxPcmRate?: number; maxDsdRate?: number }) {
   fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, ...opts });
   await fake.listen();
   app = buildApp(
-    { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] },
+    { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port, ...(limits ? { limits } : {}) }] },
     { pollMs: 20, timing: { quick: FAST, major: FAST }, playWaitMs: 400 },
   );
   base = await app.listen(0, "127.0.0.1");
@@ -113,6 +113,24 @@ describe("settings last seen in each mode", () => {
     await req("POST", "/api/instances/mac/dacs", { body: { name: "Desk", currentName: "Holo" } });
     await req("PUT", "/api/instances/mac/dac", { body: { dac: "desk" } });
     expect(Object.keys((await caps()).lastSeen)).not.toContain("SDM (DSD)");
+  });
+
+  it("keeps each mode's lists by name, with the instance's rate limits, for choosing before switching", async () => {
+    await setup({}, { maxPcmRate: 384_000 });
+    const dsd = await caps();
+    expect(Object.keys(dsd.modeLists)).toEqual(["SDM (DSD)"]);
+    expect(dsd.modeLists["SDM (DSD)"].shapers).toEqual(dsd.shapers.map((s: { name: string }) => s.name));
+    fake.playback = 0;
+    await req("POST", "/api/instances/mac/change", { body: { mode: "PCM" } });
+    const pcm = await caps();
+    // Back in PCM, DSD's lists are still there: names only, no indices.
+    const kept = pcm.modeLists["SDM (DSD)"];
+    expect(kept.shapers).toContain("AHM7EC8B");
+    expect(kept.shapers).not.toContain("NS9");
+    expect(kept.rates.every((r: object) => !("index" in r))).toBe(true);
+    expect(pcm.modeLists.PCM.shapers).toContain("NS9");
+    const over = pcm.modeLists.PCM.rates.find((r: { rate: number }) => r.rate > 384_000);
+    expect(over).toMatchObject({ allowed: false });
   });
 });
 

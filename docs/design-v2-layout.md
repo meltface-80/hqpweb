@@ -103,6 +103,8 @@ Each new component handles all of these:
 All of it already exists on the server:
 
 - `capabilities.keptUp`, `knownBad` (with `sourceRates`) and `lastSeen`;
+- `capabilities.modeLists`: each mode's filters, shapers and rates as last read on this
+  engine, by name, so Compare can offer the other mode's choices before switching;
 - `GET /api/instances/:id/history`;
 - the SSE `now` and `roon` events.
 

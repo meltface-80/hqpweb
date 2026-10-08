@@ -77,6 +77,11 @@ export interface Capabilities {
   keptUp: KeptUp[];
   /** Each mode's settings as hqpweb last saw them, for the DAC in use (history.ts). */
   lastSeen: ReturnType<HistoryStore["lastSeen"]>;
+  /**
+   * Each mode's lists as last read on this engine, by name, with this instance's rate
+   * limits applied: what another mode offers, for choosing before switching (Compare).
+   */
+  modeLists: Record<string, { filters: string[]; shapers: string[]; rates: Omit<RateOption, "index">[]; at: string }>;
 }
 
 export interface FieldResult {
@@ -324,6 +329,7 @@ export class Instance {
         knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name),
         keptUp: this.learned.keptFor(this.scope(), info.engine, this.caps.value.mode.name),
         lastSeen: this.history.lastSeen(this.scope()),
+        modeLists: this.modeLists(info.engine),
       };
     }
 
@@ -341,12 +347,14 @@ export class Instance {
     const mode = modes.find((m) => m.index === state.mode);
     if (!mode) throw new HttpError(502, `State.mode ${state.mode} is not in GetModes`);
 
-    const sdm = mode.name.startsWith("SDM");
-    const cap = sdm ? this.cfg.limits?.maxDsdRate : this.cfg.limits?.maxPcmRate;
-    const rateOptions: RateOption[] = rates.map((r) => {
-      if (cap === undefined) return { ...r, allowed: true };
-      if (r.rate === 0) return { ...r, allowed: true, note: `auto may pick a rate above this instance's limit` };
-      return r.rate <= cap ? { ...r, allowed: true } : { ...r, allowed: false, note: `above this instance's limit (${cap} Hz)` };
+    this.history.listsSeen({
+      instance: this.cfg.id,
+      engine: info.engine,
+      mode: mode.name,
+      filters: filters.map((f) => f.name),
+      shapers: shapers.map((s) => s.name),
+      rates: rates.map((r) => r.rate),
+      at: new Date().toISOString(),
     });
 
     const value: Capabilities = {
@@ -355,16 +363,40 @@ export class Instance {
       modes,
       filters,
       shapers,
-      rates: rateOptions,
+      rates: this.withLimits(mode.name, rates),
       rateSettable: mode.value !== -1,
       volumeRange,
       matrixProfiles,
       knownBad: this.learned.forInstance(this.scope(), info.engine, mode.name),
       keptUp: this.learned.keptFor(this.scope(), info.engine, mode.name),
       lastSeen: this.history.lastSeen(this.scope()),
+      modeLists: this.modeLists(info.engine),
     };
     this.caps = { key, value };
     return value;
+  }
+
+  /** This instance's rate limits (config.ts), applied to a mode's rates. */
+  private withLimits<R extends { rate: number }>(modeName: string, rates: R[]): (R & { allowed: boolean; note?: string })[] {
+    const cap = modeName.startsWith("SDM") ? this.cfg.limits?.maxDsdRate : this.cfg.limits?.maxPcmRate;
+    return rates.map((r) => {
+      if (cap === undefined) return { ...r, allowed: true };
+      if (r.rate === 0) return { ...r, allowed: true, note: `auto may pick a rate above this instance's limit` };
+      return r.rate <= cap ? { ...r, allowed: true } : { ...r, allowed: false, note: `above this instance's limit (${cap} Hz)` };
+    });
+  }
+
+  private modeLists(engine: string): Capabilities["modeLists"] {
+    const out: Capabilities["modeLists"] = {};
+    for (const [mode, l] of Object.entries(this.history.modeLists(this.cfg.id, engine)))
+      out[mode] = {
+        ...l,
+        rates: this.withLimits(
+          mode,
+          l.rates.map((rate) => ({ rate })),
+        ),
+      };
+    return out;
   }
 
   applyChange(change: Change): Promise<ApplyResult> {

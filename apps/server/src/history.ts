@@ -1,7 +1,8 @@
-// What changed on an instance, when, from where and how it went; and the settings last
-// seen in each mode. HQPlayer's State only reports the mode in use, so a mode's settings
-// can be shown while in another mode only as hqpweb last saw them. Both are kept per
-// DAC scope (dac-scope.ts) in history.json.
+// What changed on an instance, when, from where and how it went; the settings last seen
+// in each mode; and each mode's lists as last read. HQPlayer's State and lists only cover
+// the mode in use, so another mode's settings and choices can be shown only as hqpweb
+// last saw them. Changes and settings are kept per DAC scope (dac-scope.ts), lists per
+// instance and engine (they depend on HQPlayer, not the DAC); all in history.json.
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { SETTINGS_FORMAT } from "./format.ts";
@@ -43,6 +44,21 @@ export interface Seen {
   at: string;
 }
 
+/**
+ * One mode's lists as last read, by name only: indices are never kept, since they are
+ * resolved at the moment of use (CLAUDE.md rule 5).
+ */
+export interface ModeLists {
+  instance: string;
+  engine: string;
+  mode: string;
+  filters: string[];
+  shapers: string[];
+  /** Output rates offered, Hz (0 = auto). */
+  rates: number[];
+  at: string;
+}
+
 /** Settings that count as history. Volume is left out: turning a knob isn't a change worth listing. */
 const TRACKED = [
   "mode",
@@ -68,6 +84,7 @@ const SEEN_SAVE_MS = 10 * 60_000;
 export class HistoryStore {
   private entries: HistoryEntry[];
   private seenList: Seen[];
+  private lists: ModeLists[];
   private readonly path: string | null;
   private readonly max: number;
   private lastSave = 0;
@@ -78,6 +95,7 @@ export class HistoryStore {
     this.max = max;
     this.entries = path ? loadList<HistoryEntry>(path, "entries") : [];
     this.seenList = path ? loadOptionalList<Seen>(path, "seen") : [];
+    this.lists = path ? loadOptionalList<ModeLists>(path, "lists") : [];
   }
 
   push(e: HistoryEntry) {
@@ -119,9 +137,26 @@ export class HistoryStore {
     return out;
   }
 
+  /** A mode's lists as just read; saved when they differ from what was kept. */
+  listsSeen(l: ModeLists) {
+    const same = (x: ModeLists) => x.instance === l.instance && x.engine === l.engine && x.mode === l.mode;
+    const prev = this.lists.find(same);
+    const key = (x: ModeLists) => JSON.stringify([x.filters, x.shapers, x.rates]);
+    this.lists = [...this.lists.filter((x) => !same(x)), l];
+    if (!prev || key(prev) !== key(l)) this.save();
+  }
+
+  /** An instance's lists for this engine, by mode name. */
+  modeLists(instance: string, engine: string): Record<string, Omit<ModeLists, "instance" | "engine" | "mode">> {
+    const out: Record<string, Omit<ModeLists, "instance" | "engine" | "mode">> = {};
+    for (const { instance: i, engine: e, mode, ...rest } of this.lists) if (i === instance && e === engine) out[mode] = rest;
+    return out;
+  }
+
   forget(instance: string) {
     this.entries = this.entries.filter((e) => !ofInstance(e.instance, instance));
     this.seenList = this.seenList.filter((x) => !ofInstance(x.instance, instance));
+    this.lists = this.lists.filter((x) => x.instance !== instance);
     this.save();
   }
 
@@ -130,7 +165,10 @@ export class HistoryStore {
     if (!this.path) return;
     mkdirSync(dirname(this.path), { recursive: true });
     const tmp = `${this.path}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ format: SETTINGS_FORMAT, entries: this.entries, seen: this.seenList }, null, 1) + "\n");
+    writeFileSync(
+      tmp,
+      JSON.stringify({ format: SETTINGS_FORMAT, entries: this.entries, seen: this.seenList, lists: this.lists }, null, 1) + "\n",
+    );
     renameSync(tmp, this.path);
   }
 }

@@ -7,6 +7,11 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Added
 
+- **hqpweb remembers each mode's lists.** HQPlayer only lists the filters, modulators or
+  dithers and rates of the mode in use. hqpweb now keeps each mode's lists, by name, as it
+  last read them on that HQPlayer and engine, so the other mode's choices can be offered
+  before switching (for Compare). Kept in `history.json`.
+
 - **hqpweb remembers what kept up here.** While hqpweb is open and music plays, it notes
   how fast HQPlayer processed each combination once settled (it skips the first seconds,
   which are often slow, and keeps the lowest 5-second average), per DAC and source rate.

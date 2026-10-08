@@ -121,6 +121,11 @@ export type Capabilities = {
   keptUp: KeptUp[];
   /** Each mode's settings as hqpweb last saw them, for the DAC in use (server: history.ts). */
   lastSeen: Record<string, { rate: number; filterNx: string; filter1x: string; shaper: string; at: string }>;
+  /** Each mode's lists as last read on this engine, by name (server: history.ts); for choosing before switching. */
+  modeLists: Record<
+    string,
+    { filters: string[]; shapers: string[]; rates: { rate: number; allowed: boolean; note?: string }[]; at: string }
+  >;
 };
 export type Change = Partial<{
   mode: string;

@@ -36,6 +36,7 @@ const pcm = (knownBad: Failure[] = []): Capabilities => ({
   knownBad,
   keptUp: [],
   lastSeen: {},
+  modeLists: {},
 });
 const sdm = (): Capabilities => ({
   ...pcm(),
