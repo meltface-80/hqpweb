@@ -32,6 +32,7 @@
     disabled = false,
     groupByRating = false,
     ratioLabel = "",
+    mono = false,
     onpick,
   }: {
     label: string;
@@ -45,6 +46,8 @@
     groupByRating?: boolean;
     /** The conversion being checked, e.g. "44.1 kHz → 192 kHz", for the hidden-items line. */
     ratioLabel?: string;
+    /** Values are HQPlayer identifiers, set in the mono font (v2 layout, rule 3). */
+    mono?: boolean;
     onpick: (item: Item) => void;
   } = $props();
 
@@ -123,7 +126,7 @@
   <span class="label"
     >{label}{#if hint}<span class="hint">{hint}</span>{/if}</span
   >
-  <span class="value">
+  <span class="value" class:mono>
     {#if active === true}<span class="taken" title="Active in HQPlayer">✓</span>{:else if active === false}<span
         class="not-taken"
         title="HQPlayer reports a different one active">⚠</span
@@ -193,7 +196,7 @@
                 onclick={() => pick(item)}
               >
                 <span class="name">
-                  {item.name}
+                  <span class:mono>{item.name}</span>
                   {#if item.blocked}<small class="why">{item.blocked}</small>{:else if item.warn}<small class="why"
                       >⚠ {item.warn}</small
                     >{:else if item.note}<small class="why">{item.note}</small>{/if}
@@ -560,5 +563,9 @@
   .group:not(:first-child) {
     margin-top: 6px;
     border-top: 1px solid var(--border);
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-weight: 500;
   }
 </style>

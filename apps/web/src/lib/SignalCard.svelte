@@ -132,6 +132,7 @@
     {#if caps.rateSettable}
       <Picker
         label="Rate"
+        mono
         items={rateItems}
         current={auto ? auto.text : formatRate(caps.rates.find((r) => r.index === snap.state.rate)?.rate ?? 0, caps.mode.name)}
         disabled={busy}

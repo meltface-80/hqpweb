@@ -141,8 +141,14 @@ test("v2: filter sheets carry chips, narrow by them, and pick", async ({ page })
   await expect(sheet.locator(".row.current")).toContainText("in use");
   await expect(sheet).toContainText("linear phase");
   // A chip narrows the list, and the count follows.
-  await sheet.getByRole("group", { name: "Show only" }).getByRole("button", { name: "apodizing", exact: true }).click();
+  await sheet.getByRole("combobox", { name: "Apodizing" }).selectOption({ label: "apodizing" });
   await expect(count).not.toHaveText(all!);
+  // Chips and drop-downs are one height. A guard only: iOS draws selects shorter, and
+  // neither Chromium nor desktop WebKit reproduces that, so the fix itself is checked by eye.
+  const bar = sheet.getByRole("group", { name: "Show only" });
+  const chipH = (await bar.getByRole("button").first().boundingBox())!.height;
+  const selH = (await bar.getByRole("combobox").first().boundingBox())!.height;
+  expect(Math.abs(chipH - selH)).toBeLessThan(1);
   // Families are drop-downs: one phase at a time.
   const narrowed = await count.textContent();
   await sheet.getByRole("combobox", { name: "Phase" }).selectOption({ label: "minimum phase" });
@@ -162,7 +168,7 @@ test("v2: the apodization notice opens the new filter sheet, narrowed to apodizi
     .getByRole("button")
     .click();
   const sheet = page.getByRole("dialog", { name: "1x filter: choose" });
-  await expect(sheet.getByRole("button", { name: "apodizing", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(sheet.getByRole("combobox", { name: "Apodizing" })).toHaveValue("apod:apodizing");
   await expect(sheet.getByRole("button", { name: /^poly-sinc-hb\b/ })).toHaveCount(0);
 });
 
@@ -180,6 +186,7 @@ test("v2: the modulator list carries chips, narrows by order and load, and picks
   await expect(count).toHaveText(/^36 of 36$/);
   await sheet.getByRole("combobox", { name: "Order" }).selectOption({ label: "fifth order" });
   await sheet.getByRole("combobox", { name: "Load in its line" }).selectOption({ label: "EC line: heaviest" });
+  await expect(sheet).toContainText("needs a fast CPU at this rate");
   await expect(count).toHaveText(/^2 of 36$/);
   await shot(page, "v2-7-modulator-sheet");
   await sheet.getByRole("button", { name: "ASDM5EC-super", exact: true }).click();

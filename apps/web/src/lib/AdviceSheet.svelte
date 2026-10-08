@@ -161,7 +161,7 @@
 
 <button class="row" onclick={() => open()} {disabled}>
   <span class="label">{label}</span>
-  <span class="value">
+  <span class="value" class:mono={v2}>
     {#if active === true}<span class="taken" title="Active in HQPlayer">✓</span>{:else if active === false}<span
         class="not-taken"
         title="HQPlayer reports a different one active">⚠</span
@@ -185,7 +185,7 @@
         >Guide <span class="beta">Beta</span></button
       >
     </div>
-    <p class="now">Now using <strong>{current || "—"}</strong></p>
+    <p class="now">Now using <strong class:mono={v2}>{current || "—"}</strong></p>
     {#if result && result !== resultAtOpen}
       <!-- A change made from here: its outcome (a rollback, say) would otherwise sit behind the sheet. -->
       <p class="msg result {result.kind}" role="status">{result.text}</p>
@@ -416,5 +416,9 @@
     padding: 12px 20px 16px;
     font-size: 0.75rem;
     color: var(--text-faint);
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-weight: 500;
   }
 </style>

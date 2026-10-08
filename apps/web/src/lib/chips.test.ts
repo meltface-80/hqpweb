@@ -75,6 +75,13 @@ describe("narrowing by chips", () => {
     expect(f.map((x) => x.key)).toEqual(["kept", "5/5", "phase:linear phase", "phase:minimum phase"]);
     expect(f.some((x) => x.count === rows.length)).toBe(false); // a chip every row has narrows nothing
   });
+  it("never offers in use or trouble as filters", () => {
+    const f = facets([
+      filterChips({ index: 0, name: "a-lp", warn: "failed here", blocked: "needs pow2" }, { inUse: true }),
+      filterChips({ index: 1, name: "b-mp" }, { inUse: false }),
+    ]);
+    expect(f.map((x) => x.key)).toEqual(["phase:linear phase", "phase:minimum phase"]);
+  });
 });
 
 describe("kept up here, for a filter", () => {
@@ -110,11 +117,12 @@ describe("grouping the chip filters (too many to show on a phone)", () => {
     filterChips({ index: 1, name: "b-mp" }, { inUse: false }),
     filterChips({ index: 2, name: "c-short-lp" }, { inUse: false }),
   ]);
-  it("keeps status, 5/5 and apodizing as chips, and puts phase, ratio, focus and length in drop-downs", () => {
+  it("keeps yes/no facts as chips, and puts phase, apodizing, ratio, focus and length in drop-downs", () => {
     const g = grouped(f);
-    expect(g.chips.map((c) => c.key)).toEqual(["5/5", "apodizing"]);
+    expect(g.chips.map((c) => c.key)).toEqual(["5/5"]);
     expect(g.groups.map((x) => [x.label, x.options.map((o) => o.label)])).toEqual([
       ["Phase", ["linear phase", "minimum phase"]],
+      ["Apodizing", ["apodizing"]],
       ["Length", ["short"]],
     ]);
   });

@@ -3,7 +3,7 @@
 // (advice/catalogue.ts families, advice/variants.ts load, the guide's starting point) or
 // from this machine's records; the guide's own words are reused where they fit ("For your answers").
 import type { KeptUp } from "./api.ts";
-import { ditherGroupTitle, familyTitle, orderOf } from "./advice/catalogue.ts";
+import { orderOf } from "./advice/catalogue.ts";
 import { heavyAt, variantNote } from "./advice/variants.ts";
 import type { Chip } from "./chips.ts";
 
@@ -16,7 +16,7 @@ export interface ShaperItemLike {
 
 export type Badge = { text: string; kind: "default" | "yours" | "caution" };
 
-/** A modulator's or dither's chips, status first, then the guide's start, then facts. */
+/** A modulator's or dither's chips: status, the guide's start, then order, load and generation. */
 export function shaperChips(
   i: ShaperItemLike,
   o: { isSdm: boolean; inUse: boolean; rateHz: number; keptLow?: number | null; badge?: Badge },
@@ -28,24 +28,23 @@ export function shaperChips(
   if (o.keptLow != null) out.push({ kind: "good", label: `✓ kept up here (${o.keptLow.toFixed(1)}×)`, key: "kept" });
   if (o.badge && o.badge.kind !== "caution") out.push({ kind: "suggested", label: o.badge.text, key: `start:${o.badge.kind}` });
   if (o.isSdm) {
-    if (o.rateHz && heavyAt(i.name, o.rateHz)) out.push({ kind: "fact", label: "heavy at this rate", key: "heavy" });
+    const order = orderOf(i.name);
+    if (order) out.push({ kind: "fact", label: order === 5 ? "fifth order" : "seventh order", key: `order:${order}` });
     // Signalyst ranks load only among a line's variants, so the chip names the line:
     // "EC line: heaviest" can't be read as this machine's load ("kept up here" is that).
     const load = variantNote(i.name)?.load;
     const line = i.name.startsWith("AHM") ? "AHM" : "EC line";
     if (load) out.push({ kind: "fact", label: `${line}: ${load}`, key: `load:${line}: ${load}` });
-    const order = orderOf(i.name);
-    if (order) out.push({ kind: "fact", label: order === 5 ? "fifth order" : "seventh order", key: `order:${order}` });
+    // What Signalyst says it takes, not how it went here; a note on the row, not a filter.
+    if (o.rateHz && heavyAt(i.name, o.rateHz))
+      out.push({ kind: "fact", label: "needs a fast CPU at this rate", key: "fast-cpu" });
   }
-  const family = o.isSdm ? familyTitle(i.name) : ditherGroupTitle(i.name);
-  if (family) out.push({ kind: "fact", label: family, key: `family:${family}` });
   if (i.gen !== undefined) out.push({ kind: "fact", label: `Gen ${i.gen}`, key: `gen:${i.gen}` });
   return out;
 }
 
-/** The drop-downs for these lists (chips.ts grouped); status and the start stay chips. */
+/** The drop-downs for these lists (chips.ts grouped). No family: the list's sections are the families. */
 export const SHAPER_GROUPS = [
-  { prefix: "family:", label: "Family" },
   { prefix: "order:", label: "Order" },
   { prefix: "load:", label: "Load in its line" },
   { prefix: "gen:", label: "Gen" },

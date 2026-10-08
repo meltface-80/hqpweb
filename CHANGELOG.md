@@ -40,13 +40,14 @@ may change behaviour; upgrade notes say what you need to do.
 - **Filter pickers with chips, in the new layout.** Each filter shows up to four chips:
   in use, ✓ kept up here (with its speed on this machine), ✗ fell behind here or won't
   play this ratio, ★ 5/5, its phase (from the name), apodizing, the ratio it needs, its
-  focus and length. The same chips filter the list, with a count; phase, ratio, focus and
-  length are drop-downs there, so the filters fit on a phone. "+n · why?" shows the
-  rest and the reason. The modulator and dither lists get the same: in use, kept up or
-  fell behind here, won't play at this rate, the guide's starting point, heavy at this
-  rate, load within its line ("EC line: lightest"), order, family and generation, with
-  family, order, load and generation as drop-downs. Their sections, cited notes and the
-  guide are unchanged. The current layout's pickers are unchanged.
+  focus and length. "+n · why?" shows the rest and the reason. The modulator and dither
+  lists get the same: in use, kept up or fell behind here, won't play at this rate, the
+  guide's starting point, order, load within its line ("EC line: lightest"), "needs a
+  fast CPU at this rate" (Signalyst on the EC line at DSD1024) and generation; their
+  sections, cited notes and the guide are unchanged. Above each list, yes/no facts are
+  chips and the rest drop-downs (phase, apodizing, ratio, focus, length; order, load,
+  generation), with a count; in use and trouble aren't filters. Names and rates are set
+  in the mono font. The current layout's pickers are unchanged.
 
 ### Fixed
 

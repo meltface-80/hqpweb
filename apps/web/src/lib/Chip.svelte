@@ -43,7 +43,9 @@
     color: var(--bg);
   }
   button.chip {
-    min-height: 36px;
+    box-sizing: border-box;
+    height: 36px;
+    line-height: 1;
     padding: 0 12px;
     font-size: 0.82rem;
     border-radius: 18px;

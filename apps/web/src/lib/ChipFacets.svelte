@@ -28,16 +28,17 @@
     <Chip kind={f.kind} label={f.label} pressed={keys.has(f.key)} onclick={() => toggle(f.key)} />
   {/each}
   {#each offered.groups as g (g.prefix)}
-    <select
-      class="group"
-      class:on={!!chosen(g.prefix)}
-      aria-label={g.label}
-      value={chosen(g.prefix)}
-      onchange={(e) => chooseInGroup(keys, g.prefix, e.currentTarget.value)}
-    >
-      <option value="">{g.label}: any</option>
-      {#each g.options as o (o.key)}<option value={o.key}>{o.label}</option>{/each}
-    </select>
+    <span class="sel" class:on={!!chosen(g.prefix)}>
+      <select
+        class="group"
+        aria-label={g.label}
+        value={chosen(g.prefix)}
+        onchange={(e) => chooseInGroup(keys, g.prefix, e.currentTarget.value)}
+      >
+        <option value="">{g.label}: any</option>
+        {#each g.options as o (o.key)}<option value={o.key}>{o.label}</option>{/each}
+      </select>
+    </span>
   {/each}
 </div>
 <p class="count">{count}</p>
@@ -48,20 +49,47 @@
     flex-wrap: wrap;
     gap: 6px;
   }
+  /* Drawn like a chip (Chip.svelte), with our own arrow: iOS draws its own select shorter. */
+  .sel {
+    position: relative;
+    display: inline-flex;
+    color: var(--text);
+  }
+  .sel::after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    margin-top: -5px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    pointer-events: none;
+  }
   .group {
+    appearance: none;
+    -webkit-appearance: none;
+    box-sizing: border-box;
+    height: 36px;
+    margin: 0;
     font: inherit;
     font-size: 0.82rem;
     font-weight: 600;
-    min-height: 36px;
-    padding: 0 10px;
+    line-height: 1;
+    padding: 0 30px 0 12px;
     border-radius: 18px;
     border: 1px solid var(--border);
     background: var(--bg);
-    color: var(--text);
+    color: inherit;
+    cursor: pointer;
   }
-  .group.on {
-    background: var(--text);
+  .sel.on {
     color: var(--bg);
+  }
+  .sel.on .group {
+    background: var(--text);
     border-color: var(--text);
   }
   .count {

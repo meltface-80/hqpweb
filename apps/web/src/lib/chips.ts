@@ -15,6 +15,8 @@ export interface Chip {
 }
 
 export const MAX_CHIPS = 4;
+/** The apodizing filter's key; today's Picker calls the same choice "apodizing". */
+export const APODIZING = "apod:apodizing";
 
 /** The phase a filter's name gives: "-lp" linear, "-mp" minimum, "-ip" intermediate. */
 export function phaseOf(name: string): string | null {
@@ -62,8 +64,8 @@ export function filterChips(i: FilterItemLike, o: { inUse: boolean; keptLow?: nu
   if (i.rating === 5) out.push({ kind: "fact", label: "★ 5/5", key: "5/5" });
   const phase = phaseOf(i.name);
   if (phase) out.push({ kind: "fact", label: phase, key: `phase:${phase}` });
-  if (i.apodizing === true) out.push({ kind: "fact", label: "apodizing", key: "apodizing" });
-  else if (i.apodizing === "partial") out.push({ kind: "fact", label: "½ apodizing", key: "apodizing-partial" });
+  if (i.apodizing === true) out.push({ kind: "fact", label: "apodizing", key: APODIZING });
+  else if (i.apodizing === "partial") out.push({ kind: "fact", label: "½ apodizing", key: "apod:½ apodizing" });
   const ratio = RATIO_WORDS[ratioClass(i.name) ?? ""];
   if (ratio) out.push({ kind: "fact", label: ratio, key: `ratio:${ratio}` });
   for (const t of i.tags ?? []) out.push({ kind: "fact", label: t, key: `tag:${t}` });
@@ -81,14 +83,20 @@ export function narrow<T extends { chips: Chip[] }>(rows: T[], keys: Set<string>
   return rows.filter((r) => [...keys].every((k) => r.chips.some((c) => c.key === k)));
 }
 
+const NOT_FILTERS = new Set(["fast-cpu"]);
+
 /** The order filters are offered in: status, the guide's start, then rating, phase, apodizing, ratio, focus, length. */
-const RANK = ["trouble", "blocked", "kept", "start:", "5/5", "phase:", "apodizing", "ratio:", "tag:", "length:", "heavy"];
+const RANK = ["kept", "start:", "5/5", "phase:", "apod:", "ratio:", "tag:", "length:", "order:", "load:", "gen:"];
 const rank = (key: string) => {
   const i = RANK.findIndex((r) => key === r || (r.endsWith(":") && key.startsWith(r)) || key.startsWith(r));
   return i < 0 ? RANK.length : i;
 };
 
-/** Chips worth offering as filters: on some rows but not all (those would narrow nothing), in a steady order. */
+/**
+ * Chips worth offering as filters: on some rows but not all (those would narrow nothing),
+ * in a steady order. In use and trouble are never filters (nobody wants only the failures),
+ * nor are notes that only qualify a row (NOT_FILTERS).
+ */
 export function facets(lists: Chip[][]): (Chip & { count: number })[] {
   const seen = new Map<string, Chip & { count: number }>();
   for (const list of lists)
@@ -98,7 +106,7 @@ export function facets(lists: Chip[][]): (Chip & { count: number })[] {
       else seen.set(c.key, { ...c, count: 1 });
     }
   return [...seen.values()]
-    .filter((f) => f.count < lists.length && f.kind !== "inuse")
+    .filter((f) => f.count < lists.length && f.kind !== "inuse" && f.kind !== "trouble" && !NOT_FILTERS.has(f.key))
     .sort((a, b) => rank(a.key) - rank(b.key) || a.label.localeCompare(b.label));
 }
 
@@ -113,9 +121,10 @@ export function keptLowFor(list: KeptUp[], q: { mode: string; rateHz: number; sl
   return lows.length ? Math.min(...lows) : null;
 }
 
-/** Chip families shown as one drop-down each (a choice of one), the rest stay chips. */
+/** Chip families shown as one drop-down each (a choice of one); yes/no facts stay chips. */
 export const GROUPS = [
   { prefix: "phase:", label: "Phase" },
+  { prefix: "apod:", label: "Apodizing" },
   { prefix: "ratio:", label: "Ratio" },
   { prefix: "tag:", label: "Focus" },
   { prefix: "length:", label: "Length" },

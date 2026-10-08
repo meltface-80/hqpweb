@@ -9,7 +9,7 @@
   import Chip from "./Chip.svelte";
   import ChipFacets from "./ChipFacets.svelte";
   import type { KeptUp } from "./api.ts";
-  import { facets, filterChips, grouped, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
+  import { APODIZING, facets, filterChips, grouped, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
 
   type Item = FilterItemLike & { note?: string; disabled?: boolean };
 
@@ -60,7 +60,7 @@
   /** Open the sheet; `chips` pre-selects filters, e.g. ["apodizing"] (as Picker.open). */
   export async function open(opts: { chips?: string[] } = {}) {
     keys.clear();
-    for (const c of opts.chips ?? []) keys.add(c);
+    for (const c of opts.chips ?? []) keys.add(c === "apodizing" ? APODIZING : c);
     query = "";
     expanded = null;
     await tick();

@@ -19,9 +19,8 @@ describe("a modulator's chips", () => {
       "in use",
       "✓ kept up here (1.8×)",
       "For your answers",
-      "EC line: heaviest",
       "seventh order",
-      "Newest EC line",
+      "EC line: heaviest",
       "Gen 7",
     ]);
   });
@@ -35,10 +34,19 @@ describe("a modulator's chips", () => {
     );
   });
 
-  it("says heavy at DSD1024 for the EC line (Signalyst's word), not for AHM", () => {
-    expect(labels(shaperChips({ name: "ASDM7EC-fast" }, { ...sdm, rateHz: DSD1024 }))).toContain("heavy at this rate");
-    expect(labels(shaperChips({ name: "ASDM7EC-fast" }, sdm))).not.toContain("heavy at this rate");
-    expect(labels(shaperChips({ name: "AHM7EC8B" }, { ...sdm, rateHz: DSD1024 }))).not.toContain("heavy at this rate");
+  it("says a fast CPU is needed at DSD1024 for the EC line (Signalyst's word), not for AHM", () => {
+    const fast = "needs a fast CPU at this rate";
+    expect(labels(shaperChips({ name: "ASDM7EC-fast" }, { ...sdm, rateHz: DSD1024 }))).toContain(fast);
+    expect(labels(shaperChips({ name: "ASDM7EC-fast" }, sdm))).not.toContain(fast);
+    expect(labels(shaperChips({ name: "AHM7EC8B" }, { ...sdm, rateHz: DSD1024 }))).not.toContain(fast);
+  });
+
+  it("doesn't offer that note, or trouble, as a filter", () => {
+    const f = facets([
+      shaperChips({ name: "ASDM7EC-fast", warn: "failed here" }, { ...sdm, rateHz: DSD1024 }),
+      shaperChips({ name: "AHM7EC8B" }, { ...sdm, rateHz: DSD1024 }),
+    ]);
+    expect(f.map((x) => x.key).sort()).toEqual(["load:AHM: light", "load:EC line: a bit more than -light"]);
   });
 
   it("names the line a load is ranked in, never a bare CPU load", () => {
@@ -58,9 +66,8 @@ describe("a modulator's chips", () => {
 });
 
 describe("a dither's chips", () => {
-  it("has its group, and none of the modulator facts", () => {
-    const c = shaperChips({ name: "LNS15" }, { isSdm: false, inUse: false, rateHz: 705_600 });
-    expect(labels(c)).toEqual(["Noise shaping, for ladder DACs"]);
+  it("has none of the modulator facts (its section names its group)", () => {
+    expect(shaperChips({ name: "LNS15" }, { isSdm: false, inUse: false, rateHz: 705_600 })).toEqual([]);
   });
 });
 
@@ -69,16 +76,14 @@ describe("filtering the modulator list", () => {
     name,
     chips: shaperChips({ name }, sdm),
   }));
-  it("puts family, order, CPU and Gen in drop-downs", () => {
+  it("puts order, load and Gen in drop-downs; no family (the sections are the families)", () => {
     const g = grouped(facets(rows.map((r) => r.chips)), SHAPER_GROUPS);
-    expect(g.groups.map((x) => x.label)).toEqual(["Family", "Order", "Load in its line"]);
+    expect(g.groups.map((x) => x.label)).toEqual(["Order", "Load in its line"]);
     expect(g.chips).toEqual([]);
   });
-  it("narrows by order and family together", () => {
-    expect(narrow(rows, new Set(["order:7", "family:Newest EC line"])).map((r) => r.name)).toEqual([
-      "ASDM7EC-super",
-      "ASDM7EC-light",
-    ]);
+  it("narrows by order and load together", () => {
+    expect(narrow(rows, new Set(["order:7", "load:EC line: heaviest"])).map((r) => r.name)).toEqual(["ASDM7EC-super"]);
+    expect(narrow(rows, new Set(["order:7", "load:EC line: light"])).map((r) => r.name)).toEqual(["ASDM7EC-light"]);
   });
 });
 
