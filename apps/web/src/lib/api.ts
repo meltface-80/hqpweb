@@ -94,6 +94,16 @@ export type KeptUp = Omit<Failure, "reason" | "count" | "sourceRates"> & {
   sessions: number;
   first: string;
 };
+/** One entry of an instance's change history (server: history.ts), newest first from the API. */
+export type HistoryEntry = {
+  at: string;
+  instance: string;
+  source: "hqpweb" | "preset" | "undo" | "elsewhere";
+  changes: { field: string; from: unknown; to: unknown; applied?: boolean }[];
+  playback?: string;
+  detail?: string;
+  rolledBack?: boolean;
+};
 export type Capabilities = {
   engine: string;
   mode: { index: number; name: string; value: number };
@@ -106,6 +116,8 @@ export type Capabilities = {
   volumeRange: { min: number; max: number; enabled: boolean };
   knownBad: Failure[];
   keptUp: KeptUp[];
+  /** Each mode's settings as hqpweb last saw them, for the DAC in use (server: history.ts). */
+  lastSeen: Record<string, { rate: number; filterNx: string; filter1x: string; shaper: string; at: string }>;
 };
 export type Change = Partial<{
   mode: string;
@@ -263,6 +275,7 @@ export const api = {
   deletePreset: (pid: string) => call<{ ok: true }>(`/api/presets/${pid}`, { method: "DELETE" }),
   applyPreset: (id: string, pid: string) => call<ApplyResult>(`/api/instances/${id}/presets/${pid}/apply`, { method: "POST" }),
   learned: (id: string) => call<(Failure & { engine: string })[]>(`/api/instances/${id}/learned`),
+  history: (id: string) => call<HistoryEntry[]>(`/api/instances/${id}/history`),
   forgetLearned: (id: string) => call<{ forgotten: number }>(`/api/instances/${id}/learned`, { method: "DELETE" }),
   events: (id: string) => new EventSource(`/api/instances/${id}/events`),
   roon: () => call<RoonView>("/api/roon"),

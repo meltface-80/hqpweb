@@ -18,9 +18,10 @@ import {
 import type { InstanceConfig } from "./config.ts";
 import { LearnedStore, type Combo, type Failure, type KeptUp } from "./learned.ts";
 import { KEPT_TIMING, KeptUpTracker, type KeptTiming } from "./kept-up.ts";
+import { HistoryStore, changedFields, type ChangeSource } from "./history.ts";
 import { DEFAULT_TIMING, MAJOR_TIMING, type Verdict, type WatchTiming } from "./watch.ts";
 import { previewOne, type PresetPreview } from "./preset-preview.ts";
-import { settingsOf } from "./settings.ts";
+import { settingsOf, type Settings } from "./settings.ts";
 import { StatusPoller, type Snapshot, type StatusEvent } from "./poller.ts";
 import { ChangeEngine, type RoonTransport } from "./change-engine.ts";
 import { HttpError } from "./errors.ts";
@@ -73,6 +74,8 @@ export interface Capabilities {
   knownBad: Failure[];
   /** Combinations that kept up here, settled, with how fast (kept-up.ts). */
   keptUp: KeptUp[];
+  /** Each mode's settings as hqpweb last saw them, for the DAC in use (history.ts). */
+  lastSeen: ReturnType<HistoryStore["lastSeen"]>;
 }
 
 export interface FieldResult {
@@ -127,6 +130,8 @@ export interface InstanceOptions {
   roon?: () => RoonTransport | null;
   /** When a playing combination counts as settled (kept-up.ts). Default KEPT_TIMING; tests shorten it. */
   keptTiming?: KeptTiming;
+  /** Change history and settings last seen per mode (history.ts). Default: in memory. */
+  history?: HistoryStore;
 }
 
 export class Instance {
@@ -146,10 +151,14 @@ export class Instance {
     this.client = opts.client ?? new HqpClient(cfg.host, { port: cfg.port });
     this.learned = opts.learned ?? new LearnedStore(null);
     this.kept = new KeptUpTracker(opts.keptTiming ?? KEPT_TIMING);
+    this.history = opts.history ?? new HistoryStore(null);
     this.poller = new StatusPoller(this.client, {
       speedWindowMs: opts.speedWindowMs ?? 30_000,
       queueEveryMs: opts.queueEveryMs ?? 5000,
-      onTick: (status, state) => void this.noteSpeed(status, state).catch(() => undefined),
+      onTick: (status, state) => {
+        void this.noteSpeed(status, state).catch(() => undefined);
+        void this.noteSettings(state).catch(() => undefined);
+      },
     });
     this.playWaitMs = opts.playWaitMs ?? 5000;
     this.engine = new ChangeEngine({
@@ -193,6 +202,69 @@ export class Instance {
     if (!result) return;
     const k = JSON.parse(result.key) as KeptKey;
     this.learned.recordKept({ ...k, low: result.low, typical: result.typical, at: new Date(t).toISOString() }, result.final);
+  }
+
+  private readonly history: HistoryStore;
+  /** The settings at the previous poll, to spot changes made elsewhere. */
+  private baseline: { scope: string; settings: Settings } | null = null;
+  /** Bumped by every write hqpweb makes, so a poll that overlapped one is ignored. */
+  private writes = 0;
+
+  /**
+   * Each poll: keep the settings as last seen in this mode, and log any change since
+   * the last poll that hqpweb didn't make (HQPlayer's own window, another app). Polls
+   * during or overlapping hqpweb's own writes are skipped; each write leaves the
+   * settings it ended with as the baseline, so a change made right after it still shows.
+   */
+  private async noteSettings(state: State) {
+    const gen = this.writes;
+    if (this.busy) return;
+    const caps = await this.capabilities();
+    // A poll that overlapped one of hqpweb's writes saw a moment in between: ignore it
+    // (the write sets the next baseline itself).
+    if (caps.mode.index !== state.mode || gen !== this.writes || this.busy) return;
+    const scope = this.scope();
+    const now = settingsOf(caps, state);
+    const at = new Date().toISOString();
+    this.history.seen(scope, now, at);
+    const prev = this.baseline;
+    this.baseline = { scope, settings: now };
+    if (!prev || prev.scope !== scope) return;
+    const changes = changedFields(prev.settings, now);
+    if (changes.length) this.history.push({ at, instance: scope, source: "elsewhere", changes });
+  }
+
+  /** Runs one of hqpweb's own changes and logs it, with the settings before and after. */
+  private logged(source: ChangeSource, run: () => Promise<ApplyResult>): Promise<ApplyResult> {
+    return this.exclusive(async () => {
+      this.writes++;
+      const scope = this.scope();
+      const before = await this.currentSettings().catch(() => null);
+      let r: ApplyResult;
+      try {
+        r = await run();
+      } finally {
+        const after = await this.currentSettings().catch(() => null);
+        this.baseline = after ? { scope: this.scope(), settings: after } : null;
+        this.writes++;
+      }
+      if (before && r.results.length)
+        this.history.push({
+          at: new Date().toISOString(),
+          instance: scope,
+          source,
+          changes: r.results.map((x) => ({ field: x.field, from: before[x.field], to: x.actual, applied: x.applied })),
+          playback: r.playback.kind,
+          ...("detail" in r.playback && r.playback.detail ? { detail: r.playback.detail } : {}),
+          ...(r.rolledBack ? { rolledBack: true } : {}),
+        });
+      return r;
+    });
+  }
+
+  /** hqpweb's change history for this instance and its DACs, newest first. */
+  changeHistory() {
+    return this.history.forInstance(this.cfg.id);
   }
 
   /** Where this instance's failures and answers are kept now: its id, or `id#dac` (dac-scope.ts). */
@@ -239,6 +311,7 @@ export class Instance {
         ...this.caps.value,
         knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name),
         keptUp: this.learned.keptFor(this.scope(), info.engine, this.caps.value.mode.name),
+        lastSeen: this.history.lastSeen(this.scope()),
       };
     }
 
@@ -276,13 +349,14 @@ export class Instance {
       matrixProfiles,
       knownBad: this.learned.forInstance(this.scope(), info.engine, mode.name),
       keptUp: this.learned.keptFor(this.scope(), info.engine, mode.name),
+      lastSeen: this.history.lastSeen(this.scope()),
     };
     this.caps = { key, value };
     return value;
   }
 
   applyChange(change: Change): Promise<ApplyResult> {
-    return this.exclusive(() => this.engine.apply(change, false));
+    return this.logged("hqpweb", () => this.engine.apply(change, false));
   }
 
   /**
@@ -291,11 +365,11 @@ export class Instance {
    * raise past the guard) are skipped and reported instead of failing it all.
    */
   applyPreset(settings: Change): Promise<ApplyResult> {
-    return this.exclusive(() => this.engine.apply(settings, false, true));
+    return this.logged("preset", () => this.engine.apply(settings, false, true));
   }
 
   undo(): Promise<ApplyResult> {
-    return this.exclusive(() => this.engine.undo());
+    return this.logged("undo", () => this.engine.undo());
   }
 
   async transport(action: TransportAction): Promise<{ reply: Outcome; status: Status; notStarted?: { explained?: string } }> {

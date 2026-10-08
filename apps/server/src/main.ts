@@ -3,6 +3,7 @@ import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "./config.ts";
 import { LearnedStore } from "./learned.ts";
+import { HistoryStore } from "./history.ts";
 import { PresetStore } from "./presets.ts";
 import { RoonLink } from "./roon/roon.ts";
 
@@ -27,6 +28,7 @@ try {
   console.error(`warning: ${configDir} is not writable; learned failures won't be saved (rollback still works)`);
 }
 const learned = new LearnedStore(join(configDir, "learned.json"));
+const history = new HistoryStore(join(configDir, "history.json"));
 // Set in the container image; in development Vite serves the web app instead.
 const staticDir = process.env.STATIC_DIR || undefined;
 // Discovery is UDP multicast: in Docker it needs host networking to see the LAN.
@@ -37,7 +39,16 @@ const discovery =
 const presets = new PresetStore(join(configDir, "presets.json"), parseChange);
 // Roon is optional and off until switched on in Settings.
 const roon = new RoonLink(join(configDir, "roon.json"));
-const app = buildApp(config, { allowedHosts, learned, presets, configDir, discovery, roon, ...(staticDir ? { staticDir } : {}) });
+const app = buildApp(config, {
+  allowedHosts,
+  learned,
+  history,
+  presets,
+  configDir,
+  discovery,
+  roon,
+  ...(staticDir ? { staticDir } : {}),
+});
 const url = await app.listen(port, host);
 console.error(`api on ${url} — instances: ${config.instances.map((i) => `${i.id}=${i.host}:${i.port}`).join(", ")}`);
 if (allowedHosts.length) console.error(`also answering to: ${allowedHosts.join(", ")}`);

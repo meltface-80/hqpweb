@@ -13,6 +13,11 @@ may change behaviour; upgrade notes say what you need to do.
   Nothing shows it yet; the new pickers will ("kept up here, 2.1×"). Failures now also
   record the source rate they happened with. Both are kept in `learned.json`; older files
   load as before.
+- **A change history, and each mode's last settings.** hqpweb now logs every change: its
+  own (with before, after and how playback went, including rollbacks), undos, presets,
+  and changes made elsewhere, such as in HQPlayer's own window (volume aside). It also
+  remembers each mode's settings as last seen, per DAC, because HQPlayer only reports the
+  mode in use. Kept in `history.json`; nothing shows them yet. `GET /api/instances/:id/history`.
 
 ## 0.1.0-beta.4 — named DACs, and a safer mode switch
 

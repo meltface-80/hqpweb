@@ -4,6 +4,7 @@ import { isIP } from "node:net";
 import type { AppConfig } from "./config.ts";
 import { HttpError, Instance, TRANSPORT_ACTIONS, type Change, type TransportAction } from "./instance.ts";
 import { LearnedStore } from "./learned.ts";
+import { HistoryStore } from "./history.ts";
 import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
 import { COMMIT, VERSION } from "./version.ts";
@@ -38,6 +39,8 @@ export interface AppOptions {
   presets?: PresetStore;
   /** Where failed combinations are remembered. Default: in memory only. */
   learned?: LearnedStore;
+  /** Change history and settings last seen per mode (history.ts). Default: in memory. */
+  history?: HistoryStore;
   /** Playback-check timing; tests shorten it. */
   timing?: { quick: WatchTiming; major: WatchTiming };
   /** Live playback-speed window (default 30 s). */
@@ -184,6 +187,7 @@ type Handler = (req: IncomingMessage, res: ServerResponse, inst: Instance) => Pr
 
 export function buildApp(config: AppConfig, opts: AppOptions = {}) {
   const learned = opts.learned ?? new LearnedStore(null);
+  const history = opts.history ?? new HistoryStore(null);
   const presets = opts.presets ?? new PresetStore(null);
   const roon = opts.roon ?? new RoonLink(null);
   // Pausing for a mode switch goes through Roon when hqpweb has the instance's zone (change-engine.ts).
@@ -198,6 +202,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     makeInstance: (cfg) =>
       new Instance(cfg, {
         learned,
+        history,
         ...(opts.timing ? { timing: opts.timing } : {}),
         ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
         ...(opts.keptTiming ? { keptTiming: opts.keptTiming } : {}),
@@ -277,6 +282,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       return i.seek(body.seconds);
     },
     "GET learned": async (_q, _r, i) => i.learnedFailures(),
+    "GET history": async (_q, _r, i) => i.changeHistory(),
     "DELETE learned": async (_q, _r, i) => i.forgetFailures(),
     "GET events": events,
     "PUT roonzone": async (q, _r, i) => {

@@ -35,6 +35,7 @@ const pcm = (knownBad: Failure[] = []): Capabilities => ({
   volumeRange: { min: -60, max: 0, enabled: true },
   knownBad,
   keptUp: [],
+  lastSeen: {},
 });
 const sdm = (): Capabilities => ({
   ...pcm(),
