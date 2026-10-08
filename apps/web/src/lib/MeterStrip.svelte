@@ -18,6 +18,8 @@
 
   let latest = $state<MeterEvent>({ live: false, connected: true });
   let open = $state(prefs.meterOpen);
+  /** The captions, shown on (i): the chart stays uncluttered (owner's call). */
+  let about = $state(false);
   // Levels moved to the strip (owner's feedback, 2026-10-08): an old stored choice of it opens Bars.
   type View = (typeof VIEWS)[number]["id"];
   const stored = VIEWS.find((v) => v.id === prefs.meterView)?.id;
@@ -190,23 +192,31 @@
       {#each VIEWS as v (v.id)}
         <button aria-pressed={view === v.id} class:on={view === v.id} onclick={() => pick(v.id)}>{v.label}</button>
       {/each}
+      <button
+        class="info"
+        aria-label="About this meter"
+        aria-expanded={about}
+        aria-controls="meter-about"
+        onclick={() => (about = !about)}>i</button
+      >
     </div>
     {#if note}
       <p class="empty">{note}</p>
     {:else}
+      <!-- The dB scale sits in a gutter beside the plot, so it never covers the top bands. -->
       <div class="plot">
         <canvas bind:this={big} class="big" aria-hidden="true"></canvas>
-        {#if view !== "waterfall"}
-          <div class="dbs" aria-hidden="true">
+        <div class="dbs" aria-hidden="true">
+          {#if view !== "waterfall"}
             {#each yTicks as t (t.label)}<span style="bottom: {t.y * 100}%">{t.label}</span>{/each}
-          </div>
-        {/if}
-      </div>
-      <div class="axis" aria-hidden="true">
-        {#each xTicks as t (t.label)}<span style="left: {t.x * 100}%">{t.label}</span>{/each}
+          {/if}
+        </div>
+        <div class="axis" aria-hidden="true">
+          {#each xTicks as t (t.label)}<span style="left: {t.x * 100}%">{t.label}</span>{/each}
+        </div>
       </div>
       <p class="sr">{peaks || "No levels yet"}</p>
-      <p class="scale">
+      <p class="scale" id="meter-about" hidden={!about}>
         {VIEW_NOTES[view]} The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak.
         All of it is the music before upsampling, after HQPlayer's volume.
       </p>
@@ -235,10 +245,12 @@
     font: inherit;
     cursor: pointer;
   }
+  /* width 0 + flex: the canvas's own pixel width must not size it (it pushed Meter out). */
   .mini {
-    flex: 1;
+    flex: 1 1 0;
+    width: 0;
     height: 28px;
-    min-width: 0;
+    min-width: 72px;
   }
   .note {
     flex: 1;
@@ -246,13 +258,19 @@
     font-size: 0.85rem;
     color: var(--text-dim);
   }
+  /* In a narrow column (320 px) the words give way, never the bars or the Meter toggle. */
   .peak {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-family: var(--font-mono);
     font-size: 0.75rem;
     color: var(--text-dim);
     white-space: nowrap;
   }
   .label {
+    flex: none;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -279,6 +297,17 @@
     color: var(--text);
     cursor: pointer;
   }
+  .views .info {
+    margin-left: auto;
+    width: 36px;
+    padding: 0;
+    font-family: Georgia, serif;
+    font-style: italic;
+  }
+  .views .info[aria-expanded="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
   .views button.on {
     background: var(--text);
     color: var(--bg);
@@ -292,23 +321,26 @@
     background: var(--bg);
   }
   .plot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.6rem;
+    column-gap: 4px;
+  }
+  .dbs {
     position: relative;
   }
   .dbs span {
     position: absolute;
-    right: 4px;
+    left: 0;
     transform: translateY(50%);
-    padding: 0 4px;
-    border-radius: 4px;
-    background: var(--bg);
     font-size: 0.65rem;
     color: var(--text-dim);
-    pointer-events: none;
+    white-space: nowrap;
   }
   .dbs span:first-child {
     transform: translateY(100%);
   }
   .axis {
+    grid-column: 1;
     position: relative;
     height: 1.1rem;
     margin-top: 2px;

@@ -133,10 +133,12 @@
     cursor: pointer;
   }
   .label {
+    flex: none;
     color: var(--text-dim);
     display: flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
   }
   .badge {
     font-size: 0.7rem;

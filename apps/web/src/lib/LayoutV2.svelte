@@ -161,9 +161,6 @@
     cursor: pointer;
   }
   @media (min-width: 900px) {
-    :global(main.wide) {
-      max-width: 72rem;
-    }
     .v2 {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

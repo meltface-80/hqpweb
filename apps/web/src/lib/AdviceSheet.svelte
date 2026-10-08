@@ -313,9 +313,7 @@
   }
   .value {
     text-align: right;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
     font-weight: 500;
   }
   .taken {

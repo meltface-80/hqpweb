@@ -525,6 +525,13 @@
     padding: 16px 16px 140px;
     padding-top: max(16px, env(safe-area-inset-top));
   }
+  /* The v2 layout's two columns from 900 px (LayoutV2.svelte). Set here: a rule elsewhere
+     ties with the one above on specificity and loses on order (seen on a laptop). */
+  @media (min-width: 900px) {
+    main.wide {
+      max-width: 76rem;
+    }
+  }
 
   .quick {
     margin-top: 10px;

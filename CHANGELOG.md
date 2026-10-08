@@ -72,6 +72,14 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Fixed
 
+- **The new layout uses a laptop's width.** Its two columns were capped at about 260 px
+  each (a width rule that lost to another), so filter names and labels wrapped and the
+  modulator was cut off. They now share up to 76rem, labels stay on one line, and long
+  names wrap rather than being cut.
+- **The meter strip keeps its bars and its Meter toggle** in a narrow column: the peak
+  words give way instead. The open meter's dB scale sits beside the chart, not over the
+  top bands, and what the views show is behind an (i) button.
+
 - **A volume change is quiet.** No "Applying…" or result message unless it goes wrong,
   and no Undo: the slider undoes itself. Undo stays for filters, shaping, rate and mode.
 - **The meter says it's after HQPlayer's volume** (measured: a −30 dBFS tone read −53 dB
