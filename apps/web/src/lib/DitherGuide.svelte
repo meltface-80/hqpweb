@@ -6,6 +6,7 @@
   import { RULES } from "./advice/policy.ts";
   import { SETUP_QUESTIONS, type SetupKey } from "./setup-questions.ts";
   import SetupStep from "./SetupStep.svelte";
+  import { PLACES, type Places } from "./guide-flow.ts";
   import RuleList from "./RuleList.svelte";
 
   let {
@@ -19,6 +20,7 @@
     onanswer,
     onpick,
     step,
+    where = PLACES.current,
   }: {
     setup: Setup;
     rateHz: number;
@@ -32,6 +34,8 @@
     onpick: (name: string) => void;
     /** Show only this step (the v2 layout's guide flow); all of them when absent. */
     step?: number;
+    /** Where the rate and mode are changed, in this layout. */
+    where?: Places;
   } = $props();
   const show = (n: number) => step === undefined || step === n;
 
@@ -75,7 +79,7 @@
       <div class="head">Where to start</div>
       <p>
         For a ladder DAC this depends on the output rate, which isn't known while stopped on auto. Play something, or set the rate
-        under Advanced → Output rate.
+        {where.rate}.
       </p>
     </li>
   {:else if advice.status === "ok"}
@@ -105,14 +109,14 @@
       <RuleList rules={advice.rules} />
       {#each advice.group.filter((n) => warnings[n]) as n (n)}<p class="note warn">⚠ {n}: {warnings[n]}</p>{/each}
       {#if advice.raiseRate}
-        <p class="note">Now {rateText || "unknown"}: raise the rate under Advanced → Output rate if your DAC takes it.</p>
+        <p class="note">Now {rateText || "unknown"}: raise the rate {where.rate} if your DAC takes it.</p>
       {/if}
       {#if advice.bits}
         <p class="note">{BITS[advice.bits.kind]}</p>
         {#if advice.bits.rule}<RuleList rules={[advice.bits.rule]} />{/if}
       {/if}
       {#if advice.tryDsd}
-        <p class="note">Your DAC takes DSD well: DSD output usually beats PCM. Try it under Advanced → Mode.</p>
+        <p class="note">Your DAC takes DSD well: DSD output usually beats PCM. Try it {where.mode}.</p>
         <RuleList rules={[advice.tryDsd]} />
       {/if}
       <RuleList rules={[RULES.neverNone]} />

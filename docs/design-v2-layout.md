@@ -19,9 +19,23 @@ by default, until it is better than the current one.
     (`capabilities.lastSeen`), dimmed and timed, with "Switch to …" (it pauses: see
     below).
   - A mode this HQPlayer doesn't offer is greyed, with (i) "set in HQPlayer itself".
-  - **Guide me** at the foot of the card, for the whole card.
+  - **Guide me** at the foot of the card: the guide as a flow (canvas D2), full height,
+    one step at a time with Back and Next. DSD: your DAC, amplifier, volume, then where to
+    start; PCM: your DAC, the connection, then where to start. Next waits for an answer;
+    reopening starts at the first question left; "Switch to PCM" carries on with the
+    dither steps. The steps and words are the guides' own (`guide-flow.ts` only orders
+    them). Filters aren't in it: the guide has no filter rules.
 - Below the card: **Compare** and **History** as labelled buttons, then Advanced
   (the rare switches only) and Presets.
+- **Compare** (canvas I5; `compare.ts`): two full cards in columns. A is what was playing
+  when it opened; B is chosen per setting (mode, 1x, Nx, modulator or dither, rate), and
+  a preset loads into either side. The big A and B buttons send only what differs (the
+  rate always goes with a mode switch). Which side is heard is read from State, never
+  from the last tap: a rollback or a change elsewhere shows as "neither". A note says what
+  a switch costs (a pause across modes, a gap across rates) and that levels aren't
+  matched across modes (not measured, so no volume change). Keep A, Keep B, Save B as a
+  preset. Another mode's choices come from `capabilities.modeLists`; a mode never seen
+  on this HQPlayer offers its last-seen settings only, and says so.
 - **Mini bar**: when the now card scrolls out of view, a slim bar (title, health, play/pause,
   volume) appears at the bottom. Tapping the title returns to the now card.
 
@@ -30,7 +44,7 @@ by default, until it is better than the current one.
 1. **Look.** Today's tokens and components (`theme.css`: `--bg`, `--bg-elev`, `--text-dim`,
    `--accent`, `--ok`, `--warn`, `--danger`, all five themes). The wireframes' colours were
    placeholders. New tokens only where none exists: `--font-mono`.
-2. **Chips.** One component, five kinds. Meaning never by colour alone: each kind has a symbol or word.
+2. **Chips.** One component, five kinds (`chips.ts`, `shaper-chips.ts`). Meaning never by colour alone: each kind has a symbol or word.
    - _fact_: neutral, e.g. "7th order".
    - _good here_: `--ok` with ✓, e.g. "✓ kept up here (2.1×)".
    - _trouble here_: `--warn` with ✗, e.g. "✗ fell behind here".
@@ -38,7 +52,10 @@ by default, until it is better than the current one.
    - _in use_: solid, e.g. "in use ✓".
 
    At most four chips on an item; more goes under its "Why?". In pickers, the chips
-   double as filters (multi-select, with a count of what's shown).
+   double as filters, with a count of what's shown: yes/no facts are toggle chips, facts
+   with several values are one drop-down each (phase, apodizing, ratio, focus, length;
+   order, load, generation). In use and trouble are never filters. Load chips name the
+   line they're ranked in ("EC line: heaviest"): Signalyst ranks load only within a line.
 
 3. **Names.** HQPlayer's identifiers (filters, modulators, dithers, rates) in `--font-mono`;
    everything else in `--font-sans`.
@@ -82,7 +99,9 @@ by default, until it is better than the current one.
 
 12. **First launch.** No questions. At most a one-time, dismissible tip that the guide exists.
 13. **Words.** All user-facing text in one module. The guide's existing strings are reused
-    verbatim; new strings follow "honest and terse" (rollback "tries to"; no jargon).
+    verbatim, except where they point at a place: in this layout rate and mode are on the
+    card, not under Advanced (`guide-flow.ts` PLACES). New strings follow "honest and
+    terse" (rollback "tries to"; no jargon).
     Compare uses "kept up here", never "plays here".
 
 ## Component states

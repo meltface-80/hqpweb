@@ -23,6 +23,16 @@ const DITHER: FlowStep[] = [
   { key: null, title: "Where to start" },
 ];
 
+/**
+ * Where the guide sends you to change the rate or mode. The current layout keeps them
+ * under Advanced; the v2 layout has them on the signal card.
+ */
+export const PLACES = {
+  current: { rate: "under Advanced → Output rate", mode: "under Advanced → Mode" },
+  v2: { rate: "on the card's Rate row", mode: "with the card's DSD tab" },
+} as const;
+export type Places = (typeof PLACES)[keyof typeof PLACES];
+
 export const flowSteps = (isSdm: boolean): FlowStep[] => (isSdm ? MODULATOR : DITHER);
 
 /** Next opens once the step's question has an answer; where to start has none to give. */

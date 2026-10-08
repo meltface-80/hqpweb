@@ -37,3 +37,24 @@ export function restartSteps(product: string | undefined): RestartSteps {
  */
 export const RECENT_MS = 10 * 60_000;
 export const recentChange = (changedAt: number | null, now: number) => changedAt !== null && now - changedAt <= RECENT_MS;
+
+/**
+ * After a rollback left HQPlayer's own playlist stopped: Stop, then Play (it resumed once
+ * when measured, not once). Says what happened; the caller shows it.
+ */
+export async function restartPlayback<S>(t: {
+  stop: () => Promise<unknown>;
+  play: () => Promise<{ status: S; notStarted?: unknown }>;
+  wait?: (ms: number) => Promise<void>;
+}): Promise<{ message: { kind: "ok" | "warn" | "error"; text: string }; status?: S }> {
+  try {
+    await t.stop();
+    await (t.wait ?? ((ms) => new Promise((r) => setTimeout(r, ms))))(500);
+    const r = await t.play();
+    return r.notStarted
+      ? { message: { kind: "warn", text: "HQPlayer didn't start. Restart HQPlayer, then check its volume." }, status: r.status }
+      : { message: { kind: "ok", text: "✓ Playback restarted" }, status: r.status };
+  } catch (e) {
+    return { message: { kind: "error", text: (e as Error).message } };
+  }
+}

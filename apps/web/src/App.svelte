@@ -17,7 +17,8 @@
   import * as hints from "./lib/hints.ts";
   import { watchForUpdate } from "./lib/update.ts";
   import * as speedRules from "./lib/speed.ts";
-  import { recentChange, restartSteps } from "./lib/recovery.ts";
+  import { recentChange, restartPlayback as restartAfterRollback, restartSteps } from "./lib/recovery.ts";
+  import { dotTitle as connectionTitle, type Online } from "./lib/connection.ts";
   import StatusBanners from "./lib/StatusBanners.svelte";
   import LayoutV2 from "./lib/LayoutV2.svelte";
   import HistorySheet from "./lib/HistorySheet.svelte";
@@ -63,7 +64,7 @@
       dacSeen = d;
     });
   });
-  let online = $state<"connecting" | "live" | "unreachable" | "lost">("connecting");
+  let online = $state<Online>("connecting");
   let offlineReason = $state("");
   let busy = $state(false);
   let undoAvailable = $state(false);
@@ -111,13 +112,7 @@
   let offlineSince = $state<Date | null>(null);
   const slow = $derived(speedRules.answersSlowly(snap?.health?.latencyMs));
   const dotTitle = $derived(
-    online === "unreachable"
-      ? `Not responding${offlineSince ? ` since ${offlineSince.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}: ${offlineReason}`
-      : online === "live"
-        ? `Responding — ${snap?.health?.latencyMs ?? "?"} ms${slow ? " (slow)" : ""}`
-        : online === "lost"
-          ? "Lost connection to the app's server"
-          : "Connecting…",
+    connectionTitle({ online, since: offlineSince, reason: offlineReason, latencyMs: snap?.health?.latencyMs, slow }),
   );
 
   /** Load the instance list; keep the selection if it still exists. */
@@ -310,21 +305,14 @@
   const fromRoon = $derived(control(snap, roonZone).fromRoon);
 
   const undo = () => run("Undoing", () => api.undo(selected!));
-  /** After a rollback left HQPlayer's own playlist stopped: Stop, then Play (resumed it once when measured, not once). */
+  /** After a rollback left HQPlayer's own playlist stopped (recovery.ts). */
   async function restartPlayback() {
-    if (!selected) return;
+    const id = selected;
+    if (!id) return;
     message = { kind: "info", text: "Restarting playback…" };
-    try {
-      await api.transport(selected, "stop");
-      await new Promise((r) => setTimeout(r, 500));
-      const r = await api.transport(selected, "play");
-      if (snap) snap = { ...snap, status: r.status };
-      message = r.notStarted
-        ? { kind: "warn", text: "HQPlayer didn't start. Restart HQPlayer, then check its volume." }
-        : { kind: "ok", text: "✓ Playback restarted" };
-    } catch (e) {
-      message = { kind: "error", text: (e as Error).message };
-    }
+    const r = await restartAfterRollback({ stop: () => api.transport(id, "stop"), play: () => api.transport(id, "play") });
+    if (r.status && snap) snap = { ...snap, status: r.status };
+    message = r.message;
   }
 </script>
 

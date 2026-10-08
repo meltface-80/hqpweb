@@ -16,7 +16,9 @@
   import ShaperChipList from "./ShaperChipList.svelte";
   import ModulatorGuide from "./ModulatorGuide.svelte";
   import GuideIntro from "./GuideIntro.svelte";
-  import { canGoOn, firstOpen, flowSteps } from "./guide-flow.ts";
+  import GuideFlowHead from "./GuideFlowHead.svelte";
+  import GuideFlowNav from "./GuideFlowNav.svelte";
+  import { PLACES, canGoOn, firstOpen, flowSteps } from "./guide-flow.ts";
   import DitherGuide from "./DitherGuide.svelte";
 
   type Item = { name: string; warn?: string; note?: string; gen?: number; disabled?: boolean };
@@ -197,14 +199,7 @@
 >
   <div class="sheet">
     {#if flow}
-      <header>
-        <button class="exit" onclick={() => dialog.close()}>Exit guide</button>
-        <span class="now">Now {rateText || "—"} · <strong class="mono">{current || "—"}</strong></span>
-      </header>
-      <div class="progress" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={step}>
-        {#each steps as s, i (s.title)}<span class:done={i < step}></span>{/each}
-      </div>
-      <p class="stepname">{label} · {step} of {steps.length}: {steps[step - 1]?.title}</p>
+      <GuideFlowHead {label} {steps} {step} {rateText} {current} onexit={() => dialog.close()} />
     {:else}
       <header>
         <h3>{label}</h3>
@@ -260,6 +255,7 @@
             onpcm();
           }}
           step={flow ? step : undefined}
+          where={v2 ? PLACES.v2 : PLACES.current}
           {current}
           {disabled}
           onanswer={answer}
@@ -277,6 +273,7 @@
           onanswer={answer}
           onpick={pick}
           step={flow ? step : undefined}
+          where={v2 ? PLACES.v2 : PLACES.current}
         />
       {/if}
       {#if prefs.adviceTab === "list"}
@@ -284,14 +281,13 @@
       {/if}
     </div>
     {#if flow}
-      <footer class="nav">
-        <button class="back" disabled={step === 1} onclick={() => (step -= 1)}>Back</button>
-        {#if step < steps.length}
-          <button class="next" disabled={!canGoOn(steps, step, answers)} onclick={() => (step += 1)}>Next</button>
-        {:else}
-          <button class="next" onclick={() => dialog.close()}>Done</button>
-        {/if}
-      </footer>
+      <GuideFlowNav
+        {step}
+        count={steps.length}
+        canGoOn={canGoOn(steps, step, answers)}
+        onstep={(n) => (step = n)}
+        ondone={() => dialog.close()}
+      />
     {/if}
   </div>
 </dialog>
@@ -470,66 +466,5 @@
   /* The guide as a flow: full height, Back and Next at the foot (canvas D2). */
   dialog.flow .sheet {
     min-height: min(100%, 92vh);
-  }
-  .exit {
-    font: inherit;
-    min-height: 40px;
-    padding: 0 14px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    cursor: pointer;
-  }
-  .progress {
-    display: flex;
-    gap: 6px;
-    margin: 12px 16px 0;
-  }
-  .progress span {
-    flex: 1;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--border);
-  }
-  .progress span.done {
-    background: var(--accent);
-  }
-  .stepname {
-    margin: 8px 16px 4px;
-    font-size: 0.85rem;
-    color: var(--text-dim);
-  }
-  .nav {
-    position: sticky;
-    bottom: 0;
-    display: flex;
-    gap: 10px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-    background: var(--bg-elev);
-  }
-  .nav button {
-    font: inherit;
-    font-weight: 600;
-    min-height: 48px;
-    padding: 0 20px;
-    border-radius: 24px;
-    cursor: pointer;
-  }
-  .back {
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-  }
-  .next {
-    flex: 1;
-    border: 0;
-    background: var(--accent);
-    color: var(--bg);
-  }
-  .nav button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
   }
 </style>

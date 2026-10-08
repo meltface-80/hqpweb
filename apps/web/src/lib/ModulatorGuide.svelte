@@ -9,6 +9,7 @@
   import { RULES } from "./advice/policy.ts";
   import { SETUP_QUESTIONS, type SetupKey } from "./setup-questions.ts";
   import SetupStep from "./SetupStep.svelte";
+  import { PLACES, type Places } from "./guide-flow.ts";
   import RuleList from "./RuleList.svelte";
 
   let {
@@ -27,6 +28,7 @@
     onanswer,
     onpick,
     step,
+    where = PLACES.current,
   }: {
     setup: Setup;
     rateHz: number;
@@ -50,6 +52,8 @@
     onpick: (name: string) => void;
     /** Show only this step (the v2 layout's guide flow); all of them when absent. */
     step?: number;
+    /** Where the rate and mode are changed, in this layout. */
+    where?: Places;
   } = $props();
   const show = (n: number) => step === undefined || step === n;
 
@@ -78,7 +82,7 @@
         {advice.suggestedRate.label} suits {setup.dsd === "remodulates"
           ? "a newer ESS chip"
           : "your DAC"}{#if advice.suggestedRate.orDsd512}, or DSD512 to cut ultrasonic noise further{/if}{#if advice.suggestedRate.orDsd1024},
-          or DSD1024 with an AHM modulator{/if}. Now: {rateText || "unknown"}. Change it under Advanced → Output rate.
+          or DSD1024 with an AHM modulator{/if}. Now: {rateText || "unknown"}. Change it {where.rate}.
       </p>
       <RuleList rules={advice.suggestedRate.rules} />
     {:else}
