@@ -98,7 +98,7 @@
 <div class="v2">
   <div class="v2-now">
     <div bind:this={nowEl}>{@render nowCard()}</div>
-    <MeterStrip instanceId={selected} {playing} />
+    <MeterStrip instanceId={selected} {playing} outputDelayMs={snap.status.outputDelayMs} />
   </div>
   <div class="v2-path">
     <SignalCard

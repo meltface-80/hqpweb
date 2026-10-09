@@ -295,6 +295,8 @@ export class FakeHqp {
           // Measured (5.17.2, 6.2.3): processing speed as a multiple of real time, 0
           // when not playing. Healthy machines show lots of headroom; overloaded < 1.
           process_speed: this.playback === 2 ? (this.currentSpeed() >= 1 ? 25 : this.currentSpeed()) : 0,
+          // Measured (Desktop 5.32.5, DSD512 to a NAA): output buffering in µs, 0 when not playing.
+          output_delay: this.playback === 2 ? 1046462 : 0,
           state: this.playback,
           track: playing ? 1 : 0,
           tracks_total: playing ? 1 : 0,

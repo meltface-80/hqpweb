@@ -7,6 +7,12 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Added
 
+- **The meter lines up with what you hear.** HQPlayer's meter shows the music before its
+  output buffer, so it ran ahead of the room by about that buffer, which is set in
+  HQPlayer. The meter now waits HQPlayer's reported output delay (less hqpweb's own lag),
+  and the (i) panel has Earlier and Later to set it by ear for the DAC and network,
+  saved per HQPlayer on this device.
+
 - **Guide me as a flow, in the new layout.** The button on the signal card opens the guide
   full height, one question at a time: your DAC, amplifier and volume, then where to start
   (in PCM: your DAC, the connection, then where to start), with Back and Next. Next waits

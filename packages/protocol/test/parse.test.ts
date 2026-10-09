@@ -182,3 +182,19 @@ describe("queuedRate (PlaylistGet)", () => {
     expect(queuedRate(parseXml('<PlaylistGet album="0"/>'), 0)).toBeNull();
   });
 });
+
+describe("output_delay", () => {
+  it("is HQPlayer's output buffering in ms (it reports µs), null when absent", async () => {
+    const { parseDocument } = await import("../src/xml.ts");
+    const { parseStatus } = await import("../src/parse.ts");
+    // As read from Desktop 5.32.5 playing DSD512 to a NAA (2026-10-08).
+    const playing = parseDocument(
+      '<Status state="2" active_rate="22579200" position="141.1" output_delay="1046462" volume="-23"/>',
+    );
+    const stopped = parseDocument('<Status state="0" active_rate="22579200" position="0" output_delay="0" volume="-23"/>');
+    const older = parseDocument('<Status state="2" active_rate="96000" position="1" volume="-20"/>');
+    expect(parseStatus(playing).outputDelayMs).toBeCloseTo(1046.462, 3);
+    expect(parseStatus(stopped).outputDelayMs).toBe(0);
+    expect(parseStatus(older).outputDelayMs).toBeNull();
+  });
+});

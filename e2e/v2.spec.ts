@@ -125,6 +125,15 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   await expect(about).toBeHidden();
   await meter.getByRole("button", { name: "About this meter" }).click();
   await expect(about).toContainText("after HQPlayer's volume");
+  // Timing follows HQPlayer's output buffer (the fake reports 1.05 s), nudged by ear.
+  const timing = meter.locator(".timing");
+  await expect(timing).toContainText("waits 0.5 s");
+  await expect(timing).toContainText("reports 1.0 s of output buffer");
+  await timing.getByRole("button", { name: "Meter later" }).click();
+  await expect(timing).toContainText("waits 0.6 s");
+  await expect(timing).toContainText("+0.1 s");
+  await timing.getByRole("button", { name: "Auto" }).click();
+  await expect(timing).toContainText("waits 0.5 s");
   await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-bars.png", import.meta.url)) });
   await meter.getByRole("button", { name: "Waterfall" }).click();
   await shot(page, "v2-5-meter");
@@ -301,4 +310,18 @@ test("v2: in a 320 px column the meter strip keeps its bars and its toggle insid
   ];
   expect(l.x + l.width).toBeLessThanOrEqual(s.x + s.width);
   expect(c.width).toBeGreaterThanOrEqual(60); // the level bars aren't squeezed away
+});
+
+test("v2: the meter waits to line up with what's heard", async ({ page }) => {
+  // Fake output buffer 1.05 s, less hqpweb's own 0.5 s, plus a 2.5 s nudge: 3 s before anything is drawn.
+  await page.addInitScript(() => {
+    localStorage.setItem("instance", "v2meter");
+    localStorage.setItem("prefs-v1", JSON.stringify({ layout: "v2", meterNudge: { v2meter: 2500 } }));
+  });
+  await page.goto("/");
+  const strip = page.getByRole("region", { name: "Meter" }).getByRole("button", { name: /the meter$/ });
+  await expect(strip.locator("canvas.mini")).toBeVisible();
+  await page.waitForTimeout(1500); // updates are arriving, but none is due yet
+  await expect(strip.locator(".peak")).toHaveText("");
+  await expect(strip.locator(".peak")).toContainText("Peak L", { timeout: 6000 });
 });

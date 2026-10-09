@@ -28,6 +28,8 @@ export interface Prefs {
   meterOpen: boolean;
   /** "levels" was a view before it moved to the strip; MeterStrip opens Bars for it. */
   meterView: "bars" | "line" | "levels" | "waterfall";
+  /** The meter's timing nudge per HQPlayer, in ms, set by ear (meter-delay.ts). */
+  meterNudge: Record<string, number>;
 }
 
 const KEY = "prefs-v1";
@@ -41,6 +43,7 @@ const DEFAULTS: Prefs = {
   layout: "current",
   meterOpen: false,
   meterView: "bars",
+  meterNudge: {},
 };
 
 function load(): Prefs {

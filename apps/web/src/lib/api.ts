@@ -57,6 +57,8 @@ export type Status = {
   position: number;
   length: number;
   source: { sampleRate: number; bits: number; channels: number; song: string } | null;
+  /** HQPlayer's output buffering in ms (server: parse.ts); null when not reported. */
+  outputDelayMs?: number | null;
   /** HQPlayer's apodization and clip counters (0 when not reported). */
   apod?: number;
   clips?: number;

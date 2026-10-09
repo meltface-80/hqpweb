@@ -141,6 +141,12 @@ export interface Status {
    */
   processSpeed: number | null;
   /**
+   * HQPlayer's output delay in ms: its output buffering, set in HQPlayer itself (Status
+   * `output_delay`, microseconds: 1046462 while playing on Desktop 5.32.5, 0 stopped,
+   * measured). Null when not reported. Whether position + this is what's heard: inferred.
+   */
+  outputDelayMs: number | null;
+  /**
    * HQPlayer's apodization counter: how often the recording needed what an
    * apodizing filter corrects. The v5 manual (§4.6) advises an apodizing filter
    * once it passes 10 in a track. Present on 5.17.2 and 6.2.3 (measured, 0 so far).
@@ -179,6 +185,7 @@ export function parseStatus(el: Element): Status {
     position: Number(el.attrs.position ?? 0),
     length: Number(el.attrs.length ?? 0) || 0,
     processSpeed: el.attrs.process_speed === undefined ? null : Number(el.attrs.process_speed) || 0,
+    outputDelayMs: el.attrs.output_delay === undefined ? null : (Number(el.attrs.output_delay) || 0) / 1000,
     apod: Number(el.attrs.apod ?? 0) || 0,
     clips: Number(el.attrs.clips ?? 0) || 0,
     track: Number(el.attrs.track ?? 0),

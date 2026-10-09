@@ -7,8 +7,18 @@
 
   type Box = { x: number; w: number };
   import { prefs, savePrefs } from "./prefs.svelte.ts";
+  import { DelayLine, NUDGE_STEP_MS, clampNudge, meterDelayMs } from "./meter-delay.ts";
 
-  let { instanceId, playing }: { instanceId: string; playing: boolean } = $props();
+  let {
+    instanceId,
+    playing,
+    outputDelayMs = null,
+  }: {
+    instanceId: string;
+    playing: boolean;
+    /** HQPlayer's reported output buffering (Status), for holding the meter back to match the room. */
+    outputDelayMs?: number | null;
+  } = $props();
 
   const VIEWS = [
     { id: "bars", label: "Bars" },
@@ -27,7 +37,19 @@
   let mini: HTMLCanvasElement | undefined = $state();
   let big: HTMLCanvasElement | undefined = $state();
   const hold = new PeakHold();
-  let fresh = false;
+  // Each update waits until it lines up with what's heard (meter-delay.ts); `latest` is the
+  // newest received (connection and quiet notes), `shown` the one drawn.
+  const pending = new DelayLine<MeterEvent>();
+  let shown = $state<MeterEvent | null>(null);
+  const nudge = $derived(prefs.meterNudge[instanceId] ?? 0);
+  const delay = $derived(meterDelayMs(outputDelayMs, nudge));
+  function setNudge(ms: number | null) {
+    const next = { ...prefs.meterNudge };
+    if (ms === null) delete next[instanceId];
+    else next[instanceId] = clampNudge(ms);
+    prefs.meterNudge = next;
+    savePrefs();
+  }
   /** The view last drawn on the big canvas. */
   let drawn: string | null = null;
 
@@ -35,9 +57,12 @@
     const es = api.meter(instanceId);
     es.addEventListener("meter", (e) => {
       latest = JSON.parse((e as MessageEvent).data) as MeterEvent;
-      fresh = true;
+      pending.push(performance.now(), latest);
     });
-    return () => es.close();
+    return () => {
+      es.close();
+      pending.clear();
+    };
   });
 
   function toggle() {
@@ -134,9 +159,9 @@
     let raf = 0;
     const loop = () => {
       raf = requestAnimationFrame(loop);
-      if (!fresh) return;
-      fresh = false;
-      const e = latest;
+      const e = pending.take(performance.now(), delay);
+      if (!e) return;
+      shown = e;
       if (!e.live || !e.bands || !e.levels) return;
       const m = mono(e.bands);
       hold.update(m, performance.now());
@@ -163,7 +188,7 @@
   const xTicks = $derived(freqTicks(latest.edgesHz ?? [20, 20_000]));
   const yTicks = dbTicks();
   const note = $derived(meterNote(latest, playing));
-  const peaks = $derived(latest.live ? peakWords(latest.levels) : "");
+  const peaks = $derived(shown?.live ? peakWords(shown.levels) : "");
   const VIEW_NOTES: Record<View, string> = {
     bars: "Each bar is the loudest frequency in its band, as it plays (no averaging).",
     line: "The line is each band as it plays; the dashed line its peak, held 1.5 s, then falling.",
@@ -219,6 +244,17 @@
       <p class="scale" id="meter-about" hidden={!about}>
         {VIEW_NOTES[view]} The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak.
         All of it is the music before upsampling, after HQPlayer's volume.
+      </p>
+      <p class="scale timing" hidden={!about}>
+        Timing: the meter waits {(delay / 1000).toFixed(1)} s to line up with what you hear{#if outputDelayMs != null}
+          (HQPlayer reports {(outputDelayMs / 1000).toFixed(1)} s of output buffer){/if}. Your DAC and network add their own, so
+        set it by ear:
+        <span class="nudge">
+          <button aria-label="Meter earlier" onclick={() => setNudge(nudge - NUDGE_STEP_MS)}>Earlier</button>
+          <button aria-label="Meter later" onclick={() => setNudge(nudge + NUDGE_STEP_MS)}>Later</button>
+          {#if nudge}<button onclick={() => setNudge(null)}>Auto</button>
+            <span class="by">{nudge > 0 ? "+" : "−"}{Math.abs(nudge / 1000).toFixed(1)} s</span>{/if}
+        </span>
       </p>
     {/if}
   {/if}
@@ -296,6 +332,26 @@
     background: var(--bg);
     color: var(--text);
     cursor: pointer;
+  }
+  .nudge {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .nudge button {
+    font: inherit;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .nudge .by {
+    font-family: var(--font-mono);
   }
   .views .info {
     margin-left: auto;
