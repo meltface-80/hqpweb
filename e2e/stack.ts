@@ -97,6 +97,7 @@ const FLOWS: Record<string, Flow> = {
   volume: { name: "Volume", profile: "desktop5-mac-sdm", setup: (f) => (f.volume = -30) },
   advanced: { name: "Advanced", profile: "desktop5-linux-pcm", setup: (f) => (f.playback = 2) },
   about: { name: "About", profile: "desktop5-mac-sdm" },
+  restartcap: { name: "Restart cap", profile: "desktop5-mac-sdm" },
   // SDM fixed at DSD512 with an old modulator, no setup answers yet: the guide's flow.
   guide: {
     name: "Guide",

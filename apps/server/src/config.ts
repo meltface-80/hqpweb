@@ -23,6 +23,8 @@ export interface InstanceConfig {
   dac?: string;
   /** HQPlayer's meter port; absent: the control port + 1 (measured). Tests point it at the fake's. */
   meterPort?: number;
+  /** After HQPlayer restarts, lower its volume to at most this (dB); absent: off (restart-guard.ts). */
+  restartVolumeCap?: number;
 }
 
 /**

@@ -276,3 +276,25 @@ test("Settings: Find your DAC filters the models", async ({ page }) => {
   await models.scrollIntoViewIfNeeded();
   await shot(page, "setup-2-find-your-dac");
 });
+
+test("Settings: four tabs; Listening sets the volume cap after HQPlayer restarts", async ({ page }) => {
+  await openOn(page, "restartcap");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const tabs = page.getByRole("tablist").getByRole("tab");
+  await expect(tabs).toHaveText(["HQPlayer", "Listening", "Appearance", "Roon"]);
+  await page.getByRole("tab", { name: "Listening" }).click();
+  await page.getByRole("switch", { name: /Lower the volume after a restart/ }).check();
+  const cap = page.getByRole("spinbutton", { name: /Volume cap after a restart/ });
+  await cap.fill("-35");
+  await cap.press("Enter");
+  await cap.blur();
+  await expect
+    .poll(async () => {
+      const list = (await (await page.request.get("/api/instances")).json()) as { id: string; restartVolumeCap?: number }[];
+      return list.find((i) => i.id === "restartcap")?.restartVolumeCap;
+    })
+    .toBe(-35);
+  await shot(page, "settings-2-listening");
+  await page.getByRole("switch", { name: /Lower the volume after a restart/ }).uncheck();
+  await expect(cap).toHaveCount(0);
+});

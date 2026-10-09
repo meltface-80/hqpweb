@@ -17,6 +17,8 @@ export type Inst = {
   dacs: { id: string; name: string }[];
   /** The DAC in use. */
   dac: string;
+  /** After HQPlayer restarts, hqpweb lowers its volume to at most this (dB); absent: off. */
+  restartVolumeCap?: number;
 };
 /** What the modulator and dither advice needs to know, and HQPlayer can't tell us. */
 export type Setup = {
@@ -231,6 +233,12 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
   /** Set (a value) or clear (null) setup answers. A discovered instance is saved first: `savedNow`. */
+  setRestartCap: (id: string, maxDb: number | null) =>
+    call<Inst>(`/api/instances/${encodeURIComponent(id)}/restartcap`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ maxDb }),
+    }),
   saveSetup: (id: string, change: { [K in keyof Setup]?: Setup[K] | null }) =>
     call<{ instance: { id: string; setup?: Setup }; savedNow: boolean }>(`/api/instances/${id}/setup`, {
       method: "PUT",

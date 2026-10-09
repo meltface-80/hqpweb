@@ -28,6 +28,8 @@ export interface InstanceView {
   dacs: { id: string; name: string }[];
   /** The DAC in use. */
   dac: string;
+  /** After HQPlayer restarts, lower its volume to at most this (dB); absent: off (restart-guard.ts). */
+  restartVolumeCap?: number;
 }
 
 /** The answers kept for the DAC in use: the main DAC's on the instance, another's on its entry. */
@@ -98,6 +100,8 @@ export class Registry {
       this.timer = setInterval(() => void this.scan(), this.opts.scanEveryMs);
       this.timer.unref();
     }
+    // An instance with a restart cap watches from the start, viewed or not (restart-guard.ts).
+    for (const c of this.config.instances) if (c.restartVolumeCap !== undefined) this.get(c.id);
   }
 
   // ---- discovery ------------------------------------------------------------
@@ -239,6 +243,7 @@ export class Registry {
       ...(h.error ? { error: h.error } : {}),
       ...(h.product ? { product: h.product, engine: h.engine } : {}),
       ...(setupOf(c) ? { setup: setupOf(c) } : {}),
+      ...(c.restartVolumeCap !== undefined ? { restartVolumeCap: c.restartVolumeCap } : {}),
       ...dacView(c),
     }));
     const discovered = this.discoveredOnly();
@@ -292,6 +297,23 @@ export class Registry {
   }
 
   /** Renames a configured instance; its id (and so its Roon zone and learned failures) stays. */
+  /**
+   * Sets or clears the volume cap after HQPlayer restarts (dB; null: off). On a saved
+   * instance only, like a name; its watch starts or stops at once.
+   */
+  setRestartCap(id: string, cap: number | null): InstanceConfig {
+    const cfg = this.config.instances.find((i) => i.id === id);
+    if (!cfg) throw new HttpError(404, "not a configured instance");
+    if (cap === null) delete cfg.restartVolumeCap;
+    else {
+      if (!Number.isFinite(cap) || cap > 0 || cap < -120) throw new HttpError(400, "cap must be a volume in dB, −120 to 0");
+      cfg.restartVolumeCap = Math.round(cap * 2) / 2;
+    }
+    this.persist();
+    this.get(id)?.watchForRestarts();
+    return cfg;
+  }
+
   rename(id: string, name: string): InstanceConfig {
     const cfg = this.config.instances.find((i) => i.id === id);
     if (!cfg) throw new HttpError(404, "not a configured instance");

@@ -4,7 +4,10 @@
 //   u32 version, u32 channels, u32 length (bins), u32 bits, f32 bandwidth (Hz),
 //   f32 xformTime (s), f32 gain, 4 reserved bytes; then per channel:
 //   f32 peakMax, peak, rms, rmsMax (dB; -386 until there is a reading),
-//   f32 re[length], f32 im[length] (the spectrum).
+//   f32 re[length], f32 im[length] (the spectrum: real and imaginary parts. Measured
+//   2026-10-09 on Desktop 5.32.5 with music: im is exactly 0 at DC and Nyquist, as for a
+//   real signal's FFT; it averages 0 and holds about half the energy; re and im together
+//   track HQPlayer's RMS more steadily than re alone).
 // Measured: 2 channels, 1025 bins, 22050 Hz, 23.2 ms, gain 2; 16464-byte frames, sent
 // in bursts (~12 at a time, ~4 times a second) at ~43 a second in PCM, ~180 in DSD.
 

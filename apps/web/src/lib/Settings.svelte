@@ -6,6 +6,7 @@
   import InstanceSettings from "./InstanceSettings.svelte";
   import RoonSettings from "./RoonSettings.svelte";
   import SetupSettings from "./SetupSettings.svelte";
+  import RestartCapSettings from "./RestartCapSettings.svelte";
 
   let {
     instance,
@@ -21,7 +22,8 @@
 
   let dialog: HTMLDialogElement;
   let roon: RoonSettings;
-  let tab = $state<"general" | "roon">("general");
+  // Four tabs (owner's call, 2026-10-09): the HQPlayer and its DAC, listening, appearance, Roon.
+  let tab = $state<"hqplayer" | "listening" | "appearance" | "roon">("hqplayer");
   let learned = $state<(Failure & { engine: string })[] | null>(null);
   let learnedError = $state("");
 
@@ -64,84 +66,25 @@
       <button class="close" onclick={() => dialog.close()} aria-label="Close">✕</button>
     </header>
     <div class="tabs" role="tablist">
-      <button role="tab" aria-selected={tab === "general"} class:on={tab === "general"} onclick={() => (tab = "general")}
-        >General</button
+      <button role="tab" aria-selected={tab === "hqplayer"} class:on={tab === "hqplayer"} onclick={() => (tab = "hqplayer")}
+        >HQPlayer</button
+      >
+      <button role="tab" aria-selected={tab === "listening"} class:on={tab === "listening"} onclick={() => (tab = "listening")}
+        >Listening</button
+      >
+      <button role="tab" aria-selected={tab === "appearance"} class:on={tab === "appearance"} onclick={() => (tab = "appearance")}
+        >Appearance</button
       >
       <button role="tab" aria-selected={tab === "roon"} class:on={tab === "roon"} onclick={() => ((tab = "roon"), roon.refresh())}
         >Roon</button
       >
     </div>
-
     <div class="body" hidden={tab !== "roon"}>
       <RoonSettings bind:this={roon} {instances} />
     </div>
-
-    <div class="body" hidden={tab !== "general"}>
+    <div class="body" hidden={tab !== "hqplayer"}>
       <InstanceSettings {instances} {onchange} />
       <SetupSettings {instance} {onchange} />
-
-      <h4>Theme</h4>
-      <div class="themes">
-        {#each THEMES as t (t.id)}
-          <button class="theme" class:on={prefs.theme === t.id} onclick={() => set("theme", t.id)}>
-            {#if t.theme}
-              <span class="swatch" data-theme={t.theme} data-palette={t.palette}><span></span></span>
-            {:else}
-              <span class="swatch split">
-                <span class="half" data-theme="dark" data-palette="classic"></span>
-                <span class="half" data-theme="light" data-palette="classic"></span>
-              </span>
-            {/if}
-            <span class="tx"><b>{t.label}</b><small>{t.note}</small></span>
-            {#if prefs.theme === t.id}<span class="check">✓</span>{/if}
-          </button>
-        {/each}
-      </div>
-
-      <h4>Volume buttons</h4>
-      <div class="seg" role="radiogroup" aria-label="Volume step">
-        {#each STEPS as s (s)}
-          <button
-            role="radio"
-            aria-checked={prefs.volumeStep === s}
-            class:on={prefs.volumeStep === s}
-            onclick={() => set("volumeStep", s)}
-          >
-            {s} dB
-          </button>
-        {/each}
-      </div>
-
-      <h4>Filter lists</h4>
-      <div class="seg" role="radiogroup" aria-label="Filter list order">
-        <button class:on={prefs.filterOrder === "hqplayer"} onclick={() => set("filterOrder", "hqplayer")}
-          >HQPlayer's order</button
-        >
-        <button class:on={prefs.filterOrder === "rating"} onclick={() => set("filterOrder", "rating")}>Grouped by rating</button>
-      </div>
-      <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
-
-      <label class="row">
-        <span>Open “Advanced” by default</span>
-        <input
-          type="checkbox"
-          role="switch"
-          checked={prefs.advancedOpen}
-          onchange={(e) => set("advancedOpen", e.currentTarget.checked)}
-        />
-      </label>
-
-      <label class="row">
-        <span>Try the new layout (preview)</span>
-        <input
-          type="checkbox"
-          role="switch"
-          checked={prefs.layout === "v2"}
-          onchange={(e) => set("layout", e.currentTarget.checked ? "v2" : "current")}
-        />
-      </label>
-      <p class="help">The signal path as one card, with DSD and PCM as tabs. On this device only; switch back any time.</p>
-
       <h4>Learned failures{instance ? ` · ${instance.name}` : ""}</h4>
       <p class="help">
         Combinations that stopped playback or couldn't keep up here, so they were rolled back. They show as warnings in the
@@ -165,7 +108,74 @@
         </ul>
         <button class="danger" onclick={forget}>Forget all for this instance</button>
       {/if}
+    </div>
+    <div class="body" hidden={tab !== "listening"}>
+      <h4>Volume buttons</h4>
+      <div class="seg" role="radiogroup" aria-label="Volume step">
+        {#each STEPS as s (s)}
+          <button
+            role="radio"
+            aria-checked={prefs.volumeStep === s}
+            class:on={prefs.volumeStep === s}
+            onclick={() => set("volumeStep", s)}
+          >
+            {s} dB
+          </button>
+        {/each}
+      </div>
 
+      <RestartCapSettings {instance} {onchange} />
+    </div>
+    <div class="body" hidden={tab !== "appearance"}>
+      <h4>Theme</h4>
+      <div class="themes">
+        {#each THEMES as t (t.id)}
+          <button class="theme" class:on={prefs.theme === t.id} onclick={() => set("theme", t.id)}>
+            {#if t.theme}
+              <span class="swatch" data-theme={t.theme} data-palette={t.palette}><span></span></span>
+            {:else}
+              <span class="swatch split">
+                <span class="half" data-theme="dark" data-palette="classic"></span>
+                <span class="half" data-theme="light" data-palette="classic"></span>
+              </span>
+            {/if}
+            <span class="tx"><b>{t.label}</b><small>{t.note}</small></span>
+            {#if prefs.theme === t.id}<span class="check">✓</span>{/if}
+          </button>
+        {/each}
+      </div>
+
+      <label class="row">
+        <span>Try the new layout (preview)</span>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={prefs.layout === "v2"}
+          onchange={(e) => set("layout", e.currentTarget.checked ? "v2" : "current")}
+        />
+      </label>
+      <p class="help">The signal path as one card, with DSD and PCM as tabs. On this device only; switch back any time.</p>
+
+      <h4>Filter lists</h4>
+      <div class="seg" role="radiogroup" aria-label="Filter list order">
+        <button class:on={prefs.filterOrder === "hqplayer"} onclick={() => set("filterOrder", "hqplayer")}
+          >HQPlayer's order</button
+        >
+        <button class:on={prefs.filterOrder === "rating"} onclick={() => set("filterOrder", "rating")}>Grouped by rating</button>
+      </div>
+      <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
+
+      <label class="row">
+        <span>Open “Advanced” by default</span>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={prefs.advancedOpen}
+          onchange={(e) => set("advancedOpen", e.currentTarget.checked)}
+        />
+      </label>
+    </div>
+    <div class="body about">
       <h4>About</h4>
       <p class="help">
         hqpweb {__APP_VERSION__}{__APP_COMMIT__ ? ` (${__APP_COMMIT__})` : ""}: a web controller for HQPlayer, beta.

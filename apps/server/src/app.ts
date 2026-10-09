@@ -484,6 +484,14 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     if (setupRoute && req.method === "PUT")
       return send(res, 200, await registry.saveSetup(decodeURIComponent(setupRoute[1]!), parseSetupChange(await readJson(req))));
 
+    const capRoute = /^\/api\/instances\/([^/]+)\/restartcap$/.exec(path);
+    if (capRoute && req.method === "PUT") {
+      const body = (await readJson(req)) as { maxDb?: unknown };
+      if (typeof body !== "object" || body === null || Object.keys(body).length !== 1 || !("maxDb" in body))
+        throw new HttpError(400, "body must be { maxDb: number | null }");
+      if (body.maxDb !== null && typeof body.maxDb !== "number") throw new HttpError(400, "maxDb must be a number or null");
+      return send(res, 200, registry.setRestartCap(decodeURIComponent(capRoute[1]!), body.maxDb));
+    }
     const one = /^\/api\/instances\/([^/]+)$/.exec(path);
     if (one && req.method === "PATCH") {
       const body = (await readJson(req)) as { name?: unknown };
