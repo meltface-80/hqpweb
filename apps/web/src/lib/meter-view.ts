@@ -109,11 +109,11 @@ export function hexRgb(css: string): Rgb | null {
 
 /**
  * The waterfall's colours, from the theme: silence is the plot's own background, then the
- * accent, and the loudest the text colour, so louder always means more contrast with the
- * card in every theme (light ones too). Falls back to `heat` if a colour can't be read.
+ * accent, and the loudest the theme's second accent (a complementary hue), so it reads in
+ * every theme, light ones too. Falls back to `heat` if a colour can't be read.
  */
-export function ramp(bg: string, accent: string, text: string): (db: number) => string {
-  const stops = [hexRgb(bg), hexRgb(accent), hexRgb(text)];
+export function ramp(bg: string, accent: string, loud: string): (db: number) => string {
+  const stops = [hexRgb(bg), hexRgb(accent), hexRgb(loud)];
   if (stops.some((s) => !s)) return heat;
   const [a, b, c] = stops as Rgb[];
   const mix = (x: Rgb, y: Rgb, t: number) => x.map((v, i) => Math.round(v + (y[i]! - v) * t));
@@ -169,3 +169,27 @@ export function crest(points: { peak: number; rms: number }[]): number | null {
 
 /** Where a band's correlation sits across the width view: −1 at the left, 1 (mono) at the right. */
 export const corrX = (corr: number) => (Math.max(-1, Math.min(1, corr)) + 1) / 2;
+
+/** A colour's hue in degrees (0–360), from "#rrggbb"; null if it can't be read. */
+export function hueOf(css: string): number | null {
+  const c = hexRgb(css);
+  if (!c) return null;
+  const [r, g, b] = c.map((v) => v / 255) as Rgb;
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (d === 0) return 0;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+/**
+ * Of two colours, the one whose hue is further from `against`: Width draws in-phase bands
+ * in it and out-of-phase ones in `against` (red), so the two stay apart in every theme.
+ * Brass light's accent and warning colour are both brown (owner, 2026-10-08).
+ */
+export function apartFrom(against: string, a: string, b: string): string {
+  const [x, ha, hb] = [hueOf(against), hueOf(a), hueOf(b)];
+  if (x === null || ha === null || hb === null) return a;
+  const dist = (h: number) => Math.min(Math.abs(h - x), 360 - Math.abs(h - x));
+  return dist(hb) > dist(ha) ? b : a;
+}

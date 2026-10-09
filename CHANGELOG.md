@@ -14,13 +14,11 @@ may change behaviour; upgrade notes say what you need to do.
 - **A Stereo view in the meter.** Left grows to the left of a centre line and right to the
   right, low notes at the bottom, each side with its peak held then falling back: where
   the channels differ, band by band.
-
 - **The meter lines up with what you hear.** HQPlayer's meter shows the music before its
   output buffer, so it ran ahead of the room by about that buffer, which is set in
   HQPlayer. The meter now waits HQPlayer's reported output delay (less hqpweb's own lag),
   and the (i) panel has Earlier and Later to set it by ear for the DAC and network,
   saved per HQPlayer on this device.
-
 - **Guide me as a flow, in the new layout.** The button on the signal card opens the guide
   full height, one question at a time: your DAC, amplifier and volume, then where to start
   (in PCM: your DAC, the connection, then where to start), with Back and Next. Next waits
@@ -28,7 +26,6 @@ may change behaviour; upgrade notes say what you need to do.
   the guide carries on with the dither guide. Its questions, wording and advice are the
   guide's own; only where it sends you to change the rate or mode now names the card,
   where those live in this layout.
-
 - **Compare, in the new layout.** A button below the signal card opens two full settings
   cards side by side: A as it was playing, B to choose (mode, filters, modulator or dither,
   rate), and a preset can be loaded into either. The big A and B buttons switch what
@@ -36,12 +33,10 @@ may change behaviour; upgrade notes say what you need to do.
   switch costs (a pause across modes, a gap across rates) and that levels aren't matched
   between DSD and PCM. Keep A, Keep B, or save B as a preset. A mode hqpweb hasn't seen on
   this HQPlayer yet offers its last-seen settings only, and says so.
-
 - **hqpweb remembers each mode's lists.** HQPlayer only lists the filters, modulators or
   dithers and rates of the mode in use. hqpweb now keeps each mode's lists, by name, as it
   last read them on that HQPlayer and engine, so the other mode's choices can be offered
   before switching (for Compare). Kept in `history.json`.
-
 - **hqpweb remembers what kept up here.** While hqpweb is open and music plays, it notes
   how fast HQPlayer processed each combination once settled (it skips the first seconds,
   which are often slow, and keeps the lowest 5-second average), per DAC and source rate.
@@ -94,15 +89,17 @@ may change behaviour; upgrade notes say what you need to do.
   which showed "—".
 - **A stalled meter viewer** (a phone asleep with the page open) no longer makes the
   server buffer meter frames without end.
-
+- **Each palette has a second accent**, a complementary colour: coral with Dark's cyan,
+  magenta with Light's blue, teal with Copper and with Brass light. The meter uses it for
+  peaks and the loud end of the waterfall, so Copper and Brass are no longer all brown.
+  Width shows out of phase in red, against whichever accent is further from red (in
+  Brass light the warning colour it used was the same brown as the bars).
 - **The waterfall follows the theme:** silence is the plot's own background, then the
-  accent, and the loudest the text colour (it was a fixed blue-to-yellow that clashed with
-  the light themes). The strip's peak readings sit one per row ("L −22.0" over
+  accent, and the loudest the second accent (it was a fixed blue-to-yellow that clashed
+  with the light themes). The strip's peak readings sit one per row ("L −22.0" over
   "R −22.0"), so they fit a phone instead of being cut off.
-
 - **The meter's views run Waterfall, Line, Bars**, and a new viewer starts on Waterfall. A
   view chosen before is kept.
-
 - **One way to write rates and modes.** Everywhere: DSD256, PCM in kHz (1536 kHz, not
   1.536 MHz), "Rate" (not "Output rate"), and "DSD" for HQPlayer's "SDM (DSD)". A rate
   after a mode switch was sometimes written in the old mode's terms (DSD256 as
@@ -112,7 +109,6 @@ may change behaviour; upgrade notes say what you need to do.
   instead of a card; History sets only names and values in the mono font.
 - **Load within a modulator line moves under "why?"** It's still a filter. On every row it
   read as a quality ranking, and the variants are character choices of one quality.
-
 - **The app's files answer HEAD requests.** A browser asking for the icon that way
   (Safari does) got "not found", which can leave a tab or a Dock app without hqpweb's
   icon.
@@ -127,7 +123,6 @@ may change behaviour; upgrade notes say what you need to do.
   and no Undo: the slider undoes itself. Undo stays for filters, shaping, rate and mode.
 - **The meter says it's after HQPlayer's volume** (measured: a −30 dBFS tone read −53 dB
   at −23 dB volume).
-
 - **The meter's axes are real.** The frequency labels (20 Hz, 200, 2k, 20 kHz) sit where
   the log scale puts them, with faint gridlines, and the open meter has a dB scale every
   20 dB. The strip says "Peak L … · R … dB", and the meter explains what the bars, line
@@ -135,7 +130,6 @@ may change behaviour; upgrade notes say what you need to do.
   open/close cue is a plain chevron.
 - **On an iPhone home-screen app, the page no longer scrolls under the clock.** A
   backdrop covers the status bar's height.
-
 - **The status no longer goes stale for several seconds after a mode switch.** HQPlayer
   holds the connection while it switches, so the status reply was slow, and hqpweb took
   that for HQPlayer being slow and backed off its polling (about 6 s). It now ignores slow

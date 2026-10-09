@@ -154,11 +154,11 @@
   const VIEW_NOTES: Record<View, string> = {
     bars: "Each bar is the loudest frequency in its band, as it plays (no averaging).",
     line: "The line is each band as it plays; the dashed line its peak, held 1.5 s, then falling.",
-    waterfall: "Newest at the top; brighter is louder.",
+    waterfall: "Newest at the top; quiet fades into the background, louder runs through the accent to the second colour.",
     stereo:
       "Left grows to the left, right to the right, low notes at the bottom; the short lines are each side's peak, held, then falling back.",
     width:
-      "How alike left and right are in each band, low notes at the bottom: no bar is mono, a long bar wide; past the middle (warning colour) the sides are out of phase. Quiet bands are left out.",
+      "How alike left and right are in each band, low notes at the bottom: no bar is mono, a long bar wide; past the middle, in red, the sides are out of phase. Quiet bands are left out.",
     dynamics:
       "The last 30 s: the filled area is loudness (RMS), the line the peaks. The gap is the crest factor: small for compressed music, large for dynamic.",
   };

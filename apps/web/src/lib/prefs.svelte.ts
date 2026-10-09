@@ -4,10 +4,10 @@
 
 export const THEMES = [
   { id: "system", label: "Match system", note: "Dark or light, following this device", theme: null, palette: "classic" },
-  { id: "dark", label: "Dark", note: "Cool grey and cyan", theme: "dark", palette: "classic" },
-  { id: "light", label: "Light", note: "Bright and neutral", theme: "light", palette: "classic" },
-  { id: "copper-dark", label: "Copper dark", note: "Charcoal and copper", theme: "dark", palette: "copper" },
-  { id: "brass-light", label: "Brass light", note: "Warm parchment with a brass accent", theme: "light", palette: "copper" },
+  { id: "dark", label: "Dark", note: "Cool grey, cyan and coral", theme: "dark", palette: "classic" },
+  { id: "light", label: "Light", note: "Bright and neutral, blue and magenta", theme: "light", palette: "classic" },
+  { id: "copper-dark", label: "Copper dark", note: "Charcoal, copper and teal", theme: "dark", palette: "copper" },
+  { id: "brass-light", label: "Brass light", note: "Warm parchment, brass and deep teal", theme: "light", palette: "copper" },
 ] as const;
 export type ThemeId = (typeof THEMES)[number]["id"];
 

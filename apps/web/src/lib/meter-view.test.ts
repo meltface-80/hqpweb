@@ -161,3 +161,16 @@ describe("width and dynamics", () => {
     expect(crest(pts.slice(0, 5))).toBeNull(); // too little
   });
 });
+
+describe("width's two colours stay apart", () => {
+  it("draws in-phase in whichever accent is further in hue from red", async () => {
+    const { apartFrom, hueOf } = await import("./meter-view.ts");
+    expect(Math.round(hueOf("#ff0000")!)).toBe(0);
+    expect(Math.round(hueOf("#00ffff")!)).toBe(180);
+    // Brass light: brown accent, teal second accent, red danger → teal.
+    expect(apartFrom("#b3271d", "#8a5a35", "#19787a")).toBe("#19787a");
+    // Dark: cyan accent, coral second accent → cyan.
+    expect(apartFrom("#e06464", "#4cb7e6", "#ff7d8a")).toBe("#4cb7e6");
+    expect(apartFrom("not-a-colour", "#111111", "#222222")).toBe("#111111");
+  });
+});

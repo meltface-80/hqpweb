@@ -1,6 +1,6 @@
 // Drawing the meter's views on a canvas (MeterStrip.svelte decides what and when). Colours
 // come from the theme's CSS tokens; scales and colour rules from meter-view.ts, tested there.
-import { corrX, norm, ramp } from "./meter-view.ts";
+import { apartFrom, corrX, norm, ramp } from "./meter-view.ts";
 
 type Box = { x: number; w: number };
 type Ticks = { x: { label: string; x: number }[]; y: { label: string; y: number }[] };
@@ -52,7 +52,7 @@ export function line(c: HTMLCanvasElement, bands: number[], peaks: number[], box
   };
   g.lineWidth = 1.5;
   g.setLineDash([3, 3]);
-  g.strokeStyle = css("--warn");
+  g.strokeStyle = css("--accent-2");
   path(peaks);
   g.setLineDash([]);
   g.lineWidth = 2.5;
@@ -73,7 +73,7 @@ export function levels(c: HTMLCanvasElement, lv: number[][]) {
     g.fillRect(0, y, norm(pk) * w, rowH);
     g.fillStyle = css("--accent");
     g.fillRect(0, y, norm(rms) * w, rowH);
-    g.fillStyle = css("--warn");
+    g.fillStyle = css("--accent-2");
     g.fillRect(norm(pkMax) * w - 1, y, 2, rowH);
   });
 }
@@ -83,7 +83,7 @@ export function waterfall(c: HTMLCanvasElement, bands: number[], boxes: Box[]) {
   const { g, w, h } = fit(c);
   const d = devicePixelRatio || 1;
   g.drawImage(c, 0, 0, c.width, c.height - 3 * d, 0, 3, w, h - 3); // scroll down 3 px
-  const colour = ramp(css("--bg"), css("--accent"), css("--text"));
+  const colour = ramp(css("--bg"), css("--accent"), css("--accent-2"));
   bands.forEach((db, i) => {
     g.fillStyle = colour(db);
     g.fillRect(boxes[i]!.x * w, 0, boxes[i]!.w * w + 1, 3);
@@ -113,7 +113,7 @@ export function stereo(
     g.fillRect(mid - l, y, l, bh);
     g.fillRect(mid + 1, y, r, bh);
   });
-  g.fillStyle = css("--warn");
+  g.fillStyle = css("--accent-2");
   boxes.forEach((b, i) => {
     const y = h - (b.x + b.w) * h;
     const bh = Math.max(1, b.w * h - 1);
@@ -130,18 +130,20 @@ export function stereo(
 
 /**
  * Width: one row per band, low notes at the bottom. A bar runs from the right (mono) to
- * where the band's correlation sits: longer is wider; past the middle, out of phase (warn).
+ * where the band's correlation sits: longer is wider; past the middle, out of phase (red).
  * Quiet bands (below −80 dB) are left out: their correlation means nothing.
  */
 export function width(c: HTMLCanvasElement, corr: number[], level: number[], boxes: Box[], t: Ticks) {
   const { g, w, h } = fit(c);
   g.clearRect(0, 0, w, h);
+  const red = css("--danger");
+  const wide = apartFrom(red, css("--accent"), css("--accent-2"));
   boxes.forEach((b, i) => {
     if ((level[i] ?? -120) < -80 || corr[i] === undefined) return;
     const y = h - (b.x + b.w) * h;
     const bh = Math.max(1, b.w * h - 1);
     const x = corrX(corr[i]!) * w;
-    g.fillStyle = css(corr[i]! < 0 ? "--warn" : "--accent");
+    g.fillStyle = corr[i]! < 0 ? red : wide;
     g.fillRect(x, y, w - x, bh);
   });
   g.globalAlpha = 0.45;
@@ -181,6 +183,6 @@ export function dynamics(
   g.beginPath();
   points.forEach((p, i) => g[i ? "lineTo" : "moveTo"](x(p.t), y(p.peak)));
   g.lineWidth = 1.5;
-  g.strokeStyle = css("--warn");
+  g.strokeStyle = css("--accent-2");
   g.stroke();
 }

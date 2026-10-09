@@ -23,6 +23,8 @@
   --accent: #4cb7e6;
   --accent-text: #4cb7e6;
   --accent-soft: rgba(76, 183, 230, 0.15);
+  /* A second accent, complementary and clearly different: the meters' second series. */
+  --accent-2: #ff7d8a;
   --on-accent: #0b1418;
   --bg-veil: rgba(29, 33, 37, 0.84);
   --danger: #e06464;
@@ -43,6 +45,7 @@
   --accent: #1f8fc1;
   --accent-text: #1f8fc1;
   --accent-soft: rgba(31, 143, 193, 0.12);
+  --accent-2: #b8327a;
   --on-accent: #ffffff;
   --bg-veil: rgba(246, 245, 242, 0.84);
   --danger: #c0392b;
@@ -63,6 +66,7 @@
   --accent: #c47f4a;
   --accent-text: #dfa06c;
   --accent-soft: rgba(196, 127, 74, 0.15);
+  --accent-2: #4cc3be;
   --on-accent: #17120d;
   --bg-veil: rgba(45, 49, 52, 0.84);
   --danger: #e8776f;
@@ -83,6 +87,7 @@
   --accent: #8a5a35;
   --accent-text: #8a5a35;
   --accent-soft: rgba(138, 90, 53, 0.12);
+  --accent-2: #19787a;
   --on-accent: #fffdf8;
   --bg-veil: rgba(247, 244, 237, 0.84);
   --danger: #b3271d;
