@@ -10,7 +10,9 @@
   import FilterNoteView from "./FilterNoteView.svelte";
   import { SLOT_NOTE, filterNote } from "./advice/filter-notes.ts";
   import ChipFacets from "./ChipFacets.svelte";
-  import type { KeptUp } from "./api.ts";
+  import FitPanel from "./FitPanel.svelte";
+  import { formatRate, type Change, type KeptUp } from "./api.ts";
+  import { filterFit, tryAnyway, whyNot, type SheetFit } from "./fit/sheet.ts";
   import { APODIZING, facets, filterChips, grouped, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
 
   type Item = FilterItemLike & { note?: string; disabled?: boolean };
@@ -25,7 +27,9 @@
     mode,
     rateHz,
     disabled = false,
+    fit = null,
     onpick,
+    onapply,
   }: {
     label: string;
     slot: "1x" | "Nx";
@@ -37,7 +41,11 @@
     mode: string;
     rateHz: number;
     disabled?: boolean;
+    /** When this slot decides the playback: split the list into fits / won't fit as set (fit/sheet.ts). */
+    fit?: SheetFit | null;
     onpick: (item: Item) => void;
+    /** Apply a change of several settings at once ("What would it take?"). */
+    onapply: (change: Change) => void;
   } = $props();
 
   let dialog: HTMLDialogElement;
@@ -62,6 +70,13 @@
   // Loose chips, and phase, ratio, focus and length as drop-downs (too many chips for a phone).
   const offered = $derived(grouped(facets(rows.map((r) => r.chips))));
   const visible = $derived(narrow(rows, keys).filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase())));
+  // Below the line: why, and only if this slot decides the playback.
+  const why = $derived(new Map(fit ? items.map((i) => [i.name, whyNot(fit, i.name, filterFit(fit, i.name))]) : []));
+  const above = $derived(visible.filter((r) => !why.get(r.name)));
+  const below = $derived(visible.filter((r) => why.get(r.name)));
+  /** The row asking "Try anyway?", and the row showing "What would it take?". */
+  let asking = $state<string | null>(null);
+  let taking = $state<string | null>(null);
 
   /** Open the sheet; `chips` pre-selects filters, e.g. ["apodizing"] (as Picker.open). */
   export async function open(opts: { chips?: string[] } = {}) {
@@ -71,14 +86,27 @@
     expanded = null;
     about = null;
     slotOpen = false;
+    asking = null;
+    taking = null;
     await tick();
     dialog.showModal();
     dialog.querySelector(".row.current")?.scrollIntoView({ block: "center" });
   }
-  function pick(i: Item) {
+  function pick(i: Item, sure = false) {
+    // A ratio it can't do goes to the caller's rate sheet; trouble here asks first.
+    if (!sure && !i.blocked && i.name !== current && why.get(i.name)) {
+      asking = i.name;
+      return;
+    }
     dialog.close();
     if (i.name !== current) onpick(i);
   }
+  function apply(c: Change) {
+    dialog.close();
+    onapply(c);
+  }
+  // Fits as set: the settings it fits with ("ASDM7EC-super at DSD256").
+  const asSet = $derived(fit ? `${fit.input.combo.shaper} at ${formatRate(fit.input.combo.rateHz)}` : "");
 </script>
 
 <button class="open" {disabled} onclick={() => open()}>
@@ -106,43 +134,60 @@
   {#if slotOpen}<FilterNoteView note={SLOT_NOTE} />{/if}
   <input class="search" type="search" placeholder="Search" aria-label="Search filters" bind:value={query} />
   <ChipFacets {offered} {keys} count="{visible.length} of {rows.length}" />
-  <ul>
-    {#each visible as r (r.name)}
-      {@const s = shown(r.chips)}
-      <li class="row" class:current={r.name === current}>
-        <button class="pick" onclick={() => pick(r.item)}>
-          <span class="name">{r.name}</span>
-          {#if r.name === current}<span class="tick" aria-label="selected">✓</span>{/if}
-        </button>
-        {#if notes.get(r.name)}
+  {#snippet row(r: (typeof rows)[number])}
+    {@const s = shown(r.chips)}
+    <li class="row" class:current={r.name === current}>
+      <button class="pick" onclick={() => pick(r.item)}>
+        <span class="name">{r.name}</span>
+        {#if r.name === current}<span class="tick" aria-label="selected">✓</span>{/if}
+      </button>
+      {#if notes.get(r.name)}
+        <button
+          class="info"
+          aria-label="About {r.name}"
+          aria-expanded={about === r.name}
+          onclick={() => (about = about === r.name ? null : r.name)}
+          ><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5M12 7.6v.1" /></svg
+          ></button
+        >
+      {/if}
+      <div class="chips">
+        {#each expanded === r.name ? r.chips : s.chips as c (c.key)}<Chip kind={c.kind} label={c.label} />{/each}
+        {#if s.more || ((r.item.blocked || r.item.warn) && !why.get(r.name))}
           <button
-            class="info"
-            aria-label="About {r.name}"
-            aria-expanded={about === r.name}
-            onclick={() => (about = about === r.name ? null : r.name)}
-            ><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5M12 7.6v.1" /></svg
-            ></button
+            class="more"
+            aria-expanded={expanded === r.name}
+            onclick={() => (expanded = expanded === r.name ? null : r.name)}
+            >{expanded === r.name ? "less" : s.more ? `+${s.more} · why?` : "why?"}</button
           >
         {/if}
-        <div class="chips">
-          {#each expanded === r.name ? r.chips : s.chips as c (c.key)}<Chip kind={c.kind} label={c.label} />{/each}
-          {#if s.more || r.item.blocked || r.item.warn}
-            <button
-              class="more"
-              aria-expanded={expanded === r.name}
-              onclick={() => (expanded = expanded === r.name ? null : r.name)}
-              >{expanded === r.name ? "less" : s.more ? `+${s.more} · why?` : "why?"}</button
-            >
-          {/if}
-        </div>
-        {#if about === r.name && notes.get(r.name)}<FilterNoteView note={notes.get(r.name)!} />{/if}
-        {#if expanded === r.name && (r.item.blocked || r.item.warn)}
-          <p class="why">
-            {[r.item.blocked && `Can't play this ratio: ${r.item.blocked}.`, r.item.warn].filter(Boolean).join(" ")}
-          </p>
+      </div>
+      {#if about === r.name && notes.get(r.name)}<FilterNoteView note={notes.get(r.name)!} />{/if}
+      {#if why.get(r.name)}
+        <p class="why">{why.get(r.name)}</p>
+        {#if asking === r.name}
+          <div class="ask" role="alertdialog" aria-label="Try {r.name} anyway?">
+            <p>{tryAnyway(why.get(r.name)!)}</p>
+            <button class="yes" onclick={() => pick(r.item, true)}>Try</button>
+            <button onclick={() => (asking = null)}>Cancel</button>
+          </div>
         {/if}
-      </li>
-    {/each}
+        <button class="take" aria-expanded={taking === r.name} onclick={() => (taking = taking === r.name ? null : r.name)}
+          >What would it take?</button
+        >
+        {#if taking === r.name && fit}<FitPanel sheet={fit} name={r.name} onapply={apply} />{/if}
+      {:else if expanded === r.name && (r.item.blocked || r.item.warn)}
+        <p class="why">
+          {[r.item.blocked && `Can't play this ratio: ${r.item.blocked}.`, r.item.warn].filter(Boolean).join(" ")}
+        </p>
+      {/if}
+    </li>
+  {/snippet}
+  <ul>
+    {#if fit && below.length}<li class="section">Fits as set ({asSet})</li>{/if}
+    {#each above as r (r.name)}{@render row(r)}{/each}
+    {#if below.length}<li class="section">Won't fit as set</li>{/if}
+    {#each below as r (r.name)}{@render row(r)}{/each}
   </ul>
 </dialog>
 
@@ -309,6 +354,47 @@
   }
   .row .pick {
     padding-right: 36px;
+  }
+  .section {
+    padding: 14px 0 4px;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+  .take {
+    font: inherit;
+    font-size: 0.8rem;
+    border: 0;
+    background: none;
+    color: var(--accent-text);
+    cursor: pointer;
+    min-height: 32px;
+    padding: 0;
+  }
+  .ask {
+    margin: 6px 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--warn);
+    background: var(--bg);
+  }
+  .ask p {
+    margin: 0 0 8px;
+    font-size: 0.85rem;
+  }
+  .ask button {
+    font: inherit;
+    min-height: 36px;
+    padding: 0 14px;
+    margin-right: 8px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .ask .yes {
+    color: var(--accent-text);
   }
   h3 .info {
     position: static;

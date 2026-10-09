@@ -394,6 +394,7 @@
         groupByRating={prefs.filterOrder === "rating"}
         {outRate}
         onpick={pickFilter}
+        onapply={apply}
         bind:picker1x
         bind:pickerNx
       />

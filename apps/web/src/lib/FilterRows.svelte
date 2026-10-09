@@ -5,9 +5,10 @@
   // "choose another filter" for a track that can't start).
   import Picker from "./Picker.svelte";
   import FilterSheet from "./FilterSheet.svelte";
-  import type { Capabilities, Snapshot } from "./api.ts";
+  import type { Capabilities, Change, Snapshot } from "./api.ts";
+  import { sheetFit } from "./fit/sheet.ts";
   import type { filterItems as filterItemsOf } from "./hints.ts";
-  import { nameAt } from "./hints.ts";
+  import { context, nameAt } from "./hints.ts";
 
   type Items = ReturnType<typeof filterItemsOf>;
   type Slot = "filter1x" | "filterNx";
@@ -27,6 +28,7 @@
     groupByRating,
     outRate,
     onpick,
+    onapply,
     picker1x = $bindable(),
     pickerNx = $bindable(),
   }: {
@@ -43,12 +45,17 @@
     groupByRating: boolean;
     outRate: number;
     onpick: (field: Slot, item: Items[number]) => void;
+    /** Several settings at once, from the sheet's "What would it take?". */
+    onapply: (change: Change) => void;
     picker1x?: Opener;
     pickerNx?: Opener;
   } = $props();
 
   const cur1x = $derived(nameAt(caps.filters, snap.state.filter1x));
   const curNx = $derived(nameAt(caps.filters, snap.state.filterNx));
+  const ctx = $derived(v2 ? context(caps, snap) : null);
+  const fit1x = $derived(ctx && sheetFit(ctx, "1x"));
+  const fitNx = $derived(ctx && sheetFit(ctx, "Nx"));
 </script>
 
 {#if v2}
@@ -63,6 +70,8 @@
     mode={caps.mode.name}
     rateHz={outRate}
     disabled={busy}
+    fit={fit1x}
+    {onapply}
     onpick={(i) => onpick("filter1x", i as Items[number])}
   />
   <FilterSheet
@@ -76,6 +85,8 @@
     mode={caps.mode.name}
     rateHz={outRate}
     disabled={busy}
+    fit={fitNx}
+    {onapply}
     onpick={(i) => onpick("filterNx", i as Items[number])}
   />
 {:else}
