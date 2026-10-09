@@ -49,6 +49,11 @@ environment. Read it if it exists; never commit anything from it.
   on purpose to prove it), and what isn't covered. Do this before calling a PR ready.
 - **Commit with an explicit pathspec** (`git commit -m "…" -- path …`). Other
   sessions may share the working tree's index.
+- **A change note per user-visible change:** a file in `changes/` (`added.`, `changed.` or
+  `fixed.<slug>.md`; see `changes/README.md`), not an edit to `CHANGELOG.md`, which only
+  release pull requests touch. Shared files are where parallel pull requests conflict.
+- **Branch every pull request from main; don't stack.** Squash merges make a stacked branch
+  conflict when its parent merges. If new work needs unmerged work, wait or combine them.
 - **Licence:** MIT (`LICENSE`); third-party notices in `THIRD_PARTY_NOTICES.md`.
 - **Don't copy HQPlayer's manual** (its EULA forbids it): paraphrase and cite sections.
 - **README must keep the non-affiliation notices.** Don't use "HQPlayer" or "Roon"
@@ -57,7 +62,8 @@ environment. Read it if it exists; never commit anything from it.
 ## Releasing
 
 1. In a pull request: bump `version` in every `package.json` (root, `apps/*`,
-   `packages/*`, `lint/`) and turn the changelog's "Unreleased" into the new version.
+   `packages/*`, `lint/`) and gather the change notes into the changelog:
+   `node tools/release/changes.ts release X.Y.Z "title"` (then add the update note).
 2. Before tagging, run the live release check (`docs/release-checklist.md`) against a
    real HQPlayer, with its owner's OK for that session, and add a row to its results.
    A failure there blocks the release until it's understood.
@@ -78,7 +84,8 @@ evidence; keep files under the limits, splitting before adding.
   are read-only, stdlib-only probes. Discovery is UDP multicast and does **not**
   cross VLANs or routed subnets.
 - `npm run test:e2e` runs the browser smoke tests (Playwright) against fake HQPlayers
-  (`e2e/stack.ts`, one fake per flow). First time: `npx playwright install chromium`.
+  (`e2e/stack.ts`, one fake per flow). Each spec declares its own fakes in a
+  `<spec>.flows.ts` beside it; the stack loads them all. First time: `npx playwright install chromium`.
   Screenshots go to `e2e/screenshots/` (git-ignored; CI uploads them as an artifact), for
   people to look at; they're never compared. Flows check outcomes and short key phrases,
   not whole sentences, so rewording the UI doesn't break them.
