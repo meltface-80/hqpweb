@@ -28,7 +28,7 @@ const DITHER: FlowStep[] = [
  * under Advanced; the v2 layout has them on the signal card.
  */
 export const PLACES = {
-  current: { rate: "under Advanced → Output rate", mode: "under Advanced → Mode" },
+  current: { rate: "under Advanced → Rate", mode: "under Advanced → Mode" },
   v2: { rate: "on the card's Rate row", mode: "with the card's DSD tab" },
 } as const;
 export type Places = (typeof PLACES)[keyof typeof PLACES];

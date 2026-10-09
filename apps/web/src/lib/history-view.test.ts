@@ -1,8 +1,9 @@
+import { formatRate } from "./api.ts";
 import { describe, expect, it } from "vitest";
 import type { HistoryEntry } from "./api.ts";
 import { historyRows } from "./history-view.ts";
 
-const fmt = (hz: number, mode: string) => (mode.startsWith("SDM") ? `DSD${hz / 44100}` : `${hz / 1000} kHz`);
+const fmt = formatRate;
 const now = new Date("2026-10-08T16:00:00");
 const e = (o: Partial<HistoryEntry>): HistoryEntry => ({
   at: "2026-10-08T15:42:00",
@@ -35,7 +36,7 @@ describe("history rows", () => {
       ["Modulator or dither → ASDM7EC-fast", "kept · playing", "ok"],
       ["Modulator or dither → ASDM7EC-fast", "playing at 60% of real time · rolled back", "bad"],
     ]);
-    expect(days[1]!.rows[0]).toMatchObject({ what: "Output rate → DSD1024", how: "made outside hqpweb", time: "21:05" });
+    expect(days[1]!.rows[0]).toMatchObject({ what: "Rate → DSD1024", how: "made outside hqpweb", time: "21:05" });
   });
 
   it("filters: kept, rolled back, made elsewhere", () => {

@@ -114,3 +114,14 @@ describe("kept up here, for a modulator", () => {
     expect(keptLowForShaper(list, { mode: "PCM", rateHz: DSD256, name: "m" })).toBeNull();
   });
 });
+
+describe("load, as a detail", () => {
+  it("stays off the row until why?, but still filters", async () => {
+    const { shown } = await import("./chips.ts");
+    const c = shaperChips({ name: "ASDM7EC-super", gen: 7 }, sdm);
+    expect(labels(shown(c).chips)).toEqual(["seventh order", "Gen 7"]);
+    expect(shown(c).more).toBe(1);
+    const f = facets([c, shaperChips({ name: "ASDM7EC-light", gen: 7 }, sdm)]);
+    expect(f.map((x) => x.key)).toContain("load:EC line: heaviest");
+  });
+});

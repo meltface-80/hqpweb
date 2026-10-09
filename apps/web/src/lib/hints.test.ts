@@ -95,7 +95,7 @@ describe("filter picker", () => {
   it("blocks a filter that can't do the ratio, saying why", () => {
     const caps = pcm();
     const fft = filterItems(context(caps, snap({ rate: at(caps, 192_000) })), "1x").find((f) => f.name === "FFT")!;
-    expect(fft.blocked).toBe("needs a power-of-two ratio; 44.1k → 192k is 4.35×");
+    expect(fft.blocked).toBe("needs a power-of-two ratio; 44.1 kHz → 192 kHz is 4.35×");
   });
 
   it("blocks nothing when the rate is on Auto (HQPlayer picks one that fits)", () => {
@@ -329,7 +329,7 @@ describe("a rate and modulator together (checkPair)", () => {
   const now = (o: Parameters<typeof snap>[0] = {}) => context(caps, snap({ activeRate: DSD256, ...o }));
 
   it("says AHM can't play below DSD1024, from the rules", () => {
-    expect(checkPair(now(), { rateHz: DSD256, shaper: "AHM7EC8B" }).invalid).toMatch(/40\.96 MHz/);
+    expect(checkPair(now(), { rateHz: DSD256, shaper: "AHM7EC8B" }).invalid).toMatch(/needs DSD1024 or higher/);
   });
 
   it("finds nothing wrong with AHM at DSD1024", () => {

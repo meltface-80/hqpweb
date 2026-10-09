@@ -28,6 +28,7 @@
   import {
     api,
     formatRate,
+    modeLabel,
     type ApplyResult,
     type Capabilities,
     type Change,
@@ -199,7 +200,13 @@
   let historySheet = $state<HistorySheet>();
 
   const show = (field: keyof Change, v: string | number | boolean) =>
-    field === "rate" ? formatRate(Number(v), caps?.mode.name ?? "") : field === "volume" ? `${v} dB` : String(v);
+    field === "rate"
+      ? formatRate(Number(v))
+      : field === "volume"
+        ? `${v} dB`
+        : field === "mode"
+          ? modeLabel(String(v))
+          : String(v);
 
   const takenFor = (slot: "1x" | "Nx", name: string) => (snap ? hints.filterTaken(snap, inUse, slot, name) : null);
 
@@ -367,6 +374,7 @@
         onsuggestapodizing={suggestApodizing}
         onstatus={(status) => snap && (snap = { ...snap, status })}
         onmessage={(m) => (message = m)}
+        showSpeed={prefs.layout !== "v2"}
       />
     {/if}
   {/snippet}
@@ -524,6 +532,8 @@
     margin: 0 auto;
     padding: 16px 16px 140px;
     padding-top: max(16px, env(safe-area-inset-top));
+    /* Room to scroll everything clear of the footer while it's shown (Footer sets --footer-h). */
+    padding-bottom: calc(140px + var(--footer-h, 0px));
   }
   /* The v2 layout's two columns from 900 px (LayoutV2.svelte). Set here: a rule elsewhere
      ties with the one above on specificity and loses on order (seen on a laptop). */

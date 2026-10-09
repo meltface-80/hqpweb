@@ -5,7 +5,8 @@ import { ratioClass } from "@app/protocol/compat";
 import { formatRate, type Mode } from "./api.ts";
 import type { SpeedClass } from "./speed.ts";
 
-const k = (hz: number) => `${hz / 1000}k`;
+/** Rates are written one way everywhere (api.ts formatRate): 44.1 kHz, 1536 kHz, DSD256. */
+const k = (hz: number) => formatRate(hz);
 /** The path line's short form: "gauss-xla" for "poly-sinc-gauss-xla". */
 const shortFilter = (name: string) => name.replace(/^poly-sinc-/, "");
 
@@ -18,9 +19,8 @@ export function pathSteps(p: {
   modeName: string;
   dac?: string;
 }): string[] {
-  // By the rate itself: right after a mode switch, the reading can still be the old mode's.
-  const dsd = p.outRate >= 2_822_400 && p.outRate % 44_100 === 0;
-  const out = p.outRate ? (dsd ? formatRate(p.outRate, "SDM (DSD)") : k(p.outRate)) : "";
+  // formatRate tells DSD by the rate itself: right after a switch the reading can be the old mode's.
+  const out = p.outRate ? formatRate(p.outRate) : "";
   return [p.source ? k(p.source) : "", p.filter ? shortFilter(p.filter) : "", p.shaper, out, p.dac ?? ""].filter(Boolean);
 }
 

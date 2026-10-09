@@ -325,12 +325,23 @@ export const api = {
 export const PLAYBACK = ["Stopped", "Paused", "Playing", "Stopping"];
 
 /** "DSD256", "384 kHz", "1.536 MHz"; 0 is "Auto". */
-export function formatRate(hz: number, modeName: string): string {
+/**
+ * A rate as hqpweb writes it everywhere: DSD256, or PCM in kHz (1536 kHz). DSD is told from
+ * the rate itself (DSD64, 2.8224 MHz, is above any PCM rate), not the mode, which can be
+ * stale around a switch: that once wrote DSD256 as "11.2896 MHz". `_mode` is kept for callers.
+ */
+export function formatRate(hz: number, _mode?: string): string {
   if (!hz) return "Auto";
-  if (modeName.startsWith("SDM") && hz % 44100 === 0) return `DSD${hz / 44100}`;
-  if (hz >= 1_000_000) return `${hz / 1_000_000} MHz`;
+  if (hz >= 2_822_400) {
+    if (hz % 44_100 === 0) return `DSD${hz / 44_100}`;
+    if (hz % 48_000 === 0) return `DSD${hz / 48_000} (48k)`;
+    return `${hz / 1_000_000} MHz`;
+  }
   return `${hz / 1000} kHz`;
 }
+
+/** A mode as hqpweb writes it: HQPlayer's "SDM (DSD)" is DSD, as on the card's tabs. */
+export const modeLabel = (name: string) => (name.startsWith("SDM") ? "DSD" : name);
 
 /**
  * A field's name as the pickers show it. The shaper is a modulator in SDM and dither in PCM;
@@ -341,7 +352,7 @@ export const fieldLabel = (field: keyof Change, sdm?: boolean) =>
 
 export const FIELD_LABEL: Record<keyof Change, string> = {
   mode: "Mode",
-  rate: "Output rate",
+  rate: "Rate",
   filterNx: "Nx filter",
   filter1x: "1x filter",
   shaper: "Modulator",

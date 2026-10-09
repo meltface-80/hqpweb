@@ -32,9 +32,11 @@ export function shaperChips(
     if (order) out.push({ kind: "fact", label: order === 5 ? "fifth order" : "seventh order", key: `order:${order}` });
     // Signalyst ranks load only among a line's variants, so the chip names the line:
     // "EC line: heaviest" can't be read as this machine's load ("kept up here" is that).
+    // A detail, under "why?": on every row it read as a quality ranking, and the variants
+    // are character choices of one quality (RULES.variantsEqual).
     const load = variantNote(i.name)?.load;
     const line = i.name.startsWith("AHM") ? "AHM" : "EC line";
-    if (load) out.push({ kind: "fact", label: `${line}: ${load}`, key: `load:${line}: ${load}` });
+    if (load) out.push({ kind: "fact", label: `${line}: ${load}`, key: `load:${line}: ${load}`, detail: true });
     // What Signalyst says it takes, not how it went here; a note on the row, not a filter.
     if (o.rateHz && heavyAt(i.name, o.rateHz))
       out.push({ kind: "fact", label: "needs a fast CPU at this rate", key: "fast-cpu" });

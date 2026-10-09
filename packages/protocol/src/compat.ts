@@ -187,7 +187,15 @@ export interface Hint {
   text: string;
 }
 
-const khz = (hz: number) => (hz >= 1_000_000 ? `${+(hz / 1_000_000).toFixed(4)} MHz` : `${+(hz / 1000).toFixed(1)}k`);
+/** Rates written as the web app writes them (apps/web api.ts formatRate): 44.1 kHz, 1536 kHz, DSD256. */
+const khz = (hz: number) =>
+  hz >= 2_822_400 && hz % 44_100 === 0
+    ? `DSD${hz / 44_100}`
+    : hz >= 2_822_400 && hz % 48_000 === 0
+      ? `DSD${hz / 48_000} (48k)`
+      : hz >= 1_000_000 && hz >= 2_822_400
+        ? `${+(hz / 1_000_000).toFixed(4)} MHz`
+        : `${+(hz / 1000).toFixed(1)} kHz`;
 const isPow2 = (n: number) => Number.isInteger(n) && n >= 1 && (n & (n - 1)) === 0;
 
 /** Can `filter` convert `sourceRate` to `outputRate`? Undefined when unknown. */
@@ -234,7 +242,7 @@ export function ratioHint(
 export function modulatorHint(shaper: string, outputRate: number): Hint | undefined {
   if (!outputRate) return undefined;
   if (/^AHM/.test(shaper) && outputRate < 40_960_000)
-    return { level: "hard", text: `${shaper} needs ≥ 40.96 MHz (DSD1024); ${khz(outputRate)} stops playback` };
+    return { level: "hard", text: `${shaper} needs DSD1024 or higher; ${khz(outputRate)} stops playback` };
   if (/^AMSDM/.test(shaper) && outputRate < 20_480_000)
     return { level: "soft", text: `${shaper} is designed for ≥ 20.48 MHz (DSD512)` };
   if (/512\+fs$/.test(shaper) && outputRate < 22_579_200)

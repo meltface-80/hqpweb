@@ -15,7 +15,7 @@ describe("the path line", () => {
         modeName: "SDM (DSD)",
         dac: "Holo",
       }),
-    ).toEqual(["44.1k", "gauss-xla", "ASDM7EC-super", "DSD256", "Holo"]);
+    ).toEqual(["44.1 kHz", "gauss-xla", "ASDM7EC-super", "DSD256", "Holo"]);
   });
   it("shows a DSD rate as DSD even while the mode reads PCM (just after a switch)", () => {
     expect(pathSteps({ source: 44_100, filter: "sinc-M", shaper: "NS5", outRate: 45_158_400, modeName: "PCM" })).toContain(

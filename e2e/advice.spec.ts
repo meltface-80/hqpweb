@@ -158,7 +158,7 @@ test("a rate the modulator can't play at, or a modulator the rate can't take, of
 
   // Advanced: DSD256 with AHM can't play, so the rate goes with ASDM7EC-fast, as one change.
   await page.locator("summary", { hasText: "Advanced" }).click();
-  await row(page, "Output rate").click();
+  await row(page, "Rate").click();
   let asked = "";
   page.once("dialog", (d) => {
     asked = d.message();
@@ -168,7 +168,7 @@ test("a rate the modulator can't play at, or a modulator the rate can't take, of
     .getByRole("button", { name: /^DSD256/ })
     .click();
   await expect(row(page, "Modulator")).toContainText("ASDM7EC-fast");
-  await expect(row(page, "Output rate")).toContainText("DSD256");
+  await expect(row(page, "Rate")).toContainText("DSD256");
   expect(asked).toContain("together");
 
   // The List: AHM at DSD256 can't play, so picking it offers DSD1024 with it.
@@ -180,7 +180,7 @@ test("a rate the modulator can't play at, or a modulator the rate can't take, of
   await sheet(page)
     .getByRole("button", { name: /^AHM7EC8B/ })
     .click();
-  await expect(row(page, "Output rate")).toContainText("DSD1024");
+  await expect(row(page, "Rate")).toContainText("DSD1024");
   await expect(row(page, "Modulator")).toContainText("AHM7EC8B");
   expect(asked).toContain("DSD1024");
 });

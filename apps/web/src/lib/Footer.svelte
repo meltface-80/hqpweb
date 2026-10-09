@@ -38,8 +38,8 @@
     right: 0;
     bottom: 0;
     padding: 12px 16px max(12px, env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(12px);
+    /* Opaque: the page underneath showed through and read as faded-out content. */
+    background: var(--bg);
     border-top: 1px solid var(--border);
     display: flex;
     flex-direction: column;

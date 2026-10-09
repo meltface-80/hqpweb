@@ -4,7 +4,17 @@
   // back, and messages for the footer, go to App through onstatus and onmessage.
   import { untrack } from "svelte";
   import { RECOMMENDED_MAX_VOLUME_DB } from "@app/protocol/compat";
-  import { api, formatRate, PLAYBACK, type Capabilities, type Change, type RoonZone, type Snapshot, type Status } from "./api.ts";
+  import {
+    api,
+    formatRate,
+    modeLabel,
+    PLAYBACK,
+    type Capabilities,
+    type Change,
+    type RoonZone,
+    type Snapshot,
+    type Status,
+  } from "./api.ts";
   import { control, MISMATCH_POLLS, roonPosition, stepVolume, zoneMismatch } from "./control.ts";
   import { apodization, type wedge as wedgeOf } from "./hints.ts";
   import { prefs } from "./prefs.svelte.ts";
@@ -31,6 +41,7 @@
     onsuggestapodizing,
     onstatus,
     onmessage,
+    showSpeed = true,
   }: {
     selected: string | null;
     snap: Snapshot;
@@ -50,6 +61,8 @@
     onsuggestapodizing: () => void;
     onstatus: (status: Status) => void;
     onmessage: (m: ResultMessage) => void;
+    /** The v2 layout says it on the path line ("keeping up 25×"), so once is enough there. */
+    showSpeed?: boolean;
   } = $props();
 
   const APOD_TITLE =
@@ -229,7 +242,7 @@
   <div class="headline">
     <span class="big">{liveRate ? formatRate(liveRate, snap.status.activeMode) : "—"}</span>
     <span class="sub">
-      <span class="mode">{snap.status.activeMode}</span>
+      <span class="mode">{modeLabel(snap.status.activeMode)}</span>
       <span class="state s{snap.status.state}">{PLAYBACK[snap.status.state]}</span>
     </span>
   </div>
@@ -286,8 +299,10 @@
     <dd>
       {snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}
     </dd>
-    <dt title={speedTitle}>Processing</dt>
-    <dd class="speed {speedClass}" title={speedTitle}>{speedText}</dd>
+    {#if showSpeed}
+      <dt title={speedTitle}>Processing</dt>
+      <dd class="speed {speedClass}" title={speedTitle}>{speedText}</dd>
+    {/if}
     {#if apod > 0}
       <dt title={APOD_TITLE}>Apod</dt>
       <dd class="speed {apodState === 'suggest' ? 'bad' : 'warn'}" title={APOD_TITLE}>

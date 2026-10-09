@@ -78,6 +78,16 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Fixed
 
+- **One way to write rates and modes.** Everywhere: DSD256, PCM in kHz (1536 kHz, not
+  1.536 MHz), "Rate" (not "Output rate"), and "DSD" for HQPlayer's "SDM (DSD)". A rate
+  after a mode switch was sometimes written in the old mode's terms (DSD256 as
+  "11.2896 MHz"); DSD is now told by the rate itself.
+- **Tidier v2 screen.** Processing speed is shown once (on the path line); the footer is
+  opaque and the page scrolls clear of it; without a meter stream there's a one-line note
+  instead of a card; History sets only names and values in the mono font.
+- **Load within a modulator line moves under "why?"** It's still a filter. On every row it
+  read as a quality ranking, and the variants are character choices of one quality.
+
 - **The app's files answer HEAD requests.** A browser asking for the icon that way
   (Safari does) got "not found", which can leave a tab or a Dock app without hqpweb's
   icon.

@@ -46,7 +46,7 @@
       />
       {#if caps.rateSettable}
         <Picker
-          label="Output rate"
+          label="Rate"
           hint={snap.state.rate === 0 ? `now ${formatRate(snap.status.activeRate, caps.mode.name)}` : ""}
           items={rateItems}
           current={formatRate(caps.rates.find((r) => r.index === snap!.state.rate)?.rate ?? 0, caps.mode.name)}

@@ -196,66 +196,71 @@
   };
 </script>
 
-<section class="meter" aria-label="Meter">
-  <button class="strip" aria-expanded={open} aria-label={open ? "Close the meter" : "Open the meter"} onclick={toggle}>
-    {#if note}<span class="note">{note}</span>{:else}<canvas bind:this={mini} class="mini" aria-hidden="true"></canvas>
-      <span class="peak">{peaks}</span>{/if}
-    <span class="label"
-      >Meter <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.5"
-        aria-hidden="true"><path d={open ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} /></svg
-      ></span
-    >
-  </button>
-  {#if open}
-    <div class="views" role="group" aria-label="Meter view">
-      {#each VIEWS as v (v.id)}
-        <button aria-pressed={view === v.id} class:on={view === v.id} onclick={() => pick(v.id)}>{v.label}</button>
-      {/each}
-      <button
-        class="info"
-        aria-label="About this meter"
-        aria-expanded={about}
-        aria-controls="meter-about"
-        onclick={() => (about = !about)}>i</button
+<section class="meter" class:quiet={!latest.connected} aria-label="Meter">
+  {#if !latest.connected}
+    <!-- No stream: one line, not a card with a control that opens onto nothing. -->
+    <p class="nometer">No meter from this HQPlayer: hqpweb can't connect to its meter port (the control port + 1).</p>
+  {:else}
+    <button class="strip" aria-expanded={open} aria-label={open ? "Close the meter" : "Open the meter"} onclick={toggle}>
+      {#if note}<span class="note">{note}</span>{:else}<canvas bind:this={mini} class="mini" aria-hidden="true"></canvas>
+        <span class="peak">{peaks}</span>{/if}
+      <span class="label"
+        >Meter <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          aria-hidden="true"><path d={open ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} /></svg
+        ></span
       >
-    </div>
-    {#if note}
-      <p class="empty">{note}</p>
-    {:else}
-      <!-- The dB scale sits in a gutter beside the plot, so it never covers the top bands. -->
-      <div class="plot">
-        <canvas bind:this={big} class="big" aria-hidden="true"></canvas>
-        <div class="dbs" aria-hidden="true">
-          {#if view !== "waterfall"}
-            {#each yTicks as t (t.label)}<span style="bottom: {t.y * 100}%">{t.label}</span>{/each}
-          {/if}
-        </div>
-        <div class="axis" aria-hidden="true">
-          {#each xTicks as t (t.label)}<span style="left: {t.x * 100}%">{t.label}</span>{/each}
-        </div>
+    </button>
+    {#if open}
+      <div class="views" role="group" aria-label="Meter view">
+        {#each VIEWS as v (v.id)}
+          <button aria-pressed={view === v.id} class:on={view === v.id} onclick={() => pick(v.id)}>{v.label}</button>
+        {/each}
+        <button
+          class="info"
+          aria-label="About this meter"
+          aria-expanded={about}
+          aria-controls="meter-about"
+          onclick={() => (about = !about)}>i</button
+        >
       </div>
-      <p class="sr">{peaks || "No levels yet"}</p>
-      <p class="scale" id="meter-about" hidden={!about}>
-        {VIEW_NOTES[view]} The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak.
-        All of it is the music before upsampling, after HQPlayer's volume.
-      </p>
-      <p class="scale timing" hidden={!about}>
-        Timing: the meter waits {(delay / 1000).toFixed(1)} s to line up with what you hear{#if outputDelayMs != null}
-          (HQPlayer reports {(outputDelayMs / 1000).toFixed(1)} s of output buffer){/if}. Your DAC and network add their own, so
-        set it by ear:
-        <span class="nudge">
-          <button aria-label="Meter earlier" onclick={() => setNudge(nudge - NUDGE_STEP_MS)}>Earlier</button>
-          <button aria-label="Meter later" onclick={() => setNudge(nudge + NUDGE_STEP_MS)}>Later</button>
-          {#if nudge}<button onclick={() => setNudge(null)}>Auto</button>
-            <span class="by">{nudge > 0 ? "+" : "−"}{Math.abs(nudge / 1000).toFixed(1)} s</span>{/if}
-        </span>
-      </p>
+      {#if note}
+        <p class="empty">{note}</p>
+      {:else}
+        <!-- The dB scale sits in a gutter beside the plot, so it never covers the top bands. -->
+        <div class="plot">
+          <canvas bind:this={big} class="big" aria-hidden="true"></canvas>
+          <div class="dbs" aria-hidden="true">
+            {#if view !== "waterfall"}
+              {#each yTicks as t (t.label)}<span style="bottom: {t.y * 100}%">{t.label}</span>{/each}
+            {/if}
+          </div>
+          <div class="axis" aria-hidden="true">
+            {#each xTicks as t (t.label)}<span style="left: {t.x * 100}%">{t.label}</span>{/each}
+          </div>
+        </div>
+        <p class="sr">{peaks || "No levels yet"}</p>
+        <p class="scale" id="meter-about" hidden={!about}>
+          {VIEW_NOTES[view]} The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak.
+          All of it is the music before upsampling, after HQPlayer's volume.
+        </p>
+        <p class="scale timing" hidden={!about}>
+          Timing: the meter waits {(delay / 1000).toFixed(1)} s to line up with what you hear{#if outputDelayMs != null}
+            (HQPlayer reports {(outputDelayMs / 1000).toFixed(1)} s of output buffer){/if}. Your DAC and network add their own, so
+          set it by ear:
+          <span class="nudge">
+            <button aria-label="Meter earlier" onclick={() => setNudge(nudge - NUDGE_STEP_MS)}>Earlier</button>
+            <button aria-label="Meter later" onclick={() => setNudge(nudge + NUDGE_STEP_MS)}>Later</button>
+            {#if nudge}<button onclick={() => setNudge(null)}>Auto</button>
+              <span class="by">{nudge > 0 ? "+" : "−"}{Math.abs(nudge / 1000).toFixed(1)} s</span>{/if}
+          </span>
+        </p>
+      {/if}
     {/if}
   {/if}
 </section>
@@ -266,6 +271,15 @@
     background: var(--bg-elev);
     border-radius: 14px;
     padding: 10px 12px;
+  }
+  .meter.quiet {
+    background: none;
+    padding: 0 4px;
+  }
+  .nometer {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-dim);
   }
   .strip {
     width: 100%;

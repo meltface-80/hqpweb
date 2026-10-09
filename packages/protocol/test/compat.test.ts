@@ -70,7 +70,7 @@ describe("modulator and dither hints (§4.5, §4.4)", () => {
         sourceRate: 44_100,
         outputRate: 11_289_600,
       }),
-    ).toEqual({ level: "hard", text: expect.stringMatching(/^AHM7EC8B needs ≥ 40.96 MHz/) });
+    ).toEqual({ level: "hard", text: expect.stringMatching(/^AHM7EC8B needs DSD1024 or higher; DSD256 stops playback$/) });
   });
 
   it("predicts no stop from soft guidance alone (NS5 below 192k)", () => {

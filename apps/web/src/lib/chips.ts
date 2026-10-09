@@ -12,6 +12,8 @@ export interface Chip {
   label: string;
   /** What filtering by this chip keeps: rows having a chip with the same key. */
   key: string;
+  /** Shown only under the row's "why?", though still a filter (e.g. load within a line). */
+  detail?: boolean;
 }
 
 export const MAX_CHIPS = 4;
@@ -75,7 +77,8 @@ export function filterChips(i: FilterItemLike, o: { inUse: boolean; keptLow?: nu
 }
 
 export function shown(chips: Chip[]): { chips: Chip[]; more: number } {
-  return { chips: chips.slice(0, MAX_CHIPS), more: Math.max(0, chips.length - MAX_CHIPS) };
+  const first = chips.filter((c) => !c.detail).slice(0, MAX_CHIPS);
+  return { chips: first, more: chips.length - first.length };
 }
 
 /** Rows that have every chosen chip. */

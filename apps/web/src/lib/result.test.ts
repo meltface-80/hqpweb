@@ -29,7 +29,7 @@ group("the result message (moved from App.svelte)", () => {
 
   it("lists skipped settings", () => {
     const r = result({ results: [field("shaper", "NS5")], skipped: [{ field: "rate", reason: "not offered here" }] });
-    expect(describe(r, show, false).text).toContain("Skipped: Output rate (not offered here)");
+    expect(describe(r, show, false).text).toContain("Skipped: Rate (not offered here)");
   });
 });
 

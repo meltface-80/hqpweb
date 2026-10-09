@@ -54,7 +54,9 @@
       <ul>
         {#each d.rows as r (r.key)}
           <li>
-            <span class="what">{r.what}</span>
+            <span class="what"
+              >{#each r.parts as p, j (j)}{j ? "; " : ""}{p.label} → <span class="val">{p.value}</span>{/each}</span
+            >
             <span class="how {r.tone}">{r.time} · {r.how}</span>
           </li>
         {/each}
@@ -137,8 +139,10 @@
     border-bottom: 1px solid var(--border);
   }
   .what {
-    font-family: var(--font-mono);
     font-size: 0.9rem;
+  }
+  .val {
+    font-family: var(--font-mono);
   }
   .how {
     font-size: 0.8rem;

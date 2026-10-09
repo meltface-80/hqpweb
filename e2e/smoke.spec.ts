@@ -68,7 +68,7 @@ test("a filter this machine can't keep up with is rolled back, and flagged next 
 test("a rollback that leaves HQPlayer's own playlist stopped offers Restart playback", async ({ page }) => {
   await openOn(page, "restart");
   await page.locator("summary", { hasText: "Advanced" }).click();
-  await row(page, "Output rate").click();
+  await row(page, "Rate").click();
   page.once("dialog", (d) => void d.accept());
   await sheet(page)
     .getByRole("button", { name: /^192 kHz/ })
@@ -181,13 +181,13 @@ test("Advanced: change the output rate after confirming, and switch an option", 
   await openOn(page, "advanced");
   await page.locator("summary", { hasText: "Advanced" }).click();
 
-  await row(page, "Output rate").click();
+  await row(page, "Rate").click();
   page.once("dialog", (d) => void d.accept());
   await sheet(page)
     .getByRole("button", { name: /^192 kHz/ })
     .click();
   await succeeded(page);
-  await expect(row(page, "Output rate")).toContainText("192 kHz");
+  await expect(row(page, "Rate")).toContainText("192 kHz");
 
   const invert = page.getByRole("switch", { name: "Invert polarity" });
   await expect(invert).not.toBeChecked();
