@@ -107,14 +107,25 @@ export function healthWord(cls: SpeedClass, playing: boolean): string {
 /** DSD rates offered when DSD's last rate isn't known: 256 and 512 (×44.1k), never auto by default. */
 export const DSD_CHOICES = [11_289_600, 22_579_200];
 
+/** DSD_CHOICES the DSD mode allows, by its last-read lists; all of them when never seen. */
+export function dsdChoices(lists: { rates: { rate: number; allowed: boolean }[] } | undefined): number[] {
+  if (!lists) return DSD_CHOICES;
+  return DSD_CHOICES.filter((hz) => lists.rates.some((r) => r.rate === hz && r.allowed));
+}
+
 /**
  * What a mode switch will set the rate to. HQPlayer resets it to auto on a switch; the
  * server puts back the mode's last-seen fixed rate (instance.ts withModeRate). With none
  * known, PCM's auto is fine (it fits the filter), but DSD's auto is the highest rate, so
  * the sheet asks for one instead.
  */
-export function switchPlan(target: "DSD" | "PCM", seenRate: number | undefined): { rate: number | null; ask: boolean } {
-  if (seenRate) return { rate: seenRate, ask: false };
+export function switchPlan(
+  target: "DSD" | "PCM",
+  seenRate: number | undefined,
+  offered: (hz: number) => boolean = () => true,
+): { rate: number | null; ask: boolean } {
+  // The server sends the last-seen rate only if that mode still offers and allows it (instance.ts).
+  if (seenRate && offered(seenRate)) return { rate: seenRate, ask: false };
   return { rate: null, ask: target === "DSD" };
 }
 
@@ -124,6 +135,8 @@ export function switchPlan(target: "DSD" | "PCM", seenRate: number | undefined):
  * playback starts (seen 2026-10-08: 768k shown for DSD).
  */
 export function rateInMode(hz: number, modeName: string): number {
-  const dsdRate = hz >= 2_822_400 && hz % 44_100 === 0;
+  // Any DSD family (44.1k or 48k multiples): DSD64 is above every PCM rate.
+  const dsdRate = hz >= 2_822_400;
+  if (!modeName.startsWith("SDM") && modeName !== "PCM") return hz; // [source]: either can be right
   return modeName.startsWith("SDM") === dsdRate ? hz : 0;
 }

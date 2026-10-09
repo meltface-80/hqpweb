@@ -86,6 +86,15 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Fixed
 
+- **A mode switch no longer fails over a rate you didn't ask for.** Switching back to a
+  mode brings its last-seen rate, but only if that mode still offers and allows it; a rate
+  above this instance's limit (set in HQPlayer itself) made every switch fail after two
+  real mode changes. The new layout's switch sheet likewise offers only allowed DSD rates.
+- **The Now card shows 48k-family DSD rates** (DSD256 (48k)) and readings in [source] mode,
+  which showed "—".
+- **A stalled meter viewer** (a phone asleep with the page open) no longer makes the
+  server buffer meter frames without end.
+
 - **The waterfall follows the theme:** silence is the plot's own background, then the
   accent, and the loudest the text colour (it was a fixed blue-to-yellow that clashed with
   the light themes). The strip's peak readings sit one per row ("L −22.0" over

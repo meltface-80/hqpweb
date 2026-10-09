@@ -154,6 +154,22 @@ describe("switching back to a mode", () => {
     expect(fake.activeRateHz).toBe(11_289_600);
   });
 
+  it("switches without the remembered rate when that rate is above this instance's limit", async () => {
+    // The owner set DSD256 in HQPlayer itself; this instance is limited to DSD128.
+    await setup({}, { maxDsdRate: 5_644_800 });
+    fake.playback = 0;
+    await watch();
+    const hqp = new HqpClient("127.0.0.1", { port: fake.port });
+    const dsd256 = (await hqp.rates()).find((r) => r.rate === 11_289_600)!;
+    await hqp.send(cmd.setRate(dsd256.index));
+    hqp.close();
+    await until(caps, (c) => c.lastSeen["SDM (DSD)"]?.rate === 11_289_600);
+    await req("POST", "/api/instances/mac/change", { body: { mode: "PCM" } });
+    const back = await req("POST", "/api/instances/mac/change", { body: { mode: "SDM (DSD)" } });
+    expect(back.status).toBe(200); // was 422: "above this instance's limit", after two real switches
+    expect(back.json().results.map((r: { field: string }) => r.field)).toEqual(["mode"]);
+  });
+
   it("leaves the rate alone when the change names one, or the mode was never seen", async () => {
     await setup();
     fake.playback = 0;

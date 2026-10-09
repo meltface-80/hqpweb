@@ -134,3 +134,28 @@ describe("a rate only counts in its own mode", () => {
     expect(rateInMode(705_600, "PCM")).toBe(705_600);
   });
 });
+
+describe("rates around a mode switch (pre-release review)", () => {
+  it("counts 48k-family DSD as DSD, and leaves [source] readings alone", async () => {
+    const { rateInMode } = await import("./signal.ts");
+    expect(rateInMode(12_288_000, "SDM (DSD)")).toBe(12_288_000);
+    expect(rateInMode(12_288_000, "PCM")).toBe(0);
+    expect(rateInMode(705_600, "SDM (DSD)")).toBe(0);
+    expect(rateInMode(11_289_600, "[source]")).toBe(11_289_600);
+  });
+  it("proposes only DSD rates the mode allows, and doesn't promise a remembered one it doesn't", async () => {
+    const { dsdChoices, switchPlan, DSD_CHOICES } = await import("./signal.ts");
+    const lists = {
+      rates: [
+        { rate: 5_644_800, allowed: true },
+        { rate: 11_289_600, allowed: false },
+        { rate: 22_579_200, allowed: false },
+      ],
+    };
+    expect(dsdChoices(undefined)).toEqual(DSD_CHOICES);
+    expect(dsdChoices(lists)).toEqual([]);
+    const offered = (hz: number) => lists.rates.some((r) => r.rate === hz && r.allowed);
+    expect(switchPlan("DSD", 11_289_600, offered)).toEqual({ rate: null, ask: true });
+    expect(switchPlan("DSD", 5_644_800, offered)).toEqual({ rate: 5_644_800, ask: false });
+  });
+});

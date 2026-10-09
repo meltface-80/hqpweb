@@ -400,7 +400,7 @@ export class Instance {
   }
 
   applyChange(change: Change): Promise<ApplyResult> {
-    return this.logged("hqpweb", () => this.engine.apply(this.withModeRate(change), false));
+    return this.logged("hqpweb", async () => this.engine.apply(await this.withModeRate(change), false));
   }
 
   /**
@@ -408,12 +408,20 @@ export class Instance {
    * auto, which in DSD is the highest rate (measured 2026-10-08, Desktop 5.35.10). A
    * modulator that kept up at DSD256 then fell behind at DSD1024 and was rolled back on
    * every attempt: no way back into DSD. So a switch that names no rate takes the mode's
-   * last-seen fixed rate for the DAC in use (history.ts), set while still paused.
+   * last-seen fixed rate for the DAC in use (history.ts), set while still paused. Only a
+   * rate that mode still offers and allows (its last-read lists, this instance's limits):
+   * a rate the user never asked for must not make the switch fail (pre-release review).
    */
-  private withModeRate(change: Change): Change {
+  private async withModeRate(change: Change): Promise<Change> {
     if (change.mode === undefined || change.rate !== undefined) return change;
     const rate = this.history.lastSeen(this.scope())[change.mode]?.rate;
-    return rate ? { ...change, rate } : change;
+    if (!rate) return change;
+    const caps = await this.capabilities();
+    const lists = caps.modeLists[change.mode];
+    const ok = lists
+      ? lists.rates.some((r) => r.rate === rate && r.allowed)
+      : this.withLimits(change.mode, [{ rate }])[0]!.allowed;
+    return ok ? { ...change, rate } : change;
   }
 
   /**
@@ -422,7 +430,7 @@ export class Instance {
    * raise past the guard) are skipped and reported instead of failing it all.
    */
   applyPreset(settings: Change): Promise<ApplyResult> {
-    return this.logged("preset", () => this.engine.apply(this.withModeRate(settings), false, true));
+    return this.logged("preset", async () => this.engine.apply(await this.withModeRate(settings), false, true));
   }
 
   undo(): Promise<ApplyResult> {

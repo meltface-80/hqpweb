@@ -62,6 +62,8 @@ export interface AppOptions {
 
 const LOOPBACK = ["localhost", "127.0.0.1", "[::1]", "::1"];
 const MAX_BODY = 16 * 1024;
+/** The meter stream's most unsent output per client before frames are skipped (~250 updates). */
+const METER_BACKLOG = 256 * 1024;
 
 const FIELDS: Record<keyof Change, "name" | "number" | "rate" | "boolean"> = {
   mode: "name",
@@ -298,7 +300,11 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         "x-accel-buffering": "no",
       });
       res.write(": connected\n\n");
-      const off = inst.subscribeMeter((e) => res.write(`event: meter\ndata: ${JSON.stringify(e)}\n\n`));
+      // A stalled client (a phone asleep, the tab still open) mustn't make Node buffer frames
+      // without end: skip them while its unsent output is over a small cap.
+      const off = inst.subscribeMeter((e) => {
+        if (res.writableLength < METER_BACKLOG) res.write(`event: meter\ndata: ${JSON.stringify(e)}\n\n`);
+      });
       req.on("close", off);
     },
     "PUT roonzone": async (q, _r, i) => {

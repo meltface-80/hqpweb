@@ -8,7 +8,17 @@
   import { formatRate, type Capabilities, type Change, type Snapshot } from "./api.ts";
   import type { rateItems as rateItemsOf } from "./hints.ts";
   import { pickRate } from "./rate-pick.ts";
-  import { autoNote, DSD_CHOICES, healthWord, otherMode, pathSteps, rateInMode, seenWhen, switchPlan } from "./signal.ts";
+  import {
+    autoNote,
+    DSD_CHOICES,
+    dsdChoices,
+    healthWord,
+    otherMode,
+    pathSteps,
+    rateInMode,
+    seenWhen,
+    switchPlan,
+  } from "./signal.ts";
   import type { SpeedClass } from "./speed.ts";
 
   /** How playback carries on after a mode switch (change-engine.ts, pauseForModeSwitch). */
@@ -91,12 +101,17 @@
 
   let sheet: HTMLDialogElement;
   const playing = $derived(snap.status.state === 2);
-  const plan = $derived(switchPlan(other.label, seen?.rate));
+  // What the other mode offers, as last read (capabilities.modeLists): only allowed rates are proposed.
+  const otherLists = $derived(other.name ? caps.modeLists[other.name] : undefined);
+  const offered = (hz: number) => !otherLists || otherLists.rates.some((r) => r.rate === hz && r.allowed);
+  const plan = $derived(switchPlan(other.label, seen?.rate, offered));
+  const choices = $derived(dsdChoices(otherLists));
   let chosen = $state<number>(DSD_CHOICES[0]!);
   /** The server puts back the last rate itself; a chosen one is sent with the switch. */
   function switchMode() {
     sheet.close();
-    if (other.name) void apply(plan.ask ? { mode: other.name, rate: chosen } : { mode: other.name });
+    const rate = choices.includes(chosen) ? chosen : choices[0];
+    if (other.name) void apply(plan.ask && rate ? { mode: other.name, rate } : { mode: other.name });
   }
 </script>
 
@@ -190,11 +205,11 @@
       HQPlayer switches to {other.label}{#if plan.rate}, at {formatRate(plan.rate, other.name ?? "")} as last time{/if}. About 5
       seconds.
     </li>
-    {#if plan.ask}
+    {#if plan.ask && choices.length}
       <li>
         At which rate? Left on auto, DSD would use its highest rate, which many modulators can't keep up with.
         <span class="fixed">
-          {#each DSD_CHOICES as r (r)}
+          {#each choices as r (r)}
             <button class="chip" class:picked={chosen === r} aria-pressed={chosen === r} onclick={() => (chosen = r)}
               >{formatRate(r, "SDM (DSD)")}</button
             >
