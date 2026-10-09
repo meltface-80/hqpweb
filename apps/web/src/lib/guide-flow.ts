@@ -33,6 +33,14 @@ export const PLACES = {
 } as const;
 export type Places = (typeof PLACES)[keyof typeof PLACES];
 
+/**
+ * The guide's last step hands over to the filters (case 2 of the filter picker's ways in:
+ * the guide, then filters that fit as set). Paraphrased from Jussi's view in SLOT_NOTE
+ * (advice/filter-notes.ts), which the filter sheet's (i) cites.
+ */
+export const FILTER_HANDOFF =
+  "Filters are chosen on their own. HQPlayer's defaults are a good start; past those, Jussi says it's up to your ears.";
+
 export const flowSteps = (isSdm: boolean): FlowStep[] => (isSdm ? MODULATOR : DITHER);
 
 /** Next opens once the step's question has an answer; where to start has none to give. */

@@ -266,9 +266,9 @@
   }
 
   // ---- HQPlayer's apodization and clip counters ---------------------------------
-  function suggestApodizing() {
-    const slot = source && filterSlot(source) === "Nx" ? pickerNx : picker1x;
-    slot?.open({ chips: ["apodizing"] });
+  /** The filter sheet for the slot in use (1x when nothing's queued), e.g. pre-filtered to apodizing. */
+  function openFilters(chips?: string[]) {
+    (source && filterSlot(source) === "Nx" ? pickerNx : picker1x)?.open({ chips });
   }
 
   async function run(label: string, fn: () => Promise<ApplyResult>, quiet = false) {
@@ -371,7 +371,7 @@
         {speedText}
         {speedTitle}
         onfixwedge={fixWedge}
-        onsuggestapodizing={suggestApodizing}
+        onsuggestapodizing={() => openFilters(["apodizing"])}
         onstatus={(status) => snap && (snap = { ...snap, status })}
         onmessage={(m) => (message = m)}
         showSpeed={prefs.layout !== "v2"}
@@ -406,6 +406,7 @@
     {#if snap && caps}
       <AdviceSheet
         bind:this={shaperPicker}
+        onfilters={() => openFilters()}
         {isSdm}
         active={hints.shaperTaken(snap, nameAt(caps.shapers, snap.state.shaper))}
         items={shaperItems}

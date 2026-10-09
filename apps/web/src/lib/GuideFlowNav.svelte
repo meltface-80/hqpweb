@@ -1,12 +1,21 @@
 <script lang="ts">
-  // The guide flow's foot (canvas D2): Back, and Next until the last step, then Done.
+  // The guide flow's foot (canvas D2): Back, and Next until the last step, then Done (and
+  // Filters →, handing over to the filter sheet, when the caller offers it).
   let {
     step,
     count,
     canGoOn,
     onstep,
     ondone,
-  }: { step: number; count: number; canGoOn: boolean; onstep: (n: number) => void; ondone: () => void } = $props();
+    onfilters,
+  }: {
+    step: number;
+    count: number;
+    canGoOn: boolean;
+    onstep: (n: number) => void;
+    ondone: () => void;
+    onfilters?: () => void;
+  } = $props();
 </script>
 
 <footer class="nav">
@@ -14,6 +23,7 @@
   {#if step < count}
     <button class="next" disabled={!canGoOn} onclick={() => onstep(step + 1)}>Next</button>
   {:else}
+    {#if onfilters}<button class="back" onclick={onfilters}>Filters →</button>{/if}
     <button class="next" onclick={ondone}>Done</button>
   {/if}
 </footer>

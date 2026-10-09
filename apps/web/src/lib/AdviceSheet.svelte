@@ -18,7 +18,7 @@
   import GuideIntro from "./GuideIntro.svelte";
   import GuideFlowHead from "./GuideFlowHead.svelte";
   import GuideFlowNav from "./GuideFlowNav.svelte";
-  import { PLACES, canGoOn, firstOpen, flowSteps } from "./guide-flow.ts";
+  import { FILTER_HANDOFF, PLACES, canGoOn, firstOpen, flowSteps } from "./guide-flow.ts";
   import DitherGuide from "./DitherGuide.svelte";
 
   type Item = { name: string; warn?: string; note?: string; gen?: number; disabled?: boolean };
@@ -37,6 +37,7 @@
     check,
     onpick,
     onpickpair,
+    onfilters,
     onpcm,
     result,
     onsaved,
@@ -62,6 +63,8 @@
     onpick: (name: string) => void;
     /** Rate and modulator as one change. */
     onpickpair: (c: { rateHz: number; shaper: string }) => void;
+    /** From the guide's last step: open the filter sheet for the slot in use. */
+    onfilters?: () => void;
     /** Switch HQPlayer to PCM output. */
     onpcm: () => void;
     /** The app's latest change result (the footer's), shown here too while the sheet is open. */
@@ -276,6 +279,11 @@
           where={v2 ? PLACES.v2 : PLACES.current}
         />
       {/if}
+      {#if flow && onfilters && step === steps.length}
+        <div class="filters">
+          <p>{FILTER_HANDOFF}</p>
+        </div>
+      {/if}
       {#if prefs.adviceTab === "list"}
         <p class="foot">Every {isSdm ? "modulator" : "dither"} HQPlayer offers stays in the list.</p>
       {/if}
@@ -287,6 +295,11 @@
         canGoOn={canGoOn(steps, step, answers)}
         onstep={(n) => (step = n)}
         ondone={() => dialog.close()}
+        onfilters={onfilters &&
+          (() => {
+            dialog.close();
+            setTimeout(onfilters, 0); // let the guide finish closing before the filter sheet opens
+          })}
       />
     {/if}
   </div>
@@ -460,6 +473,16 @@
   .mono {
     font-family: var(--font-mono);
     font-weight: 500;
+  }
+  .filters {
+    margin: 16px 0 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .filters p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-dim);
   }
   /* The guide as a flow: full height, Back and Next at the foot (canvas D2). */
   dialog.flow .sheet {
