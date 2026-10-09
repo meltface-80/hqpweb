@@ -5,7 +5,7 @@
 // the guide, then case 1; case 3: pin a filter, free the rest).
 import { ditherHint, filterSlot, modulatorHint, ratioHint, type Hint, type RatioClass } from "@app/protocol/compat";
 import type { Combo, Failure, KeptUp } from "../api.ts";
-import { loadEvidence, runOf, type LoadEvidence } from "./evidence.ts";
+import { DEFAULT_MAX_AGE_DAYS, loadEvidence, runOf, type LoadEvidence } from "./evidence.ts";
 import { filterNoHeavier, runNoHeavier } from "./order.ts";
 
 /**
@@ -24,6 +24,8 @@ export interface FitInput {
   ratioOf?: (filter: string) => RatioClass | undefined;
   /** False when the rate is Auto: HQPlayer then picks a rate the filter can do. */
   ratioFixed?: boolean;
+  /** Records older than this many days don't count (null: forever); default evidence.ts's. */
+  maxAgeDays?: number | null;
 }
 
 export interface Fit {
@@ -42,7 +44,13 @@ export function fit(x: FitInput, failures: Failure[], kept: KeptUp[]): Fit {
     x.ratioFixed === false ? undefined : ratioHint(filter, x.sourceRate, x.combo.rateHz, x.sdm, x.ratioOf?.(filter)),
     x.sdm ? modulatorHint(x.combo.shaper, x.combo.rateHz) : ditherHint(x.combo.shaper, x.combo.rateHz),
   ].filter((h): h is Hint => !!h);
-  const load = loadEvidence(x.combo, x.sourceRate, failures, kept);
+  const load = loadEvidence(
+    x.combo,
+    x.sourceRate,
+    failures,
+    kept,
+    x.maxAgeDays === undefined ? DEFAULT_MAX_AGE_DAYS : x.maxAgeDays,
+  );
   const verdict: Verdict =
     rules.some((r) => r.level === "hard") || load.kind === "failed"
       ? "wont"

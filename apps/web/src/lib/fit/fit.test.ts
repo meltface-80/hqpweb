@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { Combo, Failure, KeptUp } from "../api.ts";
 import { fit, nearestFits, type FitInput, type Pin } from "./fit.ts";
 
+/** Records dated relative to now, so the 90-day ageing (evidence.ts) never dates these tests. */
+const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
+
 const DSD128 = 5_644_800;
 const DSD256 = 11_289_600;
 const DSD256_48 = 12_288_000;
@@ -23,7 +26,7 @@ const input = (o: Partial<Combo> = {}, sourceRate = CD): FitInput => ({ combo: c
 const failure = (o: Partial<Combo> = {}): Failure => ({
   ...combo(o),
   reason: "stopped",
-  at: "2026-10-01T00:00:00Z",
+  at: daysAgo(3),
   sourceRates: [CD],
 });
 const kept = (o: Partial<Combo> = {}, low = 1.5): KeptUp => ({
@@ -32,8 +35,8 @@ const kept = (o: Partial<Combo> = {}, low = 1.5): KeptUp => ({
   low,
   typical: low,
   sessions: 1,
-  first: "2026-10-02T00:00:00Z",
-  at: "2026-10-02T00:00:00Z",
+  first: daysAgo(2),
+  at: daysAgo(2),
 });
 const none = new Set<Pin>();
 

@@ -305,6 +305,13 @@ export const api = {
   learned: (id: string) => call<(Failure & { engine: string })[]>(`/api/instances/${id}/learned`),
   history: (id: string) => call<HistoryEntry[]>(`/api/instances/${id}/history`),
   forgetLearned: (id: string) => call<{ forgotten: number }>(`/api/instances/${id}/learned`, { method: "DELETE" }),
+  /** Forget one combination's failures and slow runs here ("Forget this"). */
+  forgetCombo: (id: string, c: Combo) =>
+    call<{ forgotten: number }>(`/api/instances/${id}/forget`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ mode: c.mode, rateHz: c.rateHz, filter1x: c.filter1x, filterNx: c.filterNx, shaper: c.shaper }),
+    }),
   events: (id: string) => new EventSource(`/api/instances/${id}/events`),
   /** HQPlayer's meter, paced and condensed (server meter-stream.ts): event "meter". */
   meter: (id: string) => new EventSource(`/api/instances/${id}/meter`),

@@ -5,7 +5,7 @@ import { filterSlot } from "@app/protocol/compat";
 import { formatRate, type Change, type Combo, type Failure, type KeptUp } from "../api.ts";
 import { failedText, ratioOf, type Ctx } from "../hints.ts";
 import { fit, nearestFits, slotOf, type Fit, type FitInput, type Options, type Pin, type Suggestion } from "./fit.ts";
-import { runOf } from "./evidence.ts";
+import { AGE_STOPS, DEFAULT_MAX_AGE_DAYS, runOf, type MaxAgeDays } from "./evidence.ts";
 import type { Step } from "./order.ts";
 
 export interface SheetFit {
@@ -19,7 +19,7 @@ export interface SheetFit {
  * What the sheet for `slot` needs, or null when its filter doesn't decide this playback
  * (nothing queued, or the source uses the other slot): then the list isn't split.
  */
-export function sheetFit(c: Ctx, slot: "1x" | "Nx"): SheetFit | null {
+export function sheetFit(c: Ctx, slot: "1x" | "Nx", maxAgeDays: number | null = DEFAULT_MAX_AGE_DAYS): SheetFit | null {
   if (!c.source || filterSlot(c.source) !== slot || !c.outRate) return null;
   return {
     input: {
@@ -28,6 +28,7 @@ export function sheetFit(c: Ctx, slot: "1x" | "Nx"): SheetFit | null {
       sdm: c.isSdm,
       ratioOf: (n) => ratioOf(c, n),
       ratioFixed: c.fixedRate,
+      maxAgeDays,
     },
     options: {
       filters: c.caps.filters.map((f) => f.name),
@@ -78,7 +79,7 @@ export function whyNot(s: SheetFit, name: string, f: Fit): string | null {
       return `Ran ${l.kept.low.toFixed(2)}× here: slower than real time.`;
     case "likely-fails": {
       const what = differs(runOf(l.because, "sourceRate" in l.because ? l.because.sourceRate : s.input.sourceRate), target);
-      return `Here, ${what} couldn't keep up, and this is no lighter${because(l.steps)}.`;
+      return `Probably won't keep up here: ${what} couldn't, and this is no lighter${because(l.steps)}.`;
     }
     case "mixed":
       return "Mixed results here: something lighter failed, something heavier kept up.";
@@ -88,6 +89,39 @@ export function whyNot(s: SheetFit, name: string, f: Fit): string | null {
       return null;
   }
 }
+
+/**
+ * The record behind a filter's trouble, for "Forget this": its own failure or slow run, or
+ * the one the trouble is inferred from. null when there's nothing learned to forget.
+ */
+export function forgettable(f: Fit): Combo | null {
+  const l = f.load;
+  const pick = (x: Combo): Combo => ({
+    mode: x.mode,
+    rateHz: x.rateHz,
+    filter1x: x.filter1x,
+    filterNx: x.filterNx,
+    shaper: x.shaper,
+  });
+  if (f.rules.some((r) => r.level === "hard")) return null;
+  if (l.kind === "failed") return pick(l.failure);
+  if (l.kind === "slow") return pick(l.kept);
+  if (l.kind === "likely-fails") return pick(l.because);
+  if (l.kind === "mixed") return pick(l.failed);
+  return null;
+}
+
+const AGE_WORDS: Record<string, string> = { 7: "a week", 30: "a month", 90: "3 months", 180: "6 months", 365: "a year" };
+
+/** The age setting's sentence: "Forget load results older than 3 months", or "Never forget…". */
+export const ageSentence = (days: number | null) =>
+  days === null ? "Never forget load results" : `Forget load results older than ${AGE_WORDS[days] ?? `${days} days`}`;
+
+/** The slider's stop for a setting (an unknown value sits at the default's). */
+export const ageStop = (days: number | null) => {
+  const i = AGE_STOPS.indexOf(days as MaxAgeDays);
+  return i >= 0 ? i : AGE_STOPS.indexOf(DEFAULT_MAX_AGE_DAYS);
+};
 
 /** The one question before picking a filter that's below the line (not for a ratio it can't do). */
 export const tryAnyway = (why: string) => `${why} It may stall HQPlayer; hqpweb tries to roll back. Try anyway?`;

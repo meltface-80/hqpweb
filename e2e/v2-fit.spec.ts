@@ -40,7 +40,7 @@ test("v2: a failure here flags what's no lighter, asks before trying, and finds 
   await sheet(page).getByRole("searchbox").fill("sinc-L");
   await expect(sheet(page).locator(".section").last()).toHaveText("Won't fit as set");
   await expect(rowOf(page, "sinc-Lh")).toContainText(/failed here/i);
-  await expect(rowOf(page, "sinc-L")).toContainText("sinc-Lh couldn't keep up");
+  await expect(rowOf(page, "sinc-L")).toContainText("Probably won't keep up here: sinc-Lh couldn't");
   await expect(rowOf(page, "sinc-L")).toContainText("eighth");
   await shot(page, "v2-fit-1-below");
 
@@ -63,4 +63,52 @@ test("v2: a failure here flags what's no lighter, asks before trying, and finds 
 
   await expect(footer(page)).toContainText("✓", { timeout: 10_000 });
   await expect(page.locator(".signal").getByRole("button", { name: /^1x filter/ })).toContainText("sinc-L");
+});
+
+/** Pick sinc-Lh, which this machine can't keep up with: rolled back and learned. */
+async function learnSincLh(page: Page) {
+  await open1x(page);
+  await sheet(page).getByRole("searchbox").fill("sinc-L");
+  await sheet(page)
+    .getByRole("button", { name: /^sinc-Lh\b/ })
+    .click();
+  await expect(footer(page)).toContainText(/rolled back/i, { timeout: 10_000 });
+  await open1x(page);
+  await sheet(page).getByRole("searchbox").fill("sinc-L");
+}
+
+test("v2: Forget this clears a failure and what was inferred from it", async ({ page }) => {
+  await openV2(page, "v2forget");
+  await learnSincLh(page);
+  await expect(rowOf(page, "sinc-L")).toContainText("Probably won't keep up");
+  await rowOf(page, "sinc-Lh").getByRole("button", { name: "Forget this" }).click();
+  await expect(sheet(page).locator(".section")).toHaveCount(0);
+  await expect(rowOf(page, "sinc-L")).not.toContainText("Probably");
+});
+
+test("v2: with sorting off in Settings, one plain list and no question", async ({ page }) => {
+  await openV2(page, "v2plain");
+  await learnSincLh(page);
+  await expect(sheet(page).locator(".section").last()).toHaveText("Won't fit as set");
+  await sheet(page).getByRole("button", { name: "Done" }).click();
+
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("tab", { name: "HQPlayer" }).click();
+  const age = page.getByRole("slider", { name: "Forget load results older than" });
+  await expect(page.getByText("Forget load results older than 3 months")).toBeVisible();
+  await age.fill("5");
+  await expect(page.getByText("Never forget load results")).toBeVisible();
+  await page.getByRole("switch", { name: "Sort filters by what's worked here" }).uncheck();
+  await expect(age).toBeDisabled();
+  await page.getByRole("button", { name: "Close" }).click();
+
+  await open1x(page);
+  await sheet(page).getByRole("searchbox").fill("sinc-L");
+  await expect(sheet(page).locator(".section")).toHaveCount(0);
+  await expect(rowOf(page, "sinc-L")).not.toContainText("Probably");
+  await sheet(page)
+    .getByRole("button", { name: /^sinc-L\b/ })
+    .click();
+  await expect(sheet(page).getByRole("alertdialog")).toHaveCount(0);
+  await expect(footer(page)).toContainText(/rolled back/i, { timeout: 10_000 });
 });

@@ -507,9 +507,10 @@ export class Instance {
     return this.learned.all(this.cfg.id);
   }
 
-  forgetFailures(): { forgotten: number } {
-    const n = this.learned.all(this.cfg.id).length;
-    this.learned.forget(this.cfg.id);
+  /** Everything learned here, or one combination (its failures and slow runs). */
+  forgetFailures(combo?: Combo): { forgotten: number } {
+    const n = combo ? this.learned.forgetCombo(this.cfg.id, combo) : this.learned.all(this.cfg.id).length;
+    if (!combo) this.learned.forget(this.cfg.id);
     this.caps = null;
     return { forgotten: n };
   }

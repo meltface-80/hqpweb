@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { isIP } from "node:net";
 import type { AppConfig } from "./config.ts";
 import { HttpError, Instance, TRANSPORT_ACTIONS, type Change, type TransportAction } from "./instance.ts";
-import { LearnedStore } from "./learned.ts";
+import { LearnedStore, type Combo } from "./learned.ts";
 import { HistoryStore } from "./history.ts";
 import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
@@ -165,6 +165,18 @@ function parsePresetBody(
   };
 }
 
+/** One combination, by name, to forget ("Forget this" beside a failure). Exactly these fields. */
+export function parseCombo(body: unknown): Combo {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
+  const { mode, rateHz, filter1x, filterNx, shaper, ...rest } = body as Record<string, unknown>;
+  if (Object.keys(rest).length) throw new HttpError(400, `unknown field: ${Object.keys(rest).join(", ")}`);
+  for (const [k, v] of Object.entries({ mode, filter1x, filterNx, shaper }))
+    if (typeof v !== "string" || v.length > 200) throw new HttpError(400, `${k} must be a name`);
+  if (typeof rateHz !== "number" || !Number.isFinite(rateHz) || rateHz < 0)
+    throw new HttpError(400, "rateHz must be a rate in Hz");
+  return { mode, rateHz, filter1x, filterNx, shaper } as Combo;
+}
+
 function parseRoonSettings(body: unknown): { enabled?: boolean; host?: string; port?: number } {
   if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
   const { enabled, host, port, ...rest } = body as Record<string, unknown>;
@@ -290,6 +302,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     "GET learned": async (_q, _r, i) => i.learnedFailures(),
     "GET history": async (_q, _r, i) => i.changeHistory(),
     "DELETE learned": async (_q, _r, i) => i.forgetFailures(),
+    "POST forget": async (q, _r, i) => i.forgetFailures(parseCombo(await readJson(q))),
     "GET events": events,
     "GET meter": (req, res, inst) => {
       res.writeHead(200, {

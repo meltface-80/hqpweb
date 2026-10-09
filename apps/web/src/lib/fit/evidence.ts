@@ -8,6 +8,15 @@ import { runNoHeavier, type Run, type Step } from "./order.ts";
 
 /** Settled speed at or above this kept up (HQPlayer's process speed: times real time). */
 export const KEPT_UP = 1;
+/**
+ * How old a record may be and still count, in days (null: forever). A machine, a buffer or
+ * CUDA can change without the engine version changing, so old results can mislead. The
+ * owner sets it (Settings, "Forget load results older than"); 90 days is a judgement, not a
+ * measurement. Older records are ignored here, never deleted.
+ */
+export const AGE_STOPS = [7, 30, 90, 180, 365, null] as const;
+export type MaxAgeDays = (typeof AGE_STOPS)[number];
+export const DEFAULT_MAX_AGE_DAYS: MaxAgeDays = 90;
 
 export type LoadEvidence =
   | { kind: "failed"; failure: Failure }
@@ -37,7 +46,17 @@ const failureRuns = (f: Failure): Run[] => (f.sourceRates ?? []).map((r) => runO
 
 const shortest = <T extends { steps: Step[] }>(xs: T[]) => xs.sort((a, b) => a.steps.length - b.steps.length)[0];
 
-export function loadEvidence(c: Combo, sourceRate: number, failures: Failure[], kept: KeptUp[]): LoadEvidence {
+export function loadEvidence(
+  c: Combo,
+  sourceRate: number,
+  allFailures: Failure[],
+  allKept: KeptUp[],
+  maxAgeDays: number | null = DEFAULT_MAX_AGE_DAYS,
+  now = Date.now(),
+): LoadEvidence {
+  const recent = (x: { at: string }) => maxAgeDays === null || !(now - Date.parse(x.at) > maxAgeDays * 86_400_000);
+  const failures = allFailures.filter(recent);
+  const kept = allKept.filter(recent);
   const failed = failures.find((f) => sameCombo(f, c) && (!f.sourceRates || f.sourceRates.includes(sourceRate)));
   const ran = kept.find((k) => sameCombo(k, c) && k.sourceRate === sourceRate);
   // Both measured: the latest says what this machine does now.

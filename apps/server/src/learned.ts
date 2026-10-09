@@ -109,6 +109,19 @@ export class LearnedStore {
     return this.failures.filter((f) => ofInstance(f.instance, instance));
   }
 
+  /**
+   * Forget one combination here, for every DAC and engine: its failures and its runs that
+   * didn't keep up (below 1x; the web's KEPT_UP). Runs that kept up stay. How many went.
+   */
+  forgetCombo(instance: string, c: Combo): number {
+    const before = this.failures.length + this.kept.length;
+    this.failures = this.failures.filter((f) => !(ofInstance(f.instance, instance) && sameCombo(f, c)));
+    this.kept = this.kept.filter((k) => !(ofInstance(k.instance, instance) && sameCombo(k, c) && k.low < 1));
+    const n = before - this.failures.length - this.kept.length;
+    if (n) this.save();
+    return n;
+  }
+
   forget(instance: string) {
     this.failures = this.failures.filter((f) => !ofInstance(f.instance, instance));
     this.kept = this.kept.filter((k) => !ofInstance(k.instance, instance));

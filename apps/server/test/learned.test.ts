@@ -86,3 +86,37 @@ describe("kept up here, per DAC, engine, combination and source rate", () => {
     expect([again.all("mac").length, again.keptFor("mac", "5.35.10", "SDM (DSD)").length]).toEqual([1, 1]);
   });
 });
+
+describe("forgetting one combination", () => {
+  const combo = {
+    mode: "SDM (DSD)",
+    rateHz: 45_158_400,
+    filterNx: "poly-sinc-gauss-hires-lp",
+    filter1x: "poly-sinc-gauss-xla",
+    shaper: "ASDM7EC",
+  };
+  const kept = (low: number) => ({
+    ...combo,
+    instance: "mac",
+    engine: "5.35.10",
+    sourceRate: 44_100,
+    low,
+    typical: low,
+    at: "2026-10-02T10:00:00.000Z",
+  });
+
+  it("drops its failures (every DAC and engine) and its slow runs, and nothing else", () => {
+    const s = new LearnedStore(null);
+    s.record(f());
+    s.record(f({ engine: "6.2.5" }));
+    s.record(f({ instance: "mac#dac2" }));
+    s.record(f({ shaper: "ASDM7EC-light" }));
+    s.record(f({ instance: "lxc" }));
+    s.recordKept(kept(0.8), true);
+    s.recordKept({ ...kept(1.5), sourceRate: 96_000 }, true);
+    expect(s.forgetCombo("mac", combo)).toBe(4);
+    expect(s.all("mac").map((x) => x.shaper)).toEqual(["ASDM7EC-light"]);
+    expect(s.all("lxc")).toHaveLength(1);
+    expect(s.keptFor("mac", "5.35.10", "SDM (DSD)").map((k) => k.low)).toEqual([1.5]);
+  });
+});

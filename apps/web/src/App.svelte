@@ -381,6 +381,7 @@
   {#snippet filters()}
     {#if snap && caps}
       <FilterRows
+        instanceId={selected!}
         {caps}
         {snap}
         items1x={filterItems("1x")}
@@ -395,6 +396,7 @@
         {outRate}
         onpick={pickFilter}
         onapply={apply}
+        onforgot={async () => selected && (caps = await api.capabilities(selected))}
         bind:picker1x
         bind:pickerNx
       />

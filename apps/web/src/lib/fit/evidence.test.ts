@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { Combo, Failure, KeptUp } from "../api.ts";
 import { loadEvidence } from "./evidence.ts";
 
+/** Records dated relative to now, so the 90-day ageing (evidence.ts) never dates these tests. */
+const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
+
 const DSD128 = 5_644_800;
 const DSD256 = 11_289_600;
 const CD = 44_100;
@@ -16,7 +19,7 @@ const combo = (o: Partial<Combo> = {}): Combo => ({
 const failure = (o: Partial<Failure> = {}): Failure => ({
   ...combo(),
   reason: "stopped",
-  at: "2026-10-01T00:00:00Z",
+  at: daysAgo(3),
   sourceRates: [CD],
   ...o,
 });
@@ -26,8 +29,8 @@ const kept = (o: Partial<KeptUp> = {}): KeptUp => ({
   low: 1.4,
   typical: 1.6,
   sessions: 1,
-  first: "2026-10-02T00:00:00Z",
-  at: "2026-10-02T00:00:00Z",
+  first: daysAgo(2),
+  at: daysAgo(2),
   ...o,
 });
 
@@ -37,7 +40,7 @@ describe("load evidence", () => {
     expect(loadEvidence(combo(), CD, [], [kept()]).kind).toBe("kept");
     expect(loadEvidence(combo(), CD, [], [kept({ low: 0.87 })]).kind).toBe("slow");
     expect(loadEvidence(combo(), CD, [failure()], [kept()]).kind).toBe("kept");
-    expect(loadEvidence(combo(), CD, [failure({ at: "2026-10-03T00:00:00Z" })], [kept()]).kind).toBe("failed");
+    expect(loadEvidence(combo(), CD, [failure({ at: daysAgo(1) })], [kept()]).kind).toBe("failed");
   });
 
   it("infers trouble from something no heavier that failed: sinc-Lh failed, so sinc-L probably will", () => {
@@ -69,6 +72,22 @@ describe("load evidence", () => {
       [kept({ filter1x: "sinc-L" })],
     );
     expect(e.kind).toBe("mixed");
+  });
+
+  it("ignores records older than the setting, its own and inferred, and keeps everything for never", () => {
+    const old = failure({ filter1x: "sinc-Lh", at: daysAgo(91) });
+    expect(loadEvidence(combo({ filter1x: "sinc-L" }), CD, [old], []).kind).toBe("none");
+    expect(loadEvidence(combo({ filter1x: "sinc-Lh" }), CD, [old], []).kind).toBe("none");
+    expect(loadEvidence(combo({ filter1x: "sinc-L" }), CD, [{ ...old, at: daysAgo(89) }], []).kind).toBe("likely-fails");
+    const slow = kept({ filter1x: "sinc-Lh", low: 0.9, at: daysAgo(91) });
+    expect(loadEvidence(combo({ filter1x: "sinc-L" }), CD, [], [slow]).kind).toBe("none");
+    expect(loadEvidence(combo({ filter1x: "sinc-Lh" }), CD, [old], [], 365).kind).toBe("failed");
+    expect(
+      loadEvidence(combo({ filter1x: "sinc-Lh" }), CD, [failure({ at: daysAgo(3000), filter1x: "sinc-Lh" })], [], null).kind,
+    ).toBe("failed");
+    expect(loadEvidence(combo({ filter1x: "sinc-Lh" }), CD, [failure({ at: daysAgo(8), filter1x: "sinc-Lh" })], [], 7).kind).toBe(
+      "none",
+    );
   });
 
   it("only infers within one source rate, and not from failures without one", () => {

@@ -18,6 +18,10 @@ export interface Prefs {
   advancedOpen: boolean;
   /** Filter lists: HQPlayer's own order, or grouped by HQPlayer 6's rating. */
   filterOrder: "hqplayer" | "rating";
+  /** The v2 filter sheet sorts by what's worked here: "Won't fit as set" below, asking first (fit/). */
+  fitSort: boolean;
+  /** Load results older than this many days are ignored by that sort; null: never (fit/evidence.ts). */
+  fitMaxAgeDays: number | null;
   /** The modulator/dither sheet opens on the tab used last. */
   adviceTab: "list" | "guide";
   /** The guide's intro has been read once: show it as one line from then on. */
@@ -38,6 +42,8 @@ const DEFAULTS: Prefs = {
   volumeStep: 1,
   advancedOpen: false,
   filterOrder: "hqplayer",
+  fitSort: true,
+  fitMaxAgeDays: 90,
   adviceTab: "list",
   guideIntroSeen: false,
   layout: "current",

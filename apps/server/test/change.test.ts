@@ -147,6 +147,15 @@ describe("rollback when playback fails", () => {
     expect(body.incompatible).toBeUndefined();
     expect((await caps()).knownBad).toEqual([expect.objectContaining({ filter1x: "poly-sinc-gauss-long", rateHz: 45158400 })]);
     expect(JSON.parse(readFileSync(learnedPath, "utf8")).failures).toHaveLength(1);
+
+    // "Forget this": exactly the combination's fields, or 400; then it's gone, on disk too.
+    const [{ mode, rateHz, filter1x, filterNx, shaper }] = (await caps()).knownBad;
+    const forget = (b: object) => req("POST", "/api/instances/mac/forget", { body: b });
+    expect((await forget({ mode, rateHz, filter1x, filterNx, shaper, extra: 1 })).status).toBe(400);
+    expect((await forget({ mode, rateHz: "fast", filter1x, filterNx, shaper })).status).toBe(400);
+    expect((await forget({ mode, rateHz, filter1x, filterNx, shaper })).json()).toEqual({ forgotten: 1 });
+    expect((await caps()).knownBad).toEqual([]);
+    expect(JSON.parse(readFileSync(learnedPath, "utf8")).failures).toEqual([]);
   });
 
   it("rolls back a rule-explained stop without learning it (sinc-M, 44.1k → 192k)", async () => {

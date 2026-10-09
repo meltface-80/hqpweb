@@ -7,6 +7,8 @@
   import RoonSettings from "./RoonSettings.svelte";
   import SetupSettings from "./SetupSettings.svelte";
   import RestartCapSettings from "./RestartCapSettings.svelte";
+  import { AGE_STOPS } from "./fit/evidence.ts";
+  import { ageSentence, ageStop } from "./fit/sheet.ts";
 
   let {
     instance,
@@ -79,112 +81,148 @@
         >Roon</button
       >
     </div>
-    <div class="body" hidden={tab !== "roon"}>
-      <RoonSettings bind:this={roon} {instances} />
-    </div>
-    <div class="body" hidden={tab !== "hqplayer"}>
-      <InstanceSettings {instances} {onchange} />
-      <SetupSettings {instance} {onchange} />
-      <h4>Learned failures{instance ? ` · ${instance.name}` : ""}</h4>
-      <p class="help">
-        Combinations that stopped playback or couldn't keep up here, so they were rolled back. They show as warnings in the
-        pickers; nothing is blocked.
-      </p>
-      {#if learnedError}
-        <p class="err">{learnedError}</p>
-      {:else if learned === null}
-        <p class="help">Loading…</p>
-      {:else if learned.length === 0}
-        <p class="help">None yet.</p>
-      {:else}
-        <ul class="failures">
-          {#each learned as f (f.at)}
-            <li>
-              <b>{f.mode} · {formatRate(f.rateHz, f.mode)}</b>
-              <span>{f.filter1x} / {f.filterNx} · {f.shaper}</span>
-              <small>{f.reason} · engine {f.engine} · {new Date(f.at).toLocaleString()}</small>
-            </li>
+    <!-- One scrolling area under the tabs: each tab, then About after it. -->
+    <div class="scroll">
+      <div class="body" hidden={tab !== "roon"}>
+        <RoonSettings bind:this={roon} {instances} />
+      </div>
+      <div class="body" hidden={tab !== "hqplayer"}>
+        <InstanceSettings {instances} {onchange} />
+        <SetupSettings {instance} {onchange} />
+        <h4>Learned performance{instance ? ` · ${instance.name}` : ""}</h4>
+        <label class="row">
+          <span>Sort filters by what's worked here</span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={prefs.fitSort}
+            onchange={(e) => set("fitSort", e.currentTarget.checked)}
+          />
+        </label>
+        <p class="help">
+          In the new layout's filter sheet: filters that failed here, or probably would, go below the others, and picking one asks
+          first. Off: one plain list. On this device.
+        </p>
+        <label class="age">
+          <span>{ageSentence(prefs.fitMaxAgeDays)}</span>
+          <input
+            type="range"
+            min="0"
+            max={AGE_STOPS.length - 1}
+            step="1"
+            value={ageStop(prefs.fitMaxAgeDays)}
+            disabled={!prefs.fitSort}
+            aria-label="Forget load results older than"
+            aria-valuetext={ageSentence(prefs.fitMaxAgeDays)}
+            oninput={(e) => set("fitMaxAgeDays", AGE_STOPS[Number(e.currentTarget.value)] ?? null)}
+          />
+        </label>
+        <p class="help">
+          A new machine, CUDA or a bigger buffer can change what keeps up. Older results are ignored, not deleted: change this
+          back and they count again.
+        </p>
+        <h5>Failures</h5>
+        <p class="help">
+          Combinations that stopped playback or couldn't keep up here, so they were rolled back. They show as warnings in the
+          pickers; nothing is blocked.
+        </p>
+        {#if learnedError}
+          <p class="err">{learnedError}</p>
+        {:else if learned === null}
+          <p class="help">Loading…</p>
+        {:else if learned.length === 0}
+          <p class="help">None yet.</p>
+        {:else}
+          <ul class="failures">
+            {#each learned as f (f.at)}
+              <li>
+                <b>{f.mode} · {formatRate(f.rateHz, f.mode)}</b>
+                <span>{f.filter1x} / {f.filterNx} · {f.shaper}</span>
+                <small>{f.reason} · engine {f.engine} · {new Date(f.at).toLocaleString()}</small>
+              </li>
+            {/each}
+          </ul>
+          <button class="danger" onclick={forget}>Forget all for this instance</button>
+        {/if}
+      </div>
+      <div class="body" hidden={tab !== "listening"}>
+        <h4>Volume buttons</h4>
+        <div class="seg" role="radiogroup" aria-label="Volume step">
+          {#each STEPS as s (s)}
+            <button
+              role="radio"
+              aria-checked={prefs.volumeStep === s}
+              class:on={prefs.volumeStep === s}
+              onclick={() => set("volumeStep", s)}
+            >
+              {s} dB
+            </button>
           {/each}
-        </ul>
-        <button class="danger" onclick={forget}>Forget all for this instance</button>
-      {/if}
-    </div>
-    <div class="body" hidden={tab !== "listening"}>
-      <h4>Volume buttons</h4>
-      <div class="seg" role="radiogroup" aria-label="Volume step">
-        {#each STEPS as s (s)}
-          <button
-            role="radio"
-            aria-checked={prefs.volumeStep === s}
-            class:on={prefs.volumeStep === s}
-            onclick={() => set("volumeStep", s)}
+        </div>
+
+        <RestartCapSettings {instance} {onchange} />
+      </div>
+      <div class="body" hidden={tab !== "appearance"}>
+        <h4>Theme</h4>
+        <div class="themes">
+          {#each THEMES as t (t.id)}
+            <button class="theme" class:on={prefs.theme === t.id} onclick={() => set("theme", t.id)}>
+              {#if t.theme}
+                <span class="swatch" data-theme={t.theme} data-palette={t.palette}><span></span></span>
+              {:else}
+                <span class="swatch split">
+                  <span class="half" data-theme="dark" data-palette="classic"></span>
+                  <span class="half" data-theme="light" data-palette="classic"></span>
+                </span>
+              {/if}
+              <span class="tx"><b>{t.label}</b><small>{t.note}</small></span>
+              {#if prefs.theme === t.id}<span class="check">✓</span>{/if}
+            </button>
+          {/each}
+        </div>
+
+        <label class="row">
+          <span>Try the new layout (preview)</span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={prefs.layout === "v2"}
+            onchange={(e) => set("layout", e.currentTarget.checked ? "v2" : "current")}
+          />
+        </label>
+        <p class="help">The signal path as one card, with DSD and PCM as tabs. On this device only; switch back any time.</p>
+
+        <h4>Filter lists</h4>
+        <div class="seg" role="radiogroup" aria-label="Filter list order">
+          <button class:on={prefs.filterOrder === "hqplayer"} onclick={() => set("filterOrder", "hqplayer")}
+            >HQPlayer's order</button
           >
-            {s} dB
-          </button>
-        {/each}
+          <button class:on={prefs.filterOrder === "rating"} onclick={() => set("filterOrder", "rating")}>Grouped by rating</button
+          >
+        </div>
+        <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
+
+        <label class="row">
+          <span>Open “Advanced” by default</span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={prefs.advancedOpen}
+            onchange={(e) => set("advancedOpen", e.currentTarget.checked)}
+          />
+        </label>
       </div>
-
-      <RestartCapSettings {instance} {onchange} />
-    </div>
-    <div class="body" hidden={tab !== "appearance"}>
-      <h4>Theme</h4>
-      <div class="themes">
-        {#each THEMES as t (t.id)}
-          <button class="theme" class:on={prefs.theme === t.id} onclick={() => set("theme", t.id)}>
-            {#if t.theme}
-              <span class="swatch" data-theme={t.theme} data-palette={t.palette}><span></span></span>
-            {:else}
-              <span class="swatch split">
-                <span class="half" data-theme="dark" data-palette="classic"></span>
-                <span class="half" data-theme="light" data-palette="classic"></span>
-              </span>
-            {/if}
-            <span class="tx"><b>{t.label}</b><small>{t.note}</small></span>
-            {#if prefs.theme === t.id}<span class="check">✓</span>{/if}
-          </button>
-        {/each}
+      <div class="body about">
+        <h4>About</h4>
+        <p class="help">
+          hqpweb {__APP_VERSION__}{__APP_COMMIT__ ? ` (${__APP_COMMIT__})` : ""}: a web controller for HQPlayer, beta.
+          <a href="https://github.com/statelycurmudgeon/hqpweb" target="_blank" rel="noopener noreferrer">Source and issues</a>.
+        </p>
+        <p class="help">
+          Not affiliated with, endorsed by, or supported by Signalyst or Roon Labs. HQPlayer is a trademark of Signalyst; Roon is
+          a trademark of Roon Labs LLC. Colour themes adapted from MusicD Remote (MIT).
+        </p>
       </div>
-
-      <label class="row">
-        <span>Try the new layout (preview)</span>
-        <input
-          type="checkbox"
-          role="switch"
-          checked={prefs.layout === "v2"}
-          onchange={(e) => set("layout", e.currentTarget.checked ? "v2" : "current")}
-        />
-      </label>
-      <p class="help">The signal path as one card, with DSD and PCM as tabs. On this device only; switch back any time.</p>
-
-      <h4>Filter lists</h4>
-      <div class="seg" role="radiogroup" aria-label="Filter list order">
-        <button class:on={prefs.filterOrder === "hqplayer"} onclick={() => set("filterOrder", "hqplayer")}
-          >HQPlayer's order</button
-        >
-        <button class:on={prefs.filterOrder === "rating"} onclick={() => set("filterOrder", "rating")}>Grouped by rating</button>
-      </div>
-      <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
-
-      <label class="row">
-        <span>Open “Advanced” by default</span>
-        <input
-          type="checkbox"
-          role="switch"
-          checked={prefs.advancedOpen}
-          onchange={(e) => set("advancedOpen", e.currentTarget.checked)}
-        />
-      </label>
-    </div>
-    <div class="body about">
-      <h4>About</h4>
-      <p class="help">
-        hqpweb {__APP_VERSION__}{__APP_COMMIT__ ? ` (${__APP_COMMIT__})` : ""}: a web controller for HQPlayer, beta.
-        <a href="https://github.com/statelycurmudgeon/hqpweb" target="_blank" rel="noopener noreferrer">Source and issues</a>.
-      </p>
-      <p class="help">
-        Not affiliated with, endorsed by, or supported by Signalyst or Roon Labs. HQPlayer is a trademark of Signalyst; Roon is a
-        trademark of Roon Labs LLC. Colour themes adapted from MusicD Remote (MIT).
-      </p>
     </div>
   </div>
 </dialog>
@@ -200,9 +238,11 @@
     margin: auto auto 0;
     color: var(--text);
   }
+  /* The sheet's top stays put when tabs change height: a fixed height on phones (it sits on
+     the bottom edge), and pinned below the top of the page on wider screens. */
   @media (min-width: 40rem) {
     dialog {
-      margin: auto;
+      margin: 48px auto auto;
     }
   }
   dialog::backdrop {
@@ -211,7 +251,7 @@
   .sheet {
     background: var(--bg-elev);
     border-radius: 16px 16px 0 0;
-    max-height: 88vh;
+    height: 88vh;
     display: flex;
     flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom);
@@ -220,7 +260,14 @@
   @media (min-width: 40rem) {
     .sheet {
       border-radius: 16px;
+      height: auto;
+      max-height: calc(100vh - 96px);
     }
+  }
+  h5 {
+    margin: 16px 0 4px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
   }
   header {
     display: flex;
@@ -240,12 +287,26 @@
     padding: 6px;
     cursor: pointer;
   }
-  .body {
+  .scroll {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
+  }
+  .body {
     padding: 0 16px 16px;
   }
   .body[hidden] {
     display: none;
+  }
+  .age {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .age input {
+    width: 100%;
+    accent-color: var(--accent);
   }
   .tabs {
     display: flex;

@@ -11,8 +11,8 @@
   import { SLOT_NOTE, filterNote } from "./advice/filter-notes.ts";
   import ChipFacets from "./ChipFacets.svelte";
   import FitPanel from "./FitPanel.svelte";
-  import { formatRate, type Change, type KeptUp } from "./api.ts";
-  import { filterFit, tryAnyway, whyNot, type SheetFit } from "./fit/sheet.ts";
+  import { formatRate, type Change, type Combo, type KeptUp } from "./api.ts";
+  import { filterFit, forgettable, tryAnyway, whyNot, type SheetFit } from "./fit/sheet.ts";
   import { APODIZING, facets, filterChips, grouped, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
 
   type Item = FilterItemLike & { note?: string; disabled?: boolean };
@@ -30,6 +30,7 @@
     fit = null,
     onpick,
     onapply,
+    onforget,
   }: {
     label: string;
     slot: "1x" | "Nx";
@@ -46,6 +47,8 @@
     onpick: (item: Item) => void;
     /** Apply a change of several settings at once ("What would it take?"). */
     onapply: (change: Change) => void;
+    /** Forget the record behind a filter's trouble ("Forget this"). */
+    onforget: (combo: Combo) => void;
   } = $props();
 
   let dialog: HTMLDialogElement;
@@ -71,7 +74,9 @@
   const offered = $derived(grouped(facets(rows.map((r) => r.chips))));
   const visible = $derived(narrow(rows, keys).filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase())));
   // Below the line: why, and only if this slot decides the playback.
-  const why = $derived(new Map(fit ? items.map((i) => [i.name, whyNot(fit, i.name, filterFit(fit, i.name))]) : []));
+  const fits = $derived(new Map(fit ? items.map((i) => [i.name, filterFit(fit, i.name)]) : []));
+  const why = $derived(new Map(fit ? items.map((i) => [i.name, whyNot(fit, i.name, fits.get(i.name)!)]) : []));
+  const forgets = $derived(new Map([...fits].map(([n, f]) => [n, forgettable(f)])));
   const above = $derived(visible.filter((r) => !why.get(r.name)));
   const below = $derived(visible.filter((r) => why.get(r.name)));
   /** The row asking "Try anyway?", and the row showing "What would it take?". */
@@ -164,7 +169,10 @@
       </div>
       {#if about === r.name && notes.get(r.name)}<FilterNoteView note={notes.get(r.name)!} />{/if}
       {#if why.get(r.name)}
-        <p class="why">{why.get(r.name)}</p>
+        <p class="why">
+          {why.get(r.name)}
+          {#if forgets.get(r.name)}<button class="forget" onclick={() => onforget(forgets.get(r.name)!)}>Forget this</button>{/if}
+        </p>
         {#if asking === r.name}
           <div class="ask" role="alertdialog" aria-label="Try {r.name} anyway?">
             <p>{tryAnyway(why.get(r.name)!)}</p>
@@ -360,6 +368,16 @@
     font-size: 0.78rem;
     color: var(--text-dim);
     border-bottom: 1px solid var(--border);
+  }
+  .forget {
+    font: inherit;
+    font-size: 0.78rem;
+    border: 0;
+    background: none;
+    color: var(--text-faint);
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0 0 0 4px;
   }
   .take {
     font: inherit;
