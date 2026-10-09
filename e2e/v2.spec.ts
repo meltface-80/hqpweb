@@ -106,14 +106,15 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   const meter = page.getByRole("region", { name: "Meter" });
   const open = meter.getByRole("button", { name: "Open the meter" });
   await expect(meter.locator("canvas.mini")).toBeVisible(); // live: it draws instead of a note
-  await expect(open).toContainText("Peak L −22.0 · R −22.0 dB"); // the peak, from the fake's volume
+  // Each side's peak, beside its bar (from the fake's volume); stacked so it fits a phone.
+  await expect(open.locator(".peak")).toHaveText(/L −22\.0\s*R −22\.0/);
   await open.click();
   await expect(meter.locator("canvas.big")).toBeVisible();
   await expect(meter.getByRole("button", { name: "Levels" })).toHaveCount(0); // Levels lives in the strip
   // Owner's order: Waterfall, Line, Bars; Waterfall opens first.
   await expect(
-    meter.getByRole("group", { name: "Meter view" }).getByRole("button", { name: /^(Waterfall|Line|Bars)$/ }),
-  ).toHaveText(["Waterfall", "Line", "Bars"]);
+    meter.getByRole("group", { name: "Meter view" }).getByRole("button", { name: /^(Waterfall|Line|Bars|Stereo)$/ }),
+  ).toHaveText(["Waterfall", "Line", "Bars", "Stereo"]);
   await expect(meter.getByRole("button", { name: "Waterfall" })).toHaveAttribute("aria-pressed", "true");
   await meter.getByRole("button", { name: "Bars" }).click();
   // The axis labels sit where the log scale puts them: 200 Hz about a third across, not a caption.
@@ -134,13 +135,18 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   // Timing follows HQPlayer's output buffer (the fake reports 1.05 s), nudged by ear.
   const timing = meter.locator(".timing");
   await expect(timing).toContainText("waits 0.5 s");
-  await expect(timing).toContainText("reports 1.0 s of output buffer");
+  await expect(timing).toContainText("what you hear (HQPlayer reports 1.0 s of output buffer)");
   await timing.getByRole("button", { name: "Meter later" }).click();
   await expect(timing).toContainText("waits 0.6 s");
   await expect(timing).toContainText("+0.1 s");
   await timing.getByRole("button", { name: "Auto" }).click();
   await expect(timing).toContainText("waits 0.5 s");
   await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-bars.png", import.meta.url)) });
+  // Stereo: left and right from the centre; the gutter labels frequency, the axis L and R.
+  await meter.getByRole("button", { name: "Stereo" }).click();
+  await expect(meter.locator(".axis")).toContainText("L");
+  await expect(meter.locator(".dbs")).toContainText("2k");
+  await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-stereo.png", import.meta.url)) });
   await meter.getByRole("button", { name: "Waterfall" }).click();
   await shot(page, "v2-5-meter");
   await meter.getByRole("button", { name: "Close the meter" }).click();
@@ -329,5 +335,5 @@ test("v2: the meter waits to line up with what's heard", async ({ page }) => {
   await expect(strip.locator("canvas.mini")).toBeVisible();
   await page.waitForTimeout(1500); // updates are arriving, but none is due yet
   await expect(strip.locator(".peak")).toHaveText("");
-  await expect(strip.locator(".peak")).toContainText("Peak L", { timeout: 6000 });
+  await expect(strip.locator(".peak")).toContainText("L −", { timeout: 6000 });
 });

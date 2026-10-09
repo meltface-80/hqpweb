@@ -3,9 +3,9 @@
   // opens, and the open square with its views. Data from the server's meter stream (paced,
   // condensed: meter-stream.ts); drawing rules in meter-view.ts. It only connects while shown.
   import { api, type MeterEvent } from "./api.ts";
-  import { bandBoxes, dbTicks, freqTicks, heat, meterNote, mono, norm, PeakHold, peakWords } from "./meter-view.ts";
+  import { bandBoxes, dbTicks, freqTicks, meterNote, mono, PeakHold, peakRows, peakWords } from "./meter-view.ts";
+  import { bars, fit, levels, line, stereo, waterfall } from "./meter-draw.ts";
 
-  type Box = { x: number; w: number };
   import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { DelayLine, NUDGE_STEP_MS, clampNudge, meterDelayMs } from "./meter-delay.ts";
 
@@ -25,6 +25,7 @@
     { id: "waterfall", label: "Waterfall" },
     { id: "line", label: "Line" },
     { id: "bars", label: "Bars" },
+    { id: "stereo", label: "Stereo" },
   ] as const;
 
   let latest = $state<MeterEvent>({ live: false, connected: true });
@@ -38,6 +39,8 @@
   let mini: HTMLCanvasElement | undefined = $state();
   let big: HTMLCanvasElement | undefined = $state();
   const hold = new PeakHold();
+  const holdLeft = new PeakHold();
+  const holdRight = new PeakHold();
   // Each update waits until it lines up with what's heard (meter-delay.ts); `latest` is the
   // newest received (connection and quiet notes), `shown` the one drawn.
   const pending = new DelayLine<MeterEvent>();
@@ -78,83 +81,6 @@
     savePrefs();
   }
 
-  const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  function fit(c: HTMLCanvasElement) {
-    const r = c.getBoundingClientRect();
-    const d = devicePixelRatio || 1;
-    if (c.width !== Math.round(r.width * d)) {
-      c.width = Math.round(r.width * d);
-      c.height = Math.round(r.height * d);
-    }
-    const g = c.getContext("2d")!;
-    g.setTransform(d, 0, 0, d, 0, 0);
-    return { g, w: r.width, h: r.height };
-  }
-  /** Faint gridlines: the frequency ticks, and every 20 dB. */
-  /** Drawn over the bars, faint, so it reads across them. */
-  function grid(g: CanvasRenderingContext2D, w: number, h: number) {
-    g.globalAlpha = 0.45;
-    g.fillStyle = css("--text-faint");
-    for (const t of xTicks) g.fillRect(Math.round(t.x * w), 0, 1, h);
-    for (const t of yTicks) g.fillRect(0, Math.round(h - t.y * h), w, 1);
-    g.globalAlpha = 1;
-  }
-  function bars(c: HTMLCanvasElement, bands: number[], boxes: Box[]) {
-    const { g, w, h } = fit(c);
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = css("--accent");
-    bands.forEach((db, i) => {
-      const b = boxes[i]!;
-      const y = norm(db) * h;
-      g.fillRect(b.x * w + 1, h - y, Math.max(1, b.w * w - 2), y);
-    });
-    grid(g, w, h);
-  }
-  function line(c: HTMLCanvasElement, bands: number[], peaks: number[], boxes: Box[]) {
-    const { g, w, h } = fit(c);
-    g.clearRect(0, 0, w, h);
-    grid(g, w, h);
-    const path = (vals: number[]) => {
-      g.beginPath();
-      vals.forEach((db, i) => g[i ? "lineTo" : "moveTo"]((boxes[i]!.x + boxes[i]!.w / 2) * w, h - norm(db) * h));
-      g.stroke();
-    };
-    g.lineWidth = 1.5;
-    g.setLineDash([3, 3]);
-    g.strokeStyle = css("--warn");
-    path(peaks);
-    g.setLineDash([]);
-    g.lineWidth = 2.5;
-    g.strokeStyle = css("--accent");
-    path(bands);
-  }
-  /** The strip: left and right, loudness (solid), peak (light) and the highest recent peak (tick). */
-  function levels(c: HTMLCanvasElement, lv: number[][]) {
-    const { g, w, h } = fit(c);
-    g.clearRect(0, 0, w, h);
-    const rowH = (h - 4) / 2;
-    lv.slice(0, 2).forEach(([pkMax = -120, pk = -120, rms = -120], ch) => {
-      const y = ch * (rowH + 4);
-      g.fillStyle = css("--border");
-      g.fillRect(0, y, w, rowH);
-      g.fillStyle = css("--accent-soft");
-      g.fillRect(0, y, norm(pk) * w, rowH);
-      g.fillStyle = css("--accent");
-      g.fillRect(0, y, norm(rms) * w, rowH);
-      g.fillStyle = css("--warn");
-      g.fillRect(norm(pkMax) * w - 1, y, 2, rowH);
-    });
-  }
-  function waterfall(c: HTMLCanvasElement, bands: number[], boxes: Box[]) {
-    const { g, w, h } = fit(c);
-    const d = devicePixelRatio || 1;
-    g.drawImage(c, 0, 0, c.width, c.height - 3 * d, 0, 3, w, h - 3); // scroll down 3 px
-    bands.forEach((db, i) => {
-      g.fillStyle = heat(db);
-      g.fillRect(boxes[i]!.x * w, 0, boxes[i]!.w * w + 1, 3);
-    });
-  }
-
   // Draw only when a new update arrived (~20 a second), on the next frame.
   $effect(() => {
     let raf = 0;
@@ -165,7 +91,11 @@
       shown = e;
       if (!e.live || !e.bands || !e.levels) return;
       const m = mono(e.bands);
-      hold.update(m, performance.now());
+      const now = performance.now();
+      const [left, right] = [e.bands[0]!, e.bands[1] ?? e.bands[0]!]; // a mono source: both sides alike
+      hold.update(m, now);
+      holdLeft.update(left, now);
+      holdRight.update(right, now);
       if (mini) levels(mini, e.levels);
       if (!big || !open) return;
       // A new view starts clean: the waterfall scrolls whatever is on the canvas.
@@ -176,8 +106,11 @@
       }
       // Bands placed by their real frequency span (the server sends the edges in Hz).
       const boxes = bandBoxes(edges(e, m.length), 1);
-      if (view === "bars") bars(big, m, boxes);
-      else if (view === "line") line(big, m, hold.values, boxes);
+      const ticks = { x: xTicks, y: yTicks };
+      if (view === "bars") bars(big, m, boxes, ticks);
+      else if (view === "line") line(big, m, hold.values, boxes, ticks);
+      else if (view === "stereo")
+        stereo(big, { left, right, peakLeft: holdLeft.values, peakRight: holdRight.values }, boxes, ticks);
       else waterfall(big, m, boxes);
     };
     raf = requestAnimationFrame(loop);
@@ -190,10 +123,16 @@
   const yTicks = dbTicks();
   const note = $derived(meterNote(latest, playing));
   const peaks = $derived(shown?.live ? peakWords(shown.levels) : "");
+  const rows = $derived(shown?.live ? peakRows(shown.levels) : []);
+  const bufferNote = $derived(
+    outputDelayMs != null ? ` (HQPlayer reports ${(outputDelayMs / 1000).toFixed(1)} s of output buffer)` : "",
+  );
   const VIEW_NOTES: Record<View, string> = {
     bars: "Each bar is the loudest frequency in its band, as it plays (no averaging).",
     line: "The line is each band as it plays; the dashed line its peak, held 1.5 s, then falling.",
     waterfall: "Newest at the top; brighter is louder.",
+    stereo:
+      "Left grows to the left, right to the right, low notes at the bottom; the short lines are each side's peak, held, then falling back.",
   };
 </script>
 
@@ -204,7 +143,9 @@
   {:else}
     <button class="strip" aria-expanded={open} aria-label={open ? "Close the meter" : "Open the meter"} onclick={toggle}>
       {#if note}<span class="note">{note}</span>{:else}<canvas bind:this={mini} class="mini" aria-hidden="true"></canvas>
-        <span class="peak">{peaks}</span>{/if}
+        <span class="peak" title="Peak, dB"
+          >{#each rows as r (r)}<span>{r}</span>{/each}</span
+        >{/if}
       <span class="label"
         >Meter <svg
           width="16"
@@ -237,23 +178,29 @@
         <div class="plot">
           <canvas bind:this={big} class="big" aria-hidden="true"></canvas>
           <div class="dbs" aria-hidden="true">
-            {#if view !== "waterfall"}
+            {#if view === "stereo"}
+              <!-- Frequency runs up the plot in Stereo; the gutter labels it. -->
+              {#each xTicks.filter((t) => t.x > 0.02) as t (t.label)}<span style="bottom: {t.x * 100}%">{t.label}</span>{/each}
+            {:else if view !== "waterfall"}
               {#each yTicks as t (t.label)}<span style="bottom: {t.y * 100}%">{t.label}</span>{/each}
             {/if}
           </div>
           <div class="axis" aria-hidden="true">
-            {#each xTicks as t (t.label)}<span style="left: {t.x * 100}%">{t.label}</span>{/each}
+            {#if view === "stereo"}
+              <span style="left: 0%">L</span><span style="left: 100%">R</span>
+            {:else}
+              {#each xTicks as t (t.label)}<span style="left: {t.x * 100}%">{t.label}</span>{/each}
+            {/if}
           </div>
         </div>
         <p class="sr">{peaks || "No levels yet"}</p>
         <p class="scale" id="meter-about" hidden={!about}>
-          {VIEW_NOTES[view]} The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak.
-          All of it is the music before upsampling, after HQPlayer's volume.
+          {VIEW_NOTES[view]} The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak;
+          the numbers beside it are each side's peak in dB. All of it is the music before upsampling, after HQPlayer's volume.
         </p>
         <p class="scale timing" hidden={!about}>
-          Timing: the meter waits {(delay / 1000).toFixed(1)} s to line up with what you hear{#if outputDelayMs != null}
-            (HQPlayer reports {(outputDelayMs / 1000).toFixed(1)} s of output buffer){/if}. Your DAC and network add their own, so
-          set it by ear:
+          Timing: the meter waits {(delay / 1000).toFixed(1)} s to line up with what you hear{bufferNote}. Your DAC and network
+          add their own, so set it by ear:
           <span class="nudge">
             <button aria-label="Meter earlier" onclick={() => setNudge(nudge - NUDGE_STEP_MS)}>Earlier</button>
             <button aria-label="Meter later" onclick={() => setNudge(nudge + NUDGE_STEP_MS)}>Later</button>
@@ -310,13 +257,14 @@
     color: var(--text-dim);
   }
   /* In a narrow column (320 px) the words give way, never the bars or the Meter toggle. */
+  /* One reading per row, beside the strip's left and right bars. */
   .peak {
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex: none;
+    display: flex;
+    flex-direction: column;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
+    line-height: 1.25;
     color: var(--text-dim);
     white-space: nowrap;
   }

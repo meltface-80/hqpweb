@@ -80,9 +80,46 @@ export function freqTicks(edgesHz: number[]): { label: string; x: number }[] {
 export const dbTicks = (): { label: string; y: number }[] =>
   [0, -20, -40, -60, -80].map((db) => ({ label: db === 0 ? "0 dB" : `${db}`, y: norm(db) }));
 
-/** The strip's words for the two channels' peaks, e.g. "Peak L −32.5 · R −31.6 dB". */
+/**
+ * The strip's peak readings, one per row like its bars: ["L −32.5", "R −31.6"] (dB, from the
+ * caption). Short enough for a 320 px column, where one line was cut off.
+ */
+export function peakRows(levels: number[][] | undefined): string[] {
+  const pk = (l: number[] | undefined) => (l?.[1] === undefined || l[1] <= -120 ? "—" : l[1].toFixed(1).replace("-", "−"));
+  if (!levels?.length) return [];
+  return levels.length === 1 ? [pk(levels[0])] : [`L ${pk(levels[0])}`, `R ${pk(levels[1])}`];
+}
+
+/** The strip's words for the two channels' peaks, e.g. "Peak L −32.5 · R −31.6 dB" (read aloud). */
 export function peakWords(levels: number[][] | undefined): string {
   const pk = (l: number[] | undefined) => (l?.[1] === undefined || l[1] <= -120 ? "—" : l[1].toFixed(1).replace("-", "−"));
   if (!levels?.length) return "";
   return levels.length === 1 ? `Peak ${pk(levels[0])} dB` : `Peak L ${pk(levels[0])} · R ${pk(levels[1])} dB`;
+}
+
+export type Rgb = [number, number, number];
+
+/** "#1f8fc1" or "#fff" → [r, g, b]; null for anything else. */
+export function hexRgb(css: string): Rgb | null {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(css.trim());
+  if (!m) return null;
+  const h = m[1]!.length === 3 ? [...m[1]!].map((c) => c + c).join("") : m[1]!;
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as Rgb;
+}
+
+/**
+ * The waterfall's colours, from the theme: silence is the plot's own background, then the
+ * accent, and the loudest the text colour, so louder always means more contrast with the
+ * card in every theme (light ones too). Falls back to `heat` if a colour can't be read.
+ */
+export function ramp(bg: string, accent: string, text: string): (db: number) => string {
+  const stops = [hexRgb(bg), hexRgb(accent), hexRgb(text)];
+  if (stops.some((s) => !s)) return heat;
+  const [a, b, c] = stops as Rgb[];
+  const mix = (x: Rgb, y: Rgb, t: number) => x.map((v, i) => Math.round(v + (y[i]! - v) * t));
+  return (db) => {
+    const v = norm(db);
+    const [r, g, bl] = v < 0.6 ? mix(a!, b!, v / 0.6) : mix(b!, c!, (v - 0.6) / 0.4);
+    return `rgb(${r} ${g} ${bl})`;
+  };
 }

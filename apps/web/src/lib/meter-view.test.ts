@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { bandBoxes, dbTicks, freqTicks, heat, meterNote, mono, norm, PeakHold, peakWords } from "./meter-view.ts";
+import {
+  bandBoxes,
+  dbTicks,
+  freqTicks,
+  heat,
+  hexRgb,
+  meterNote,
+  mono,
+  norm,
+  PeakHold,
+  peakRows,
+  peakWords,
+  ramp,
+} from "./meter-view.ts";
 
 describe("meter drawing rules", () => {
   it("scales -100..0 dB to 0..1, clamped", () => {
@@ -87,5 +100,33 @@ describe("the strip's words", () => {
     ).toBe("Peak L −32.5 · R −31.6 dB");
     expect(peakWords([[-30, -130, -40, -35]])).toBe("Peak — dB");
     expect(peakWords(undefined)).toBe("");
+  });
+});
+
+describe("the waterfall's colours follow the theme", () => {
+  it("runs from the plot's background (silence) through the accent to the text colour (loudest)", () => {
+    const c = ramp("#f6f5f2", "#1f8fc1", "#1a1c1f"); // light theme
+    expect(c(-100)).toBe("rgb(246 245 242)");
+    expect(c(-40)).toBe("rgb(31 143 193)");
+    expect(c(0)).toBe("rgb(26 28 31)");
+  });
+  it("reads short and long hex, and falls back to the fixed colours otherwise", () => {
+    expect(hexRgb("#fff")).toEqual([255, 255, 255]);
+    expect(hexRgb(" #1d2125 ")).toEqual([29, 33, 37]);
+    expect(hexRgb("color-mix(in srgb, red 10%, blue)")).toBeNull();
+    expect(ramp("oklch(0.5 0.1 200)", "#000", "#fff")).toBe(heat);
+  });
+});
+
+describe("the strip's readings", () => {
+  it("are one per row, left over right, short enough for a narrow column", () => {
+    expect(
+      peakRows([
+        [-30, -32.5, -40, -35],
+        [-30, -31.6, -40, -35],
+      ]),
+    ).toEqual(["L −32.5", "R −31.6"]);
+    expect(peakRows([[-30, -130, -40, -35]])).toEqual(["—"]);
+    expect(peakRows(undefined)).toEqual([]);
   });
 });

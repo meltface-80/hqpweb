@@ -7,6 +7,10 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Added
 
+- **A Stereo view in the meter.** Left grows to the left of a centre line and right to the
+  right, low notes at the bottom, each side with its peak held then falling back: where
+  the channels differ, band by band.
+
 - **The meter lines up with what you hear.** HQPlayer's meter shows the music before its
   output buffer, so it ran ahead of the room by about that buffer, which is set in
   HQPlayer. The meter now waits HQPlayer's reported output delay (less hqpweb's own lag),
@@ -77,6 +81,11 @@ may change behaviour; upgrade notes say what you need to do.
   in the mono font. The current layout's pickers are unchanged.
 
 ### Fixed
+
+- **The waterfall follows the theme:** silence is the plot's own background, then the
+  accent, and the loudest the text colour (it was a fixed blue-to-yellow that clashed with
+  the light themes). The strip's peak readings sit one per row ("L −22.0" over
+  "R −22.0"), so they fit a phone instead of being cut off.
 
 - **The meter's views run Waterfall, Line, Bars**, and a new viewer starts on Waterfall. A
   view chosen before is kept.
