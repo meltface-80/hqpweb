@@ -78,6 +78,9 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Fixed
 
+- **The meter's views run Waterfall, Line, Bars**, and a new viewer starts on Waterfall. A
+  view chosen before is kept.
+
 - **One way to write rates and modes.** Everywhere: DSD256, PCM in kHz (1536 kHz, not
   1.536 MHz), "Rate" (not "Output rate"), and "DSD" for HQPlayer's "SDM (DSD)". A rate
   after a mode switch was sometimes written in the old mode's terms (DSD256 as

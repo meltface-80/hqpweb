@@ -20,10 +20,11 @@
     outputDelayMs?: number | null;
   } = $props();
 
+  // Owner's order (2026-10-08): waterfall first, then line, then bars.
   const VIEWS = [
-    { id: "bars", label: "Bars" },
-    { id: "line", label: "Line" },
     { id: "waterfall", label: "Waterfall" },
+    { id: "line", label: "Line" },
+    { id: "bars", label: "Bars" },
   ] as const;
 
   let latest = $state<MeterEvent>({ live: false, connected: true });

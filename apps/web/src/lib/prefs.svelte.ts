@@ -42,7 +42,7 @@ const DEFAULTS: Prefs = {
   guideIntroSeen: false,
   layout: "current",
   meterOpen: false,
-  meterView: "bars",
+  meterView: "waterfall",
   meterNudge: {},
 };
 

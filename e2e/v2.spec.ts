@@ -110,6 +110,12 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   await open.click();
   await expect(meter.locator("canvas.big")).toBeVisible();
   await expect(meter.getByRole("button", { name: "Levels" })).toHaveCount(0); // Levels lives in the strip
+  // Owner's order: Waterfall, Line, Bars; Waterfall opens first.
+  await expect(
+    meter.getByRole("group", { name: "Meter view" }).getByRole("button", { name: /^(Waterfall|Line|Bars)$/ }),
+  ).toHaveText(["Waterfall", "Line", "Bars"]);
+  await expect(meter.getByRole("button", { name: "Waterfall" })).toHaveAttribute("aria-pressed", "true");
+  await meter.getByRole("button", { name: "Bars" }).click();
   // The axis labels sit where the log scale puts them: 200 Hz about a third across, not a caption.
   const plot = (await meter.locator("canvas.big").boundingBox())!;
   const at200 = (await meter.locator(".axis span", { hasText: /^200$/ }).boundingBox())!;
