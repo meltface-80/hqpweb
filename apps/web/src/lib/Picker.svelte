@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FilterNoteView from "./FilterNoteView.svelte";
+  import { filterNote } from "./advice/filter-notes.ts";
   import { tick } from "svelte";
   // A searchable picker for long lists (36–77 items). Opens as a bottom sheet.
   // Items can be disabled (with a reason) or carry a warning, e.g. "failed here before".
@@ -183,7 +185,8 @@
             {g.rating ? `${g.rating} star${g.rating === 1 ? "" : "s"}` : "Not rated"} · {g.items.length}
           </li>{/if}
         {#each g.items as item (item.index)}
-          {@const info = item.tags?.length || item.ratioText || item.apodizing}
+          {@const note = filterNote(item.name)}
+          {@const info = item.tags?.length || item.ratioText || item.apodizing || note}
           <li>
             <div class="item">
               <button
@@ -233,6 +236,7 @@
                 {#if item.ratioText}Works with {RATIO_WORDS[item.ratioText] ?? item.ratioText}.{/if}
                 {#if item.apodizing === true}Apodizing.{:else if item.apodizing === "partial"}Partly apodizing.{/if}
               </p>
+              {#if note}<FilterNoteView {note} />{/if}
             {/if}
           </li>
         {/each}

@@ -75,7 +75,8 @@ const RATIO: Record<string, RatioClass> = {
   "closed-form-16M": "pow2-up",
   // The v5.13 manual says whole-number; measured on Desktop 5.17.2 (PCM), sinc-M
   // refuses 3× and plays 2× down, so power-of-two either way. Measured for sinc-M,
-  // inferred for the family. HQPlayer 6 says "2^x up" in PCM; v6 instances use that.
+  // inferred for the family. HQPlayer 6 says "2^x up" in PCM (so does its 6.1.1 manual);
+  // v6 instances use that.
   "sinc-S": "pow2",
   "sinc-M": "pow2",
   "sinc-Mx": "pow2",
@@ -86,6 +87,7 @@ const RATIO: Record<string, RatioClass> = {
   "sinc-Lm": "pow2",
   "sinc-Ll": "pow2",
   "sinc-Lh": "pow2",
+  // The 6.1.1 manual says "Any up" for short, medium and long; v5 unmeasured, so v5 keeps "any".
   "sinc-short": "any",
   "sinc-medium": "any",
   "sinc-long": "any",

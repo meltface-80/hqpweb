@@ -7,6 +7,8 @@
   import { tick } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import Chip from "./Chip.svelte";
+  import FilterNoteView from "./FilterNoteView.svelte";
+  import { SLOT_NOTE, filterNote } from "./advice/filter-notes.ts";
   import ChipFacets from "./ChipFacets.svelte";
   import type { KeptUp } from "./api.ts";
   import { APODIZING, facets, filterChips, grouped, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
@@ -42,6 +44,10 @@
   let query = $state("");
   const keys = new SvelteSet<string>();
   let expanded = $state<string | null>(null);
+  /** The filter whose (i) note is open, and whether the slots' note is. */
+  let about = $state<string | null>(null);
+  let slotOpen = $state(false);
+  const notes = $derived(new Map(items.map((i) => [i.name, filterNote(i.name)])));
 
   const rows = $derived(
     items.map((i) => ({
@@ -63,6 +69,8 @@
     for (const c of opts.chips ?? []) keys.add(c === "apodizing" ? APODIZING : c);
     query = "";
     expanded = null;
+    about = null;
+    slotOpen = false;
     await tick();
     dialog.showModal();
     dialog.querySelector(".row.current")?.scrollIntoView({ block: "center" });
@@ -82,9 +90,20 @@
 
 <dialog bind:this={dialog} class="sheet" aria-label="{label}: choose">
   <div class="head">
-    <h3>{label}</h3>
+    <h3>
+      {label}
+      <button
+        class="info"
+        aria-label="About the 1x and Nx filters"
+        aria-expanded={slotOpen}
+        onclick={() => (slotOpen = !slotOpen)}
+        ><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5M12 7.6v.1" /></svg
+        ></button
+      >
+    </h3>
     <button class="done" onclick={() => dialog.close()}>Done</button>
   </div>
+  {#if slotOpen}<FilterNoteView note={SLOT_NOTE} />{/if}
   <input class="search" type="search" placeholder="Search" aria-label="Search filters" bind:value={query} />
   <ChipFacets {offered} {keys} count="{visible.length} of {rows.length}" />
   <ul>
@@ -95,6 +114,16 @@
           <span class="name">{r.name}</span>
           {#if r.name === current}<span class="tick" aria-label="selected">✓</span>{/if}
         </button>
+        {#if notes.get(r.name)}
+          <button
+            class="info"
+            aria-label="About {r.name}"
+            aria-expanded={about === r.name}
+            onclick={() => (about = about === r.name ? null : r.name)}
+            ><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5M12 7.6v.1" /></svg
+            ></button
+          >
+        {/if}
         <div class="chips">
           {#each expanded === r.name ? r.chips : s.chips as c (c.key)}<Chip kind={c.kind} label={c.label} />{/each}
           {#if s.more || r.item.blocked || r.item.warn}
@@ -106,6 +135,7 @@
             >
           {/if}
         </div>
+        {#if about === r.name && notes.get(r.name)}<FilterNoteView note={notes.get(r.name)!} />{/if}
         {#if expanded === r.name && (r.item.blocked || r.item.warn)}
           <p class="why">
             {[r.item.blocked && `Can't play this ratio: ${r.item.blocked}.`, r.item.warn].filter(Boolean).join(" ")}
@@ -251,5 +281,37 @@
     margin: 6px 0 0;
     font-size: 0.82rem;
     color: var(--text-dim);
+  }
+  .row {
+    position: relative;
+  }
+  .info {
+    position: absolute;
+    right: 0;
+    top: 10px;
+    width: 32px;
+    height: 32px;
+    padding: 4px;
+    border: 0;
+    background: none;
+    color: var(--text-faint);
+    cursor: pointer;
+  }
+  .info[aria-expanded="true"] {
+    color: var(--accent-text);
+  }
+  .info svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+  .row .pick {
+    padding-right: 36px;
+  }
+  h3 .info {
+    position: static;
+    vertical-align: middle;
   }
 </style>
