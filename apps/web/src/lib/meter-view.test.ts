@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   bandBoxes,
+  corrX,
+  crest,
   dbTicks,
+  DynHistory,
   freqTicks,
   heat,
   hexRgb,
@@ -12,6 +15,7 @@ import {
   peakRows,
   peakWords,
   ramp,
+  Smoother,
 } from "./meter-view.ts";
 
 describe("meter drawing rules", () => {
@@ -128,5 +132,32 @@ describe("the strip's readings", () => {
     ).toEqual(["L −32.5", "R −31.6"]);
     expect(peakRows([[-30, -130, -40, -35]])).toEqual(["—"]);
     expect(peakRows(undefined)).toEqual([]);
+  });
+});
+
+describe("width and dynamics", () => {
+  it("eases each band's correlation over recent updates", () => {
+    const s = new Smoother(0.5);
+    s.update([1, 0]);
+    s.update([0, 0]);
+    expect(s.values).toEqual([0.5, 0]);
+  });
+  it("places −1 at the left, 0 in the middle, mono at the right", () => {
+    expect([corrX(-1), corrX(0), corrX(1), corrX(3)]).toEqual([0, 0.5, 1, 1]);
+  });
+  it("keeps the last 30 s of the loudest channel's peak and RMS", () => {
+    const h = new DynHistory(30_000);
+    h.push(0, [
+      [-10, -12, -30, -28],
+      [-10, -9, -31, -28],
+    ]);
+    h.push(31_000, [[-10, -20, -40, -38]]);
+    expect(h.points).toEqual([{ t: 31_000, peak: -20, rms: -40 }]);
+  });
+  it("gives the crest factor as the median peak-to-RMS gap while there's sound", () => {
+    const pts = [...Array(20)].map((_, i) => ({ peak: -10, rms: i < 15 ? -22 : -30 }));
+    expect(crest(pts)).toBe(12);
+    expect(crest(pts.map((p) => ({ ...p, rms: -95 })))).toBeNull(); // silence
+    expect(crest(pts.slice(0, 5))).toBeNull(); // too little
   });
 });

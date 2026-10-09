@@ -52,10 +52,15 @@ export class FakeMeter {
 
   private frame(k: number): MeterFrame {
     const v = this.source.volume;
-    const chan = () => ({
+    const mag = (i: number) => (0.3 / (1 + i / 40)) * (1 + 0.1 * Math.sin(k / 5 + i / 30));
+    // Invented, so the Width view has something to show: the right channel's phase turns
+    // with frequency (bass mono, the top wide), with the same magnitudes as the left, so
+    // levels and bands are identical on both sides.
+    const turn = (i: number) => Math.min(0.6, i / N) * Math.PI;
+    const chan = (phase: (i: number) => number) => ({
       levels: [v + 2, v, v - 10, v - 8] as [number, number, number, number],
-      re: Float32Array.from({ length: N }, (_, i) => (0.3 / (1 + i / 40)) * (1 + 0.1 * Math.sin(k / 5 + i / 30))),
-      im: new Float32Array(N),
+      re: Float32Array.from({ length: N }, (_, i) => mag(i) * Math.cos(phase(i))),
+      im: Float32Array.from({ length: N }, (_, i) => mag(i) * Math.sin(phase(i))),
     });
     return {
       version: 1,
@@ -65,7 +70,7 @@ export class FakeMeter {
       bandwidth: 22050,
       xformTime: 0.02322,
       gain: 2,
-      chans: [chan(), chan()],
+      chans: [chan(() => 0), chan(turn)],
     };
   }
 

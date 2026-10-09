@@ -113,8 +113,10 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   await expect(meter.getByRole("button", { name: "Levels" })).toHaveCount(0); // Levels lives in the strip
   // Owner's order: Waterfall, Line, Bars; Waterfall opens first.
   await expect(
-    meter.getByRole("group", { name: "Meter view" }).getByRole("button", { name: /^(Waterfall|Line|Bars|Stereo)$/ }),
-  ).toHaveText(["Waterfall", "Line", "Bars", "Stereo"]);
+    meter
+      .getByRole("group", { name: "Meter view" })
+      .getByRole("button", { name: /^(Waterfall|Line|Bars|Stereo|Width|Dynamics)$/ }),
+  ).toHaveText(["Waterfall", "Line", "Bars", "Stereo", "Width", "Dynamics"]);
   await expect(meter.getByRole("button", { name: "Waterfall" })).toHaveAttribute("aria-pressed", "true");
   await meter.getByRole("button", { name: "Bars" }).click();
   // The axis labels sit where the log scale puts them: 200 Hz about a third across, not a caption.
@@ -147,6 +149,16 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   await expect(meter.locator(".axis")).toContainText("L");
   await expect(meter.locator(".dbs")).toContainText("2k");
   await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-stereo.png", import.meta.url)) });
+  // Width: from mono (right) to out of phase (left), frequency up the side.
+  await meter.getByRole("button", { name: "Width" }).click();
+  await expect(meter.locator(".axis")).toContainText("mono");
+  await page.waitForTimeout(800); // a few updates, eased
+  await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-width.png", import.meta.url)) });
+  // Dynamics: 30 s of loudness; the crest factor once there's enough of it.
+  await meter.getByRole("button", { name: "Dynamics" }).click();
+  await expect(meter.locator(".axis")).toContainText("30 s ago");
+  await expect(meter.locator(".axis")).toContainText(/now · crest \d+\.\d dB/);
+  await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-dynamics.png", import.meta.url)) });
   await meter.getByRole("button", { name: "Waterfall" }).click();
   await shot(page, "v2-5-meter");
   await meter.getByRole("button", { name: "Close the meter" }).click();

@@ -107,7 +107,15 @@ export type HistoryEntry = {
   rolledBack?: boolean;
 };
 /** One meter update (server meter-stream.ts). */
-export type MeterEvent = { live: boolean; connected: boolean; levels?: number[][]; bands?: number[][]; edgesHz?: number[] };
+export type MeterEvent = {
+  live: boolean;
+  connected: boolean;
+  levels?: number[][];
+  bands?: number[][];
+  edgesHz?: number[];
+  /** Left/right correlation per band, −1 (out of phase) .. 1 (mono). */
+  corr?: number[];
+};
 export type Mode = { index: number; name: string; value: number };
 export type Capabilities = {
   engine: string;

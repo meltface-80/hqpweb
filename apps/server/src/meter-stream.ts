@@ -19,6 +19,8 @@ export interface MeterEvent {
   bands?: number[][];
   /** The bands' edges in Hz (one more than bands), so low bands are drawn as wide as they are. */
   edgesHz?: number[];
+  /** Left/right correlation per band, −1..1 (protocol bandCorrelation); absent for one channel. */
+  corr?: number[];
 }
 
 export interface MeterTiming {

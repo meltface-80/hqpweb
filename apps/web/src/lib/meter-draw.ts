@@ -1,6 +1,6 @@
 // Drawing the meter's views on a canvas (MeterStrip.svelte decides what and when). Colours
 // come from the theme's CSS tokens; scales and colour rules from meter-view.ts, tested there.
-import { norm, ramp } from "./meter-view.ts";
+import { corrX, norm, ramp } from "./meter-view.ts";
 
 type Box = { x: number; w: number };
 type Ticks = { x: { label: string; x: number }[]; y: { label: string; y: number }[] };
@@ -126,4 +126,61 @@ export function stereo(
   g.fillRect(Math.round(mid), 0, 1, h);
   for (const x of t.x) g.fillRect(0, Math.round(h - x.x * h), w, 1);
   g.globalAlpha = 1;
+}
+
+/**
+ * Width: one row per band, low notes at the bottom. A bar runs from the right (mono) to
+ * where the band's correlation sits: longer is wider; past the middle, out of phase (warn).
+ * Quiet bands (below −80 dB) are left out: their correlation means nothing.
+ */
+export function width(c: HTMLCanvasElement, corr: number[], level: number[], boxes: Box[], t: Ticks) {
+  const { g, w, h } = fit(c);
+  g.clearRect(0, 0, w, h);
+  boxes.forEach((b, i) => {
+    if ((level[i] ?? -120) < -80 || corr[i] === undefined) return;
+    const y = h - (b.x + b.w) * h;
+    const bh = Math.max(1, b.w * h - 1);
+    const x = corrX(corr[i]!) * w;
+    g.fillStyle = css(corr[i]! < 0 ? "--warn" : "--accent");
+    g.fillRect(x, y, w - x, bh);
+  });
+  g.globalAlpha = 0.45;
+  g.fillStyle = css("--text-faint");
+  g.fillRect(Math.round(w / 2), 0, 1, h);
+  for (const x of t.x) g.fillRect(0, Math.round(h - x.x * h), w, 1);
+  g.globalAlpha = 1;
+}
+
+/**
+ * Dynamics: the last `windowMs` of loudness, newest at the right. RMS as a filled area,
+ * peak as a line above it: the gap between them is how much the music swings.
+ */
+export function dynamics(
+  c: HTMLCanvasElement,
+  points: { t: number; peak: number; rms: number }[],
+  now: number,
+  windowMs: number,
+  t: Ticks,
+) {
+  const { g, w, h } = fit(c);
+  g.clearRect(0, 0, w, h);
+  g.globalAlpha = 0.45;
+  g.fillStyle = css("--text-faint");
+  for (const y of t.y) g.fillRect(0, Math.round(h - y.y * h), w, 1);
+  g.globalAlpha = 1;
+  if (points.length < 2) return;
+  const x = (tt: number) => w - ((now - tt) / windowMs) * w;
+  const y = (db: number) => h - norm(db) * h;
+  g.beginPath();
+  g.moveTo(x(points[0]!.t), h);
+  for (const p of points) g.lineTo(x(p.t), y(p.rms));
+  g.lineTo(x(points[points.length - 1]!.t), h);
+  g.closePath();
+  g.fillStyle = css("--accent");
+  g.fill();
+  g.beginPath();
+  points.forEach((p, i) => g[i ? "lineTo" : "moveTo"](x(p.t), y(p.peak)));
+  g.lineWidth = 1.5;
+  g.strokeStyle = css("--warn");
+  g.stroke();
 }

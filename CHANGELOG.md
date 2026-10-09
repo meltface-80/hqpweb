@@ -7,6 +7,10 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Added
 
+- **Width and Dynamics views in the meter.** Width shows, band by band, how alike left
+  and right are: no bar is mono, a long bar wide, and the warning colour out of phase
+  (hqpweb now sends each band's left/right correlation). Dynamics shows the last 30 s of
+  loudness and peaks, with the crest factor: small for compressed music, large for dynamic.
 - **A Stereo view in the meter.** Left grows to the left of a centre line and right to the
   right, low notes at the bottom, each side with its peak held then falling back: where
   the channels differ, band by band.

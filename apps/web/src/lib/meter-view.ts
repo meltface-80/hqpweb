@@ -123,3 +123,49 @@ export function ramp(bg: string, accent: string, text: string): (db: number) => 
     return `rgb(${r} ${g} ${bl})`;
   };
 }
+
+/**
+ * Each band's value eased over recent updates (an exponential average): one frame's
+ * correlation jumps about; ~0.5 s of them reads steadily at ~20 updates a second.
+ */
+export class Smoother {
+  values: number[] = [];
+  private readonly a: number;
+  constructor(alpha = 0.15) {
+    this.a = alpha;
+  }
+  update(next: number[]) {
+    this.values = next.map((v, i) => (this.values[i] === undefined ? v : this.values[i]! + this.a * (v - this.values[i]!)));
+  }
+}
+
+/** The last `windowMs` of loudness: each update's loudest channel's peak and RMS (dB). */
+export class DynHistory {
+  points: { t: number; peak: number; rms: number }[] = [];
+  private readonly windowMs: number;
+  constructor(windowMs = 30_000) {
+    this.windowMs = windowMs;
+  }
+  push(t: number, levels: number[][]) {
+    const peak = Math.max(...levels.map((l) => l[1] ?? -120));
+    const rms = Math.max(...levels.map((l) => l[2] ?? -120));
+    this.points.push({ t, peak, rms });
+    while (this.points.length && this.points[0]!.t < t - this.windowMs) this.points.shift();
+  }
+}
+
+/**
+ * The crest factor over the window: the median of peak minus RMS while there's sound
+ * (above −80 dB), in dB; null when there's too little. Low means compressed, high dynamic.
+ */
+export function crest(points: { peak: number; rms: number }[]): number | null {
+  const d = points
+    .filter((p) => p.rms > -80)
+    .map((p) => p.peak - p.rms)
+    .sort((a, b) => a - b);
+  if (d.length < 10) return null;
+  return Math.round(d[Math.floor(d.length / 2)]! * 10) / 10;
+}
+
+/** Where a band's correlation sits across the width view: −1 at the left, 1 (mono) at the right. */
+export const corrX = (corr: number) => (Math.max(-1, Math.min(1, corr)) + 1) / 2;

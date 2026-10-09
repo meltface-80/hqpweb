@@ -3,8 +3,20 @@
   // opens, and the open square with its views. Data from the server's meter stream (paced,
   // condensed: meter-stream.ts); drawing rules in meter-view.ts. It only connects while shown.
   import { api, type MeterEvent } from "./api.ts";
-  import { bandBoxes, dbTicks, freqTicks, meterNote, mono, PeakHold, peakRows, peakWords } from "./meter-view.ts";
-  import { bars, fit, levels, line, stereo, waterfall } from "./meter-draw.ts";
+  import {
+    bandBoxes,
+    crest,
+    dbTicks,
+    DynHistory,
+    freqTicks,
+    meterNote,
+    mono,
+    PeakHold,
+    peakRows,
+    peakWords,
+    Smoother,
+  } from "./meter-view.ts";
+  import { bars, dynamics, fit, levels, line, stereo, waterfall, width } from "./meter-draw.ts";
 
   import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { DelayLine, NUDGE_STEP_MS, clampNudge, meterDelayMs } from "./meter-delay.ts";
@@ -26,6 +38,8 @@
     { id: "line", label: "Line" },
     { id: "bars", label: "Bars" },
     { id: "stereo", label: "Stereo" },
+    { id: "width", label: "Width" },
+    { id: "dynamics", label: "Dynamics" },
   ] as const;
 
   let latest = $state<MeterEvent>({ live: false, connected: true });
@@ -41,6 +55,10 @@
   const hold = new PeakHold();
   const holdLeft = new PeakHold();
   const holdRight = new PeakHold();
+  const corr = new Smoother();
+  const DYN_MS = 30_000;
+  const dyn = new DynHistory(DYN_MS);
+  let crestDb = $state<number | null>(null);
   // Each update waits until it lines up with what's heard (meter-delay.ts); `latest` is the
   // newest received (connection and quiet notes), `shown` the one drawn.
   const pending = new DelayLine<MeterEvent>();
@@ -96,6 +114,9 @@
       hold.update(m, now);
       holdLeft.update(left, now);
       holdRight.update(right, now);
+      if (e.corr) corr.update(e.corr);
+      dyn.push(now, e.levels);
+      crestDb = crest(dyn.points);
       if (mini) levels(mini, e.levels);
       if (!big || !open) return;
       // A new view starts clean: the waterfall scrolls whatever is on the canvas.
@@ -111,6 +132,8 @@
       else if (view === "line") line(big, m, hold.values, boxes, ticks);
       else if (view === "stereo")
         stereo(big, { left, right, peakLeft: holdLeft.values, peakRight: holdRight.values }, boxes, ticks);
+      else if (view === "width") width(big, corr.values, m, boxes, ticks);
+      else if (view === "dynamics") dynamics(big, dyn.points, now, DYN_MS, ticks);
       else waterfall(big, m, boxes);
     };
     raf = requestAnimationFrame(loop);
@@ -124,6 +147,7 @@
   const note = $derived(meterNote(latest, playing));
   const peaks = $derived(shown?.live ? peakWords(shown.levels) : "");
   const rows = $derived(shown?.live ? peakRows(shown.levels) : []);
+  const nowLabel = $derived(crestDb === null ? "now" : `now · crest ${crestDb.toFixed(1)} dB`);
   const bufferNote = $derived(
     outputDelayMs != null ? ` (HQPlayer reports ${(outputDelayMs / 1000).toFixed(1)} s of output buffer)` : "",
   );
@@ -133,6 +157,10 @@
     waterfall: "Newest at the top; brighter is louder.",
     stereo:
       "Left grows to the left, right to the right, low notes at the bottom; the short lines are each side's peak, held, then falling back.",
+    width:
+      "How alike left and right are in each band, low notes at the bottom: no bar is mono, a long bar wide; past the middle (warning colour) the sides are out of phase. Quiet bands are left out.",
+    dynamics:
+      "The last 30 s: the filled area is loudness (RMS), the line the peaks. The gap is the crest factor: small for compressed music, large for dynamic.",
   };
 </script>
 
@@ -178,16 +206,21 @@
         <div class="plot">
           <canvas bind:this={big} class="big" aria-hidden="true"></canvas>
           <div class="dbs" aria-hidden="true">
-            {#if view === "stereo"}
-              <!-- Frequency runs up the plot in Stereo; the gutter labels it. -->
+            {#if view === "stereo" || view === "width"}
+              <!-- Frequency runs up the plot in Stereo and Width; the gutter labels it. -->
               {#each xTicks.filter((t) => t.x > 0.02) as t (t.label)}<span style="bottom: {t.x * 100}%">{t.label}</span>{/each}
             {:else if view !== "waterfall"}
+              <!-- dB: Line, Bars and Dynamics. -->
               {#each yTicks as t (t.label)}<span style="bottom: {t.y * 100}%">{t.label}</span>{/each}
             {/if}
           </div>
           <div class="axis" aria-hidden="true">
             {#if view === "stereo"}
               <span style="left: 0%">L</span><span style="left: 100%">R</span>
+            {:else if view === "width"}
+              <span style="left: 0%">out of phase</span><span style="left: 50%">wide</span><span style="left: 100%">mono</span>
+            {:else if view === "dynamics"}
+              <span style="left: 0%">30 s ago</span><span style="left: 100%">{nowLabel}</span>
             {:else}
               {#each xTicks as t (t.label)}<span style="left: {t.x * 100}%">{t.label}</span>{/each}
             {/if}

@@ -103,9 +103,34 @@ export const edgeHz = (edges: number[], length: number, bandwidth: number) => ed
 const db = (x: number) => (x > 0 ? Math.max(NO_LEVEL, 20 * Math.log10(x)) : NO_LEVEL);
 const r1 = (x: number) => Math.round(x * 10) / 10;
 
-/** Per channel: the four levels and the loudest bin in each band (bands from bandEdges), in dB. */
-export function condense(f: MeterFrame, edges: number[]): { levels: number[][]; bands: number[][] } {
+/**
+ * How alike left and right are in each band, from the bins' real and imaginary parts:
+ * Re(Σ L·R*) / √(Σ|L|²·Σ|R|²). 1: the same (mono); 0: unrelated (wide); −1: opposite
+ * (out of phase). 0 for a silent band. Two decimals.
+ */
+export function bandCorrelation(l: { re: ArrayLike<number>; im: ArrayLike<number> }, r: typeof l, edges: number[]): number[] {
+  const out: number[] = [];
+  for (let b = 0; b + 1 < edges.length; b++) {
+    let cross = 0;
+    let ll = 0;
+    let rr = 0;
+    for (let i = edges[b]!; i < edges[b + 1]!; i++) {
+      cross += l.re[i]! * r.re[i]! + l.im[i]! * r.im[i]!;
+      ll += l.re[i]! ** 2 + l.im[i]! ** 2;
+      rr += r.re[i]! ** 2 + r.im[i]! ** 2;
+    }
+    out.push(ll > 0 && rr > 0 ? Math.round((cross / Math.sqrt(ll * rr)) * 100) / 100 : 0);
+  }
+  return out;
+}
+
+/**
+ * Per channel: the four levels and the loudest bin in each band (bands from bandEdges), in
+ * dB; with two or more channels, the first two's correlation per band (bandCorrelation).
+ */
+export function condense(f: MeterFrame, edges: number[]): { levels: number[][]; bands: number[][]; corr?: number[] } {
   return {
+    ...(f.chans.length >= 2 ? { corr: bandCorrelation(f.chans[0]!, f.chans[1]!, edges) } : {}),
     levels: f.chans.map((c) => c.levels.map((v) => (v < -300 ? NO_LEVEL : r1(v)))),
     bands: f.chans.map((c) => {
       const out: number[] = [];

@@ -84,3 +84,55 @@ describe("condensing a frame for the browser", () => {
     ]);
   });
 });
+
+describe("left/right correlation per band", () => {
+  const n = 64;
+  const ch = (re: (i: number) => number, im: (i: number) => number = () => 0) => ({
+    re: Float32Array.from({ length: n }, (_, i) => re(i)),
+    im: Float32Array.from({ length: n }, (_, i) => im(i)),
+  });
+  const edges = [0, 16, 32, 64];
+  const wave = (i: number) => Math.sin(i) + 0.5;
+  it("is 1 for the same signal, −1 for an inverted one, 0 for one a quarter-turn apart", async () => {
+    const { bandCorrelation } = await import("../src/meter.ts");
+    const l = ch(wave);
+    expect(bandCorrelation(l, ch(wave), edges)).toEqual([1, 1, 1]);
+    expect(
+      bandCorrelation(
+        l,
+        ch((i) => -wave(i)),
+        edges,
+      ),
+    ).toEqual([-1, -1, -1]);
+    // Both channels complex: the imaginary parts count too.
+    const z = ch(wave, (i) => Math.cos(i * 0.7));
+    expect(
+      bandCorrelation(
+        z,
+        ch(wave, (i) => Math.cos(i * 0.7)),
+        edges,
+      ),
+    ).toEqual([1, 1, 1]);
+    // R = j·L: every bin turned 90°, unrelated in phase.
+    expect(
+      bandCorrelation(
+        l,
+        ch(() => 0, wave),
+        edges,
+      ),
+    ).toEqual([0, 0, 0]);
+  });
+  it("is 0 where a band is silent, and condense sends it only with two channels", async () => {
+    const { bandCorrelation, condense } = await import("../src/meter.ts");
+    expect(
+      bandCorrelation(
+        ch(() => 0),
+        ch(wave),
+        edges,
+      ),
+    ).toEqual([0, 0, 0]);
+    const f = frame({ re: (i) => 0.001 * (i + 1) });
+    expect(condense(f, [0, 8, 16]).corr).toEqual([1, 1]);
+    expect(condense({ ...f, channels: 1, chans: [f.chans[0]!] }, [0, 8, 16]).corr).toBeUndefined();
+  });
+});

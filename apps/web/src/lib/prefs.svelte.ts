@@ -27,7 +27,7 @@ export interface Prefs {
   /** The v2 meter: open as a square, and which view. */
   meterOpen: boolean;
   /** "levels" was a view before it moved to the strip; MeterStrip opens Bars for it. */
-  meterView: "bars" | "line" | "levels" | "waterfall" | "stereo";
+  meterView: "bars" | "line" | "levels" | "waterfall" | "stereo" | "width" | "dynamics";
   /** The meter's timing nudge per HQPlayer, in ms, set by ear (meter-delay.ts). */
   meterNudge: Record<string, number>;
 }
