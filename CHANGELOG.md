@@ -5,20 +5,26 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+## 0.1.0-beta.5 — a new layout to try, a meter, Compare and a guided flow
+
+**Update:** `docker compose pull && docker compose up -d`. Settings, presets and history
+are kept. The new layout is a preview, off by default: Settings → Try the new layout.
+Its meter needs HQPlayer's meter port (the control port + 1) reachable from hqpweb.
+
 ### Added
 
-- **Width and Dynamics views in the meter.** Width shows, band by band, how alike left
-  and right are: no bar is mono, a long bar wide, and the warning colour out of phase
-  (hqpweb now sends each band's left/right correlation). Dynamics shows the last 30 s of
-  loudness and peaks, with the crest factor: small for compressed music, large for dynamic.
+- **Width and Dynamics views in the meter.** Width shows, band by band, how alike left and
+  right are: no bar is mono, a long bar wide, and red out of phase (hqpweb now sends each
+  band's left/right correlation). Dynamics shows the last 30 s of loudness and peaks, with
+  the crest factor: small for compressed music, large for dynamic.
 - **A Stereo view in the meter.** Left grows to the left of a centre line and right to the
   right, low notes at the bottom, each side with its peak held then falling back: where
   the channels differ, band by band.
 - **The meter lines up with what you hear.** HQPlayer's meter shows the music before its
   output buffer, so it ran ahead of the room by about that buffer, which is set in
   HQPlayer. The meter now waits HQPlayer's reported output delay (less hqpweb's own lag),
-  and the (i) panel has Earlier and Later to set it by ear for the DAC and network,
-  saved per HQPlayer on this device.
+  and the (i) panel has Earlier and Later to set it by ear for the DAC and network, saved
+  per HQPlayer on this device.
 - **Guide me as a flow, in the new layout.** The button on the signal card opens the guide
   full height, one question at a time: your DAC, amplifier and volume, then where to start
   (in PCM: your DAC, the connection, then where to start), with Back and Next. Next waits
@@ -27,12 +33,12 @@ may change behaviour; upgrade notes say what you need to do.
   guide's own; only where it sends you to change the rate or mode now names the card,
   where those live in this layout.
 - **Compare, in the new layout.** A button below the signal card opens two full settings
-  cards side by side: A as it was playing, B to choose (mode, filters, modulator or dither,
-  rate), and a preset can be loaded into either. The big A and B buttons switch what
-  plays; which one you're hearing is read back from HQPlayer, not assumed. It says what a
-  switch costs (a pause across modes, a gap across rates) and that levels aren't matched
-  between DSD and PCM. Keep A, Keep B, or save B as a preset. A mode hqpweb hasn't seen on
-  this HQPlayer yet offers its last-seen settings only, and says so.
+  cards side by side: A as it was playing, B to choose (mode, filters, modulator or
+  dither, rate), and a preset can be loaded into either. The big A and B buttons switch
+  what plays; which one you're hearing is read back from HQPlayer, not assumed. It says
+  what a switch costs (a pause across modes, a gap across rates) and that levels aren't
+  matched between DSD and PCM. Keep A, Keep B, or save B as a preset. A mode hqpweb hasn't
+  seen on this HQPlayer yet offers its last-seen settings only, and says so.
 - **hqpweb remembers each mode's lists.** HQPlayer only lists the filters, modulators or
   dithers and rates of the mode in use. hqpweb now keeps each mode's lists, by name, as it
   last read them on that HQPlayer and engine, so the other mode's choices can be offered
@@ -40,44 +46,44 @@ may change behaviour; upgrade notes say what you need to do.
 - **hqpweb remembers what kept up here.** While hqpweb is open and music plays, it notes
   how fast HQPlayer processed each combination once settled (it skips the first seconds,
   which are often slow, and keeps the lowest 5-second average), per DAC and source rate.
-  Nothing shows it yet; the new pickers will ("kept up here, 2.1×"). Failures now also
-  record the source rate they happened with. Both are kept in `learned.json`; older files
-  load as before.
+  The new layout's pickers show it ("✓ kept up here (2.1×)"). Failures now also record the
+  source rate they happened with. Both are kept in `learned.json`; older files load as
+  before.
 - **A change history, and each mode's last settings.** hqpweb now logs every change: its
-  own (with before, after and how playback went, including rollbacks), undos, presets,
-  and changes made elsewhere, such as in HQPlayer's own window (volume aside). It also
+  own (with before, after and how playback went, including rollbacks), undos, presets, and
+  changes made elsewhere, such as in HQPlayer's own window (volume aside). It also
   remembers each mode's settings as last seen, per DAC, because HQPlayer only reports the
-  mode in use. Kept in `history.json`; nothing shows them yet. `GET /api/instances/:id/history`.
+  mode in use. Kept in `history.json`; the new layout's History shows them. `GET
+/api/instances/:id/history`.
 - **A preview of the new layout** (Settings → "Try the new layout", this device only). The
   signal path is one card: a line showing what the music goes through now, DSD and PCM as
   tabs (the other mode's settings as last seen, and a sheet that says what switching
-  does), and the rate row saying what auto picked and why. History lists every change.
-  Two columns on wide screens. The current layout is unchanged.
-  On a phone, a slim bar with the track, health, play/pause and volume takes over when
-  the now card scrolls away. History leaves out volume changes.
-- **The meter's server side** (groundwork for the new layout's meter). While someone watches,
-  hqpweb reads HQPlayer's meter (the control port + 1), smooths its bursts, and streams
-  levels and 48 frequency bands to the browser, letting go a few seconds after the last
-  viewer leaves. `GET /api/instances/:id/meter` (server-sent events).
-- **The meter, in the new layout.** Under the now card, a live strip marked "Meter" that
-  opens into a square with four views: Bars, Line (with a peak hold), Levels (left and
-  right, peak and loudness) and Waterfall. It says so when HQPlayer offers no meter, or
-  between tracks. The view you pick is remembered on this device. The strip shows left and
-  right levels with the peak; the square shows the spectrum (Bars, Line, Waterfall). The
-  meter shows the music as HQPlayer receives it, before upsampling. Low bands are drawn
-  as wide as they really are (at the bottom, one band per ~21.5 Hz bin) instead of
-  repeating one value across several bars.
-- **Filter pickers with chips, in the new layout.** Each filter shows up to four chips:
-  in use, ✓ kept up here (with its speed on this machine), ✗ fell behind here or won't
-  play this ratio, ★ 5/5, its phase (from the name), apodizing, the ratio it needs, its
-  focus and length. "+n · why?" shows the rest and the reason. The modulator and dither
-  lists get the same: in use, kept up or fell behind here, won't play at this rate, the
-  guide's starting point, order, load within its line ("EC line: lightest"), "needs a
-  fast CPU at this rate" (Signalyst on the EC line at DSD1024) and generation; their
-  sections, cited notes and the guide are unchanged. Above each list, yes/no facts are
-  chips and the rest drop-downs (phase, apodizing, ratio, focus, length; order, load,
-  generation), with a count; in use and trouble aren't filters. Names and rates are set
-  in the mono font. The current layout's pickers are unchanged.
+  does), and the rate row saying what auto picked and why. History lists every change. Two
+  columns on wide screens. The current layout is unchanged. On a phone, a slim bar with
+  the track, health, play/pause and volume takes over when the now card scrolls away.
+  History leaves out volume changes.
+- **The meter's server side** (groundwork for the new layout's meter). While someone
+  watches, hqpweb reads HQPlayer's meter (the control port + 1), smooths its bursts, and
+  streams levels and 48 frequency bands to the browser, letting go a few seconds after the
+  last viewer leaves. `GET /api/instances/:id/meter` (server-sent events).
+- **The meter, in the new layout.** Under the now card, a live strip marked "Meter" (left
+  and right levels with their peaks) that opens into a square with six views: Waterfall,
+  Line (with a peak hold), Bars, Stereo, Width and Dynamics. It says so when HQPlayer
+  offers no meter, or between tracks. The view you pick is remembered on this device. The
+  meter shows the music as HQPlayer receives it, before upsampling. Low bands are drawn as
+  wide as they really are (at the bottom, one band per ~21.5 Hz bin) instead of repeating
+  one value across several bars.
+- **Filter pickers with chips, in the new layout.** Each filter shows up to four chips: in
+  use, ✓ kept up here (with its speed on this machine), ✗ fell behind here or won't play
+  this ratio, ★ 5/5, its phase (from the name), apodizing, the ratio it needs, its focus
+  and length. "+n · why?" shows the rest and the reason. The modulator and dither lists
+  get the same: in use, kept up or fell behind here, won't play at this rate, the guide's
+  starting point, order, load within its line ("EC line: lightest"), "needs a fast CPU at
+  this rate" (Signalyst on the EC line at DSD1024) and generation; their sections, cited
+  notes and the guide are unchanged. Above each list, yes/no facts are chips and the rest
+  drop-downs (phase, apodizing, ratio, focus, length; order, load, generation), with a
+  count; in use and trouble aren't filters. Names and rates are set in the mono font. The
+  current layout's pickers are unchanged.
 
 ### Fixed
 
@@ -85,33 +91,32 @@ may change behaviour; upgrade notes say what you need to do.
   mode brings its last-seen rate, but only if that mode still offers and allows it; a rate
   above this instance's limit (set in HQPlayer itself) made every switch fail after two
   real mode changes. The new layout's switch sheet likewise offers only allowed DSD rates.
-- **The Now card shows 48k-family DSD rates** (DSD256 (48k)) and readings in [source] mode,
-  which showed "—".
+- **The Now card shows 48k-family DSD rates** (DSD256 (48k)) and readings in [source]
+  mode, which showed "—".
 - **A stalled meter viewer** (a phone asleep with the page open) no longer makes the
   server buffer meter frames without end.
 - **Each palette has a second accent**, a complementary colour: coral with Dark's cyan,
   magenta with Light's blue, teal with Copper and with Brass light. The meter uses it for
   peaks and the loud end of the waterfall, so Copper and Brass are no longer all brown.
-  Width shows out of phase in red, against whichever accent is further from red (in
-  Brass light the warning colour it used was the same brown as the bars).
+  Width shows out of phase in red, against whichever accent is further from red (in Brass
+  light the warning colour it used was the same brown as the bars).
 - **The waterfall follows the theme:** silence is the plot's own background, then the
   accent, and the loudest the second accent (it was a fixed blue-to-yellow that clashed
-  with the light themes). The strip's peak readings sit one per row ("L −22.0" over
-  "R −22.0"), so they fit a phone instead of being cut off.
+  with the light themes). The strip's peak readings sit one per row ("L −22.0" over "R
+  −22.0"), so they fit a phone instead of being cut off.
 - **The meter's views run Waterfall, Line, Bars**, and a new viewer starts on Waterfall. A
   view chosen before is kept.
 - **One way to write rates and modes.** Everywhere: DSD256, PCM in kHz (1536 kHz, not
   1.536 MHz), "Rate" (not "Output rate"), and "DSD" for HQPlayer's "SDM (DSD)". A rate
-  after a mode switch was sometimes written in the old mode's terms (DSD256 as
-  "11.2896 MHz"); DSD is now told by the rate itself.
+  after a mode switch was sometimes written in the old mode's terms (DSD256 as "11.2896
+  MHz"); DSD is now told by the rate itself.
 - **Tidier v2 screen.** Processing speed is shown once (on the path line); the footer is
   opaque and the page scrolls clear of it; without a meter stream there's a one-line note
   instead of a card; History sets only names and values in the mono font.
 - **Load within a modulator line moves under "why?"** It's still a filter. On every row it
   read as a quality ranking, and the variants are character choices of one quality.
-- **The app's files answer HEAD requests.** A browser asking for the icon that way
-  (Safari does) got "not found", which can leave a tab or a Dock app without hqpweb's
-  icon.
+- **The app's files answer HEAD requests.** A browser asking for the icon that way (Safari
+  does) got "not found", which can leave a tab or a Dock app without hqpweb's icon.
 - **The new layout uses a laptop's width.** Its two columns were capped at about 260 px
   each (a width rule that lost to another), so filter names and labels wrapped and the
   modulator was cut off. They now share up to 76rem, labels stay on one line, and long
@@ -119,17 +124,17 @@ may change behaviour; upgrade notes say what you need to do.
 - **The meter strip keeps its bars and its Meter toggle** in a narrow column: the peak
   words give way instead. The open meter's dB scale sits beside the chart, not over the
   top bands, and what the views show is behind an (i) button.
-- **A volume change is quiet.** No "Applying…" or result message unless it goes wrong,
-  and no Undo: the slider undoes itself. Undo stays for filters, shaping, rate and mode.
+- **A volume change is quiet.** No "Applying…" or result message unless it goes wrong, and
+  no Undo: the slider undoes itself. Undo stays for filters, shaping, rate and mode.
 - **The meter says it's after HQPlayer's volume** (measured: a −30 dBFS tone read −53 dB
   at −23 dB volume).
 - **The meter's axes are real.** The frequency labels (20 Hz, 200, 2k, 20 kHz) sit where
   the log scale puts them, with faint gridlines, and the open meter has a dB scale every
-  20 dB. The strip says "Peak L … · R … dB", and the meter explains what the bars, line
-  and strip show (each bar is the loudest frequency in its band, not averaged). Its
-  open/close cue is a plain chevron.
-- **On an iPhone home-screen app, the page no longer scrolls under the clock.** A
-  backdrop covers the status bar's height.
+  20 dB. The strip gives each side's peak, and the meter explains what the bars, line and
+  strip show (each bar is the loudest frequency in its band, not averaged). Its open/close
+  cue is a plain chevron.
+- **On an iPhone home-screen app, the page no longer scrolls under the clock.** A backdrop
+  covers the status bar's height.
 - **The status no longer goes stale for several seconds after a mode switch.** HQPlayer
   holds the connection while it switches, so the status reply was slow, and hqpweb took
   that for HQPlayer being slow and backed off its polling (about 6 s). It now ignores slow
