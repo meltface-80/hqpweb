@@ -1,4 +1,4 @@
-// Plain TCP for hqpweb's phone app: HQPlayer's control port (XML lines) and its meter port
+// Plain TCP for the phone app (hqpmob): HQPlayer's control port (XML lines) and its meter port
 // (binary frames). The page's side is apps/mobile src/tcp.ts, which hands it to the
 // protocol as a Connect (packages/protocol transport.ts). Bytes cross as base64.
 //

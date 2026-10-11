@@ -38,7 +38,10 @@ const modulator = (page: Page) => page.locator(".signal").getByRole("button", { 
 
 /** Guide me, answering the DAC question with `dac` and "No" to the others, to where to start. */
 async function answer(page: Page, dac: RegExp) {
+  // Guide me opens the modulator sheet: wait for it (its row) to be there, or the tap does nothing.
+  await expect(modulator(page)).toBeVisible();
   await page.locator(".signal").getByRole("button", { name: "Guide me" }).click();
+  await expect(guide(page)).toBeVisible();
   await step(page, "Your DAC").getByRole("button", { name: dac }).click();
   for (const title of ["Your amplifier", "Your volume"]) {
     await guide(page).getByRole("button", { name: "Next" }).click();

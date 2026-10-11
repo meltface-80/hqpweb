@@ -39,6 +39,7 @@ test.afterAll(() => new Promise<void>((ok) => server.close(() => ok())));
 
 test("the app hides what it can't do: the restart cap, lining up by ear, scanning, finding Roon", async ({ page }) => {
   await page.goto(base);
+  await expect(page.locator(".brand")).toHaveText("hqpmob");
   await expect(page.locator(".banner")).toContainText("add one by address");
   await expect(page.locator(".banner")).not.toContainText("scan");
 

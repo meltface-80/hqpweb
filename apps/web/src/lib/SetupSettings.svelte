@@ -2,7 +2,7 @@
   // Settings → Your setup: the selected instance's answers about its DAC, amplifier,
   // volume and connection, which the modulator and dither advice reads. Saved per
   // instance on the server (api.saveSetup); the questions are setup-questions.ts.
-  import { api, type Inst, type Setup } from "./api.ts";
+  import { appName, api, type Inst, type Setup } from "./api.ts";
   import { monthLabel } from "./dac-table.ts";
   import FindYourDac from "./FindYourDac.svelte";
   import DacSettings from "./DacSettings.svelte";
@@ -42,7 +42,7 @@
   <p class="help">Choose an instance first: these answers are kept for each one.</p>
 {/if}
 <p class="help">
-  HQPlayer can't tell hqpweb which DAC or NAA it's feeding. If you point it at a different DAC, change or clear these.
+  HQPlayer can't tell {appName} which DAC or NAA it's feeding. If you point it at a different DAC, change or clear these.
 </p>
 
 <DacSettings {instance} {onchange} />

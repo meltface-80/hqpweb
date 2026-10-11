@@ -1,7 +1,7 @@
 <script lang="ts">
   // The modulator guide: three questions, then where to start. The decisions are
   // advice/modulator.ts's; this only shows them. Names come from this HQPlayer's own list.
-  import type { Setup } from "./api.ts";
+  import { appName, type Setup } from "./api.ts";
   import { modulatorAdvice } from "./advice/modulator.ts";
   import { modulatorPairs } from "./advice/pairs.ts";
   import PairList from "./PairList.svelte";
@@ -125,7 +125,7 @@
     {/if}
     {#if advice.unknown.length}
       <p class="note">
-        This HQPlayer also lists {advice.unknown.join(", ")}, newer than hqpweb's advice. They're in the list.
+        This HQPlayer also lists {advice.unknown.join(", ")}, newer than {appName}'s advice. They're in the list.
       </p>
     {/if}
   </li>

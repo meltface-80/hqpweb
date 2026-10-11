@@ -1,5 +1,6 @@
 // hqpweb's documents (core docs.ts) in the app's own storage on the device: files under
-// hqpweb/ in its private data directory. Each phone keeps its own: no sync (owner's call).
+// hqpweb/ in its private data directory (named before the app became hqpmob; renaming it would lose
+// what's there). Each phone keeps its own: no sync (owner's call).
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import type { DocStore } from "@app/core";
 

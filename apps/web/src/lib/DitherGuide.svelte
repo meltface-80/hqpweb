@@ -1,7 +1,7 @@
 <script lang="ts">
   // The dither guide: two questions, then the group to choose from, as equals. The
   // decisions are advice/dither.ts's; this only shows them.
-  import type { Setup } from "./api.ts";
+  import { appName, type Setup } from "./api.ts";
   import { ditherAdvice } from "./advice/dither.ts";
   import { RULES } from "./advice/policy.ts";
   import { SETUP_QUESTIONS, type SetupKey } from "./setup-questions.ts";
@@ -41,7 +41,7 @@
   const q = SETUP_QUESTIONS;
   const label = (key: SetupKey, v: string | undefined) => q[key].options.find((o) => o.value === v)?.label ?? "";
   const BITS = {
-    ladder: "Set DAC Bits low in HQPlayer's settings (hqpweb can't read or set it).",
+    ladder: `Set DAC Bits low in HQPlayer's settings (${appName} can't read or set it).`,
     default: "Leave DAC Bits at HQPlayer's default.",
     "24": "Set DAC Bits to 24 in HQPlayer's settings: S/PDIF carries 24 bits.",
     match: "Set DAC Bits in HQPlayer's settings to what your DAC takes over I2S.",

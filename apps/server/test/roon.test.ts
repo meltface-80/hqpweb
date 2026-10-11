@@ -171,6 +171,21 @@ describe("Roon link", () => {
     expect(a.view().error).toMatch(/took over/);
   });
 
+  it("shows Roon the host's name (the phone app's hqpmob), with the same extension id, so a pairing survives a rename", async () => {
+    const { c, port } = await core();
+    const l = new RoonLink(null, { name: "hqpmob", reconnectMs: 50, replyMs: 1000 });
+    cleanup.push(() => l.close());
+    l.configure({ enabled: true, host: "127.0.0.1", port });
+    await until(() => c.waiting().length === 1);
+    expect(c.waiting()[0]).toMatch(/^hqpmob [0-9a-f]{4}$/);
+    expect(l.view().extensionName).toBe(c.waiting()[0]);
+    c.approve();
+    await until(() => l.view().status === "connected");
+    expect([...c.approved][0]).toMatch(/^com\.github\.hqpweb\.[0-9a-f]{8}$/);
+    // Without a name: hqpweb, as the server has always been.
+    expect(link().view().extensionName).toMatch(/^hqpweb [0-9a-f]{4}$/);
+  });
+
   it("gives separate installs separate extension ids", async () => {
     const { c, port } = await core();
     const a = link();

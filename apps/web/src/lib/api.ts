@@ -104,6 +104,8 @@ export const SERVER_CAN: HostCan = { restartCap: true, calibrate: true, roon: tr
 /** The page's API, and what its host can do: its own server, unless a host says otherwise. */
 export let api: Api = httpApi();
 export let can: HostCan = SERVER_CAN;
+/** What the page calls itself (Host.name): the server's "hqpweb" unless a host says otherwise. */
+export let appName = "hqpweb";
 
 /**
  * Called by a host (a phone app) before the page mounts: its API (the core in-process) and
@@ -112,6 +114,7 @@ export let can: HostCan = SERVER_CAN;
 export function useHost(host: Host) {
   api = host.api;
   can = host.can;
+  appName = host.name;
 }
 
 export const PLAYBACK = ["Stopped", "Paused", "Playing", "Stopping"];

@@ -60,6 +60,10 @@ delays), `--source-rate 96000` (switches the in-use filter from 1x to Nx), and
 
 ## The phone app (your own devices)
 
+The app is called **hqpmob** for now (`apps/mobile/src/can.ts`, `APP_NAME`); the naming may be
+revisited. Its bundle id (`dev.hqpweb.app`) and data folder keep the old name until then: changing
+the id installs a new app, without what the old one keeps.
+
 `apps/mobile` is the web app with the core running in-process (packages/core `localApi`),
 wrapped by Capacitor. HQPlayer is reached through `packages/capacitor-tcp`; what the app
 keeps lives on the phone (each phone keeps its own). It hides what it can't do yet: the

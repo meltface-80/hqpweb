@@ -5,7 +5,7 @@
   // rate-pick.ts; the filter and shaping rows are App's pickers, passed in.
   import type { Snippet } from "svelte";
   import Picker from "./Picker.svelte";
-  import { formatRate, type Capabilities, type Change, type Snapshot } from "./api.ts";
+  import { appName, formatRate, type Capabilities, type Change, type Snapshot } from "./api.ts";
   import type { rateItems as rateItemsOf } from "./hints.ts";
   import { pickRate } from "./rate-pick.ts";
   import {
@@ -174,7 +174,7 @@
       <p class="note">
         Not in use.
         {#if seen}Last seen in {other.label}: {seenWhen(seen.at)}. HQPlayer brings these back when you switch.
-        {:else}hqpweb hasn't seen {other.label}'s settings yet. HQPlayer brings back its own when you switch.{/if}
+        {:else}{appName} hasn't seen {other.label}'s settings yet. HQPlayer brings back its own when you switch.{/if}
       </p>
       {#if seen}
         <dl class="seen">
@@ -219,12 +219,12 @@
     <li>{other.label}'s own settings come back. Change them after if you like.</li>
     {#if playing && resume === "roon-linked"}<li>Roon carries on from the same spot.</li>
     {:else if playing && resume === "roon"}<li>
-        It stays stopped: press play in Roon to carry on. (Link Roon in Settings and hqpweb does this for you.)
+        It stays stopped: press play in Roon to carry on. (Link Roon in Settings and {appName} does this for you.)
       </li>
     {:else if playing}<li>Playback carries on from the same spot.</li>{/if}
   </ol>
   <p class="hint">
-    It takes a while: up to about 20 seconds of silence. Switching while music plays, or is paused, can crash HQPlayer, so hqpweb
+    It takes a while: up to about 20 seconds of silence. Switching while music plays, or is paused, can crash HQPlayer, so {appName}
     stops it first.
   </p>
   <div class="actions">

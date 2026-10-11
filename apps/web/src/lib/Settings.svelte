@@ -2,7 +2,7 @@
   import { tick } from "svelte";
   // Settings sheet: per-device preferences, learned failures for the selected
   // instance, and About.
-  import { api, can, formatRate, type Failure, type Inst } from "./api.ts";
+  import { appName, api, can, formatRate, type Failure, type Inst } from "./api.ts";
   import { THEMES, prefs, savePrefs, type Prefs } from "./prefs.svelte.ts";
   import InstanceSettings from "./InstanceSettings.svelte";
   import RoonSettings from "./RoonSettings.svelte";
@@ -234,7 +234,8 @@
       <div class="body about">
         <h4>About</h4>
         <p class="help">
-          hqpweb {__APP_VERSION__}{__APP_COMMIT__ ? ` (${__APP_COMMIT__})` : ""}: a web controller for HQPlayer, beta.
+          {appName}
+          {__APP_VERSION__}{__APP_COMMIT__ ? ` (${__APP_COMMIT__})` : ""}: a controller for HQPlayer, beta.
           <a href="https://github.com/statelycurmudgeon/hqpweb" target="_blank" rel="noopener noreferrer">Source and issues</a>.
         </p>
         <p class="help">

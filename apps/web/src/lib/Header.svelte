@@ -1,7 +1,7 @@
 <script lang="ts">
   // The top bar: the app, the instance (with its status dot) and Settings; under it, with
   // more than one named DAC behind the instance, which DAC is in use (dac-scope.ts).
-  import { api, type Inst } from "./api.ts";
+  import { appName, api, type Inst } from "./api.ts";
   import { hasDacs } from "./dac-scope.ts";
 
   let {
@@ -42,7 +42,7 @@
 </script>
 
 <header class="top">
-  <span class="brand" aria-label="hqpweb"><img src="/icon-192.png" alt="" width="22" height="22" />hqpweb</span>
+  <span class="brand" aria-label={appName}><img src="/icon-192.png" alt="" width="22" height="22" />{appName}</span>
   <!-- The status dot sits on the instance name it belongs to. -->
   <div class="inst" title={dotTitle}>
     <span class="dot {online}" class:slow={online === "live" && slow} aria-hidden="true"></span>

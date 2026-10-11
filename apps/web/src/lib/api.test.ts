@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Api } from "@app/contract";
-import { SERVER_CAN, api, can, httpApi, useHost } from "./api.ts";
+import { SERVER_CAN, api, can, httpApi, useHost, appName } from "./api.ts";
 
 /** A fetch that records what it was asked and answers `reply`. */
 function recorder(reply: unknown = {}, status = 200) {
@@ -93,13 +93,15 @@ describe("the host", () => {
   it("is the server unless a host says otherwise: HTTP, and everything on offer", () => {
     expect(can).toEqual({ restartCap: true, calibrate: true, roon: true, discover: true });
     expect(can).toBe(SERVER_CAN);
+    expect(appName).toBe("hqpweb");
   });
-  it("a host's API and abilities reach every module that imported them (live bindings)", async () => {
+  it("a host's API, abilities and name reach every module that imported them (live bindings)", async () => {
     const appApi = { instances: async () => [] } as unknown as Api;
-    useHost({ api: appApi, can: { restartCap: false, calibrate: false, roon: false, discover: false } });
+    useHost({ api: appApi, can: { restartCap: false, calibrate: false, roon: false, discover: false }, name: "hqpmob" });
     expect(api).toBe(appApi);
     expect(can.roon).toBe(false);
+    expect(appName).toBe("hqpmob");
     expect(await api.instances()).toEqual([]);
-    useHost({ api: httpApi(), can: SERVER_CAN }); // as it was, for the other tests
+    useHost({ api: httpApi(), can: SERVER_CAN, name: "hqpweb" }); // as it was, for the other tests
   });
 });

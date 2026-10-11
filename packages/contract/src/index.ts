@@ -337,4 +337,6 @@ export interface HostCan {
 export interface Host {
   api: Api;
   can: HostCan;
+  /** What the page calls itself: "hqpweb" on the server, "hqpmob" in the phone app. */
+  name: string;
 }

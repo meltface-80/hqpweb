@@ -5,7 +5,7 @@
 // (docs/quality-plan.md, principle 7). Screenshots are for people; never compared.
 import { expect, test, type Page } from "@playwright/test";
 import pkg from "../package.json" with { type: "json" };
-import { can, fakeUrl, shotPath } from "./hosts.ts";
+import { appName, can, fakeUrl, shotPath } from "./hosts.ts";
 
 /** Open on an instance. */
 async function openOn(page: Page, id: string) {
@@ -193,7 +193,8 @@ test("Settings shows the version and the non-affiliation notice", async ({ page 
   await openOn(page, "about");
   await page.getByRole("button", { name: "Settings" }).click();
 
-  await expect(sheet(page)).toContainText(`hqpweb ${pkg.version}`);
+  await expect(sheet(page)).toContainText(`${appName()} ${pkg.version}`);
+  await expect(page.locator(".brand")).toHaveText(appName());
   // The README and About must keep the non-affiliation notice (CLAUDE.md).
   await expect(sheet(page)).toContainText("Not affiliated");
   await sheet(page).getByRole("heading", { name: "About", exact: true }).scrollIntoViewIfNeeded();

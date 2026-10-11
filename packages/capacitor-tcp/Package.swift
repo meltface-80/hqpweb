@@ -1,7 +1,7 @@
 // swift-tools-version: 5.9
 import PackageDescription
 
-// Plain TCP for hqpweb's phone app (apps/mobile src/tcp.ts is its JavaScript side).
+// Plain TCP for the phone app, hqpmob (apps/mobile src/tcp.ts is its JavaScript side).
 let package = Package(
     name: "AppCapacitorTcp",
     platforms: [.iOS(.v15)],

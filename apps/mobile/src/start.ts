@@ -23,7 +23,7 @@ import {
   type ServiceOptions,
 } from "@app/core";
 import type { Connect } from "@app/protocol";
-import { APP_CAN } from "./can.ts";
+import { APP_CAN, APP_NAME } from "./can.ts";
 
 const unavailable = () => Promise.reject(new Error("not available in this app yet"));
 
@@ -47,7 +47,7 @@ export async function startApp(target: HTMLElement, { connect, docs, tuning }: A
       LearnedStore.open(docs),
       HistoryStore.open(docs),
       PresetStore.open(docs, parseChange),
-      RoonLink.open(docs, { version: __APP_VERSION__ }),
+      RoonLink.open(docs, { version: __APP_VERSION__, name: APP_NAME }),
     ]);
     say("Starting…");
     const service = new Service(config, {
@@ -64,7 +64,7 @@ export async function startApp(target: HTMLElement, { connect, docs, tuning }: A
       calibrate: unavailable,
       ...localRoonApi(roon, service),
     };
-    useHost({ api: { ...localApi(service, { roon }), ...host }, can: APP_CAN });
+    useHost({ api: { ...localApi(service, { roon }), ...host }, can: APP_CAN, name: APP_NAME });
     // Writes wait a moment to batch (docs.ts); the phone may stop the app any time after it's
     // hidden, so finish them then. Roon's pairing token is among them.
     document.addEventListener("visibilitychange", () => {
@@ -73,7 +73,7 @@ export async function startApp(target: HTMLElement, { connect, docs, tuning }: A
     target.textContent = "";
     mount(App, { target });
   } catch (e) {
-    say(`hqpweb couldn't start: ${(e as Error).message}`);
+    say(`${APP_NAME} couldn't start: ${(e as Error).message}`);
     throw e;
   }
 }

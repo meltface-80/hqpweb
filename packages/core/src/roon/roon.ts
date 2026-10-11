@@ -86,7 +86,7 @@ interface RawZone {
 }
 
 const newInstallId = () => [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, "0")).join("");
-const extensionName = (installId: string) => `hqpweb ${installId.slice(0, 4)}`;
+const extensionName = (name: string, installId: string) => `${name} ${installId.slice(0, 4)}`;
 const EXTENSION = {
   publisher: "hqpweb",
   email: "",
@@ -135,6 +135,8 @@ export const validRoonHost = (h: string) => /^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}
 export interface RoonOptions {
   /** This hqpweb's version, as Roon shows it under Extensions. */
   version?: string;
+  /** The name Roon shows under Extensions (default "hqpweb"; the phone app's "hqpmob"). Not its id: a pairing survives a rename. */
+  name?: string;
   /** The WebSocket to use; default the platform's own. */
   WebSocket?: typeof WebSocket;
   /** Liveness check interval: Node's WebSocket can't send pings, so a cheap request stands in. */
@@ -168,7 +170,7 @@ export class RoonLink {
   constructor(saved: { docs: DocStore; data: Record<string, unknown> | null } | null, opts: RoonOptions = {}) {
     this.writer = saved && new DocWriter(saved.docs, DOC, { private: true });
     const { WebSocket: Socket, ...rest } = opts;
-    this.opts = { aliveMs: 30_000, replyMs: 10_000, reconnectMs: 2000, version: "", ...rest };
+    this.opts = { aliveMs: 30_000, replyMs: 10_000, reconnectMs: 2000, version: "", name: "hqpweb", ...rest };
     this.Socket = Socket ?? globalThis.WebSocket;
     this.retryMs = this.opts.reconnectMs;
     const s = (saved?.data ?? null) as Partial<RoonSettings> | null;
@@ -208,7 +210,7 @@ export class RoonLink {
       status: this.status,
       ...(this.error ? { error: this.error } : {}),
       ...(this.core ? { core: { name: this.core.name, version: this.core.version } } : {}),
-      extensionName: extensionName(this.settings.installId),
+      extensionName: extensionName(this.opts.name, this.settings.installId),
       zones: [...this.zones.values()]
         .map(zoneView)
         .sort((a, b) => Number(b.hqplayer) - Number(a.hqplayer) || a.name.localeCompare(b.name)),
@@ -412,7 +414,7 @@ export class RoonLink {
           "com.roonlabs.registry:1/register",
           {
             extension_id: `com.github.hqpweb.${this.settings.installId}`,
-            display_name: extensionName(this.settings.installId),
+            display_name: extensionName(this.opts.name, this.settings.installId),
             ...EXTENSION,
             display_version: this.opts.version,
             required_services: [TRANSPORT],

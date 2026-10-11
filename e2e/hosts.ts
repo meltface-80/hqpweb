@@ -4,12 +4,15 @@
 import { fileURLToPath } from "node:url";
 import { test } from "@playwright/test";
 import type { HostCan } from "@app/contract";
-import { APP_CAN } from "../apps/mobile/src/can.ts";
+import { APP_CAN, APP_NAME } from "../apps/mobile/src/can.ts";
 import { SERVER_CAN } from "../apps/web/src/lib/api.ts";
 import { CONTROL_PORT, lane } from "./lanes.ts";
 
 const running = () => test.info().project.name;
 const onApp = () => lane(running()).host === "app";
+
+/** What the running host calls itself: hqpweb, or the phone app's name. */
+export const appName = () => (onApp() ? APP_NAME : "hqpweb");
 
 /** What the running host offers. */
 export const can = (): HostCan => (onApp() ? APP_CAN : SERVER_CAN);

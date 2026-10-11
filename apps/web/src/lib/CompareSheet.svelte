@@ -3,7 +3,7 @@
   // choose, each a full card in a column; the big A and B buttons switch what plays. Which
   // side is heard is read from State. Rules in compare.ts; changes go through the app's
   // apply (the change engine pauses for a mode switch and rolls back what doesn't play).
-  import { api, formatRate, type Capabilities, type Change, type PresetView, type Snapshot } from "./api.ts";
+  import { appName, api, formatRate, type Capabilities, type Change, type PresetView, type Snapshot } from "./api.ts";
   import {
     asSettings,
     changeFor,
@@ -121,7 +121,7 @@
 
       {#if !bChoices}
         <p class="unseen">
-          hqpweb hasn't seen {modeWord(b.mode)}'s lists on this HQPlayer yet. B uses its settings as last seen; switch to
+          {appName} hasn't seen {modeWord(b.mode)}'s lists on this HQPlayer yet. B uses its settings as last seen; switch to
           {modeWord(b.mode)} once to choose them here.
         </p>
       {/if}

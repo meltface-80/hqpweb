@@ -3,7 +3,7 @@
   // HQPlayer profile for each, behind one Roon zone). HQPlayer can't tell an app which DAC
   // it's using, or switch to another, so the listener names them and picks the one in use.
   // The design is MusicD-Remote's (by meltface-80); the rules are the server's dac-scope.ts.
-  import { api, type Inst } from "./api.ts";
+  import { appName, api, type Inst } from "./api.ts";
   import { hasDacs } from "./dac-scope.ts";
 
   let { instance, onchange }: { instance: Inst | null; onchange: () => Promise<void> } = $props();
@@ -53,9 +53,9 @@
   <div class="dacs">
     <strong>DACs</strong>
     <p class="help">
-      For an HQPlayer that plays to more than one DAC, with a saved profile for each. HQPlayer can't tell hqpweb which one it's
-      using, so name them here and choose the one in use whenever you switch in HQPlayer. Your answers below, the failures learned
-      here and a DAC's own presets follow the choice.
+      For an HQPlayer that plays to more than one DAC, with a saved profile for each. HQPlayer can't tell {appName} which one it's using,
+      so name them here and choose the one in use whenever you switch in HQPlayer. Your answers below, the failures learned here and
+      a DAC's own presets follow the choice.
     </p>
     {#if hasDacs(instance)}
       <ul>

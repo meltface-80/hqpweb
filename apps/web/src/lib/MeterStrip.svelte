@@ -2,7 +2,7 @@
   // The v2 meter (docs/design-v2-layout.md rule 9): a strip under the now card that says it
   // opens, and the open square with its views. Data from the server's meter stream (paced,
   // condensed: meter-stream.ts); drawing rules in meter-view.ts. It only connects while shown.
-  import { api, can, type MeterEvent } from "./api.ts";
+  import { appName, api, can, type MeterEvent } from "./api.ts";
   import {
     bandBoxes,
     crest,
@@ -168,8 +168,9 @@
     </p>
     {#if whyNoMeter}
       <p class="nometer detail">
-        hqpweb can't reach HQPlayer's meter port, the control port + 1 (usually TCP 4322). A firewall between them is the usual
-        cause: see <a
+        {appName} can't reach HQPlayer's meter port, the control port + 1 (usually TCP 4322). A firewall between them is the usual cause:
+        see
+        <a
           href="https://github.com/statelycurmudgeon/hqpweb/blob/main/docs/install.md#when-something-doesnt-work"
           target="_blank"
           rel="noopener noreferrer">what to check</a

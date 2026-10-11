@@ -2,7 +2,7 @@
   "name": "@app/capacitor-tcp",
   "version": "0.1.0-beta.6",
   "private": true,
-  "description": "Plain TCP for hqpweb's phone app: HQPlayer's control and meter ports (iOS: Network.framework).",
+  "description": "Plain TCP for the phone app (hqpmob): HQPlayer's control and meter ports (iOS: Network.framework).",
   "capacitor": {
     "ios": {
       "src": "ios"

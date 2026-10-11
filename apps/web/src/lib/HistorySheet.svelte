@@ -1,7 +1,7 @@
 <script lang="ts">
   // History (docs/design-v2-layout.md): what changed on this HQPlayer, when, from where,
   // and how it went. The server keeps it (history.ts); this only shows it.
-  import { api, formatRate, type HistoryEntry } from "./api.ts";
+  import { appName, api, formatRate, type HistoryEntry } from "./api.ts";
   import { historyRows, type HistoryFilter } from "./history-view.ts";
 
   let { instanceId }: { instanceId: string | null } = $props();
@@ -47,7 +47,7 @@
   {:else if !entries}
     <p class="dim">Loading…</p>
   {:else if !days.length}
-    <p class="dim">Nothing yet. Changes show here as they're made, from hqpweb or elsewhere.</p>
+    <p class="dim">Nothing yet. Changes show here as they're made, from {appName} or elsewhere.</p>
   {:else}
     {#each days as d (d.day)}
       <h4>{d.day}</h4>
@@ -63,7 +63,7 @@
       </ul>
     {/each}
   {/if}
-  <p class="dim foot">Changes made in HQPlayer itself, or another app, show under Elsewhere when hqpweb notices them.</p>
+  <p class="dim foot">Changes made in HQPlayer itself, or another app, show under Elsewhere when {appName} notices them.</p>
 </dialog>
 
 <style>
