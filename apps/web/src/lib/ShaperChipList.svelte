@@ -1,6 +1,6 @@
 <script lang="ts">
   // The modulator or dither list in the v2 layout (docs/design-v2-layout.md rule 2): the
-  // same family sections and cited notes as ShaperList, each row with up to four chips,
+  // family sections and cited notes, each row with up to four chips,
   // and the chips that would narrow the list offered above it. A search or a chosen chip
   // opens the folded sections. Rules in shaper-chips.ts and chips.ts.
   import { SvelteSet } from "svelte/reactivity";

@@ -6,19 +6,17 @@
   import { tick } from "svelte";
   import { api, formatRate, type KeptUp, type Setup } from "./api.ts";
   import { cantPlay, companionRate } from "./hints.ts";
-  import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { groupDithers, groupModulators } from "./advice/catalogue.ts";
   import { withGuideNotes, withVolumeNotes } from "./advice/list-notes.ts";
   import { modulatorAdvice } from "./advice/modulator.ts";
   import { ditherAdvice } from "./advice/dither.ts";
   import { type SetupKey } from "./setup-questions.ts";
-  import ShaperList from "./ShaperList.svelte";
   import ShaperChipList from "./ShaperChipList.svelte";
   import ModulatorGuide from "./ModulatorGuide.svelte";
   import GuideIntro from "./GuideIntro.svelte";
   import GuideFlowHead from "./GuideFlowHead.svelte";
   import GuideFlowNav from "./GuideFlowNav.svelte";
-  import { FILTER_HANDOFF, PLACES, canGoOn, firstOpen, flowSteps } from "./guide-flow.ts";
+  import { FILTER_HANDOFF, canGoOn, firstOpen, flowSteps } from "./guide-flow.ts";
   import DitherGuide from "./DitherGuide.svelte";
 
   type Item = { name: string; warn?: string; note?: string; gen?: number; disabled?: boolean };
@@ -41,7 +39,6 @@
     onpcm,
     result,
     onsaved,
-    v2 = false,
     mode = "",
     keptUp = [],
   }: {
@@ -71,8 +68,6 @@
     result: { kind: string; text: string } | null;
     /** After answers are saved, so the instance list (and Settings) catch up. */
     onsaved: () => void;
-    /** The v2 layout's list: chips that describe and filter (ShaperChipList). */
-    v2?: boolean;
     mode?: string;
     keptUp?: KeptUp[];
   } = $props();
@@ -114,7 +109,7 @@
     withVolumeNotes(withGuideNotes(items, new Set(Object.keys(badges).filter((n) => badges[n]?.kind === "yours"))), answers),
   );
 
-  // The guide as a flow (v2 "Guide me"): its steps one at a time, Back and Next.
+  // The guide as a flow ("Guide me"): its steps one at a time, Back and Next.
   let flow = $state(false);
   let step = $state(1);
   const steps = $derived(flowSteps(isSdm));
@@ -127,26 +122,17 @@
 
   /** The result showing when the sheet opened: only newer ones are repeated here. */
   let resultAtOpen = $state<{ kind: string; text: string } | null>(null);
-  export async function open(opts: { tab?: "list" | "guide"; flow?: boolean } = {}) {
+  export async function open(opts: { flow?: boolean } = {}) {
     resultAtOpen = result;
     flow = !!opts.flow;
-    if (flow) {
-      setTab("guide");
-      step = firstOpen(steps, answers);
-    }
-    if (opts.tab) setTab(opts.tab);
+    if (flow) step = firstOpen(steps, answers);
     message = "";
-    await tick(); // let the tab render before looking for the current row
+    await tick(); // let the list render before looking for the current row
     dialog.showModal();
     dialog.querySelector(".main.current")?.scrollIntoView({ block: "center" });
   }
-  function setTab(t: "list" | "guide") {
-    if (v2) return; // one guide in the new layout: the flow (owner's review, 2026-10-09)
-    prefs.adviceTab = t;
-    savePrefs();
-  }
-  /** What the sheet shows: in the new layout the list, or the guide as a flow; in classic, the tab chosen. */
-  const tab = $derived(v2 ? (flow ? "guide" : "list") : prefs.adviceTab);
+  /** What the sheet shows: the list, or the guide as a flow (one guide: owner's review, 2026-10-09). */
+  const tab = $derived(flow ? "guide" : "list");
   /** From the list: "Not sure where to start?" turns this sheet into the guide's flow. */
   function startGuide() {
     flow = true;
@@ -192,7 +178,7 @@
 
 <button class="row" onclick={() => open()} {disabled}>
   <span class="label">{label}</span>
-  <span class="value" class:mono={v2}>
+  <span class="value mono">
     {#if active === true}<span class="taken" title="Active in HQPlayer">✓</span>{:else if active === false}<span
         class="not-taken"
         title="HQPlayer reports a different one active">⚠</span
@@ -219,15 +205,7 @@
           ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button
         >
       </header>
-      {#if !v2}
-        <div class="tabs" role="tablist" aria-label="{label} view">
-          <button role="tab" aria-selected={prefs.adviceTab === "list"} onclick={() => setTab("list")}>List</button>
-          <button role="tab" aria-selected={prefs.adviceTab === "guide"} onclick={() => setTab("guide")}
-            >Guide <span class="beta">Beta</span></button
-          >
-        </div>
-      {/if}
-      <p class="now">Now using <strong class:mono={v2}>{current || "—"}</strong></p>
+      <p class="now">Now using <strong class="mono">{current || "—"}</strong></p>
     {/if}
     {#if result && result !== resultAtOpen}
       <!-- A change made from here: its outcome (a rollback, say) would otherwise sit behind the sheet. -->
@@ -237,22 +215,18 @@
     <div class="body">
       {#if tab === "guide" && (!flow || step === 1)}<GuideIntro />{/if}
       {#if tab === "list"}
-        {#if v2}
-          <ShaperChipList
-            {sections}
-            items={listItems}
-            {current}
-            {badges}
-            {isSdm}
-            {rateHz}
-            {mode}
-            {keptUp}
-            {disabled}
-            onpick={pick}
-          />
-        {:else}
-          <ShaperList {sections} items={listItems} {current} {badges} {disabled} onpick={pick} />
-        {/if}
+        <ShaperChipList
+          {sections}
+          items={listItems}
+          {current}
+          {badges}
+          {isSdm}
+          {rateHz}
+          {mode}
+          {keptUp}
+          {disabled}
+          onpick={pick}
+        />
       {:else if isSdm}
         <ModulatorGuide
           setup={answers}
@@ -269,7 +243,6 @@
             onpcm();
           }}
           step={flow ? step : undefined}
-          where={v2 ? PLACES.v2 : PLACES.current}
           {current}
           {disabled}
           onanswer={answer}
@@ -287,7 +260,6 @@
           onanswer={answer}
           onpick={pick}
           step={flow ? step : undefined}
-          where={v2 ? PLACES.v2 : PLACES.current}
         />
       {/if}
       {#if flow && onfilters && step === steps.length}
@@ -296,7 +268,7 @@
         </div>
       {/if}
       {#if tab === "list"}
-        {#if v2}<button class="guideme" onclick={startGuide}>Not sure where to start? Guide me</button>{/if}
+        <button class="guideme" onclick={startGuide}>Not sure where to start? Guide me</button>
         <p class="foot">Every {isSdm ? "modulator" : "dither"} HQPlayer offers stays in the list.</p>
       {/if}
     </div>
@@ -417,29 +389,6 @@
     stroke-width: 2;
     fill: none;
   }
-  .tabs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    margin: 0 16px 8px;
-    padding: 3px;
-    border-radius: 12px;
-    background: var(--bg);
-  }
-  .tabs button {
-    font: inherit;
-    font-weight: 600;
-    min-height: 38px;
-    border: 0;
-    border-radius: 9px;
-    background: none;
-    color: var(--text-dim);
-    cursor: pointer;
-  }
-  .tabs button[aria-selected="true"] {
-    background: var(--bg-elev);
-    color: var(--text);
-    box-shadow: var(--shadow-card);
-  }
   .now,
   .msg {
     margin: 0 20px 8px;
@@ -462,18 +411,6 @@
     background: var(--bg);
     color: var(--accent-text);
     cursor: pointer;
-  }
-  .beta {
-    font-size: 0.66rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 1px 6px;
-    margin-left: 4px;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent-text);
-    vertical-align: middle;
   }
   .msg.result {
     color: var(--text);

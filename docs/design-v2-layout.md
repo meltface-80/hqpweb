@@ -5,8 +5,8 @@ visual and interaction rules for building it. It sits under [design-v1.md](desig
 whose fact base (§2) still holds, and it changes no advice: the rules in
 `apps/web/src/lib/advice/` and the guide's wording carry over unchanged.
 
-It is the default layout since 0.1.0-beta.6. The earlier one stays, for now, as an opt-in
-"Classic layout" (Settings → Appearance), per device.
+It is the default layout since 0.1.0-beta.6, and the only one since the earlier "Classic
+layout" was retired after that release.
 
 ## Structure
 

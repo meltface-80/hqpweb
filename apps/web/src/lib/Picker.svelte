@@ -1,29 +1,15 @@
 <script lang="ts">
-  import FilterNoteView from "./FilterNoteView.svelte";
-  import { filterNote } from "./advice/filter-notes.ts";
   import { tick } from "svelte";
-  // A searchable picker for long lists (36–77 items). Opens as a bottom sheet.
-  // Items can be disabled (with a reason) or carry a warning, e.g. "failed here before".
-  // Filters carry a rating, focus tags and a ratio rule (HQPlayer 6's, borrowed by name for v5), and
-  // modulators a generation: shown as stars (ⓘ for details) or a "Gen" badge, with
-  // chips to narrow the list and an optional grouping by rating.
-  // Items that can't do the current conversion ratio are `blocked`: hidden by a
-  // "compatible" chip that's on by default, and struck through when shown. Picking
-  // one is still allowed; the caller decides what to offer (e.g. a rate switch).
+  // A searchable picker for a list (output rates, matrix profiles). Opens as a bottom sheet.
+  // Items can be disabled (with a reason) or carry a warning, e.g. "failed here before",
+  // with a chip to show only those that work here. Filters and modulators have their own
+  // sheets (FilterSheet, AdviceSheet).
   type Item = {
     index: number;
     name: string;
     disabled?: boolean;
     note?: string;
     warn?: string;
-    rating?: number;
-    tags?: string[];
-    ratioText?: string;
-    gen?: number;
-    /** Why it can't do the current ratio, e.g. "needs a power-of-two ratio; … is 4.35×". */
-    blocked?: string;
-    /** Apodizing per HQPlayer's table: true, false, or "partial" (½); undefined when unknown. */
-    apodizing?: boolean | "partial";
   };
   let {
     label,
@@ -32,8 +18,6 @@
     hint = "",
     active = null,
     disabled = false,
-    groupByRating = false,
-    ratioLabel = "",
     mono = false,
     onpick,
   }: {
@@ -44,11 +28,7 @@
     /** true: HQPlayer reports this selection active; false: it doesn't; null: not applicable. */
     active?: boolean | null;
     disabled?: boolean;
-    /** Sections by rating instead of HQPlayer's order (only when items have ratings). */
-    groupByRating?: boolean;
-    /** The conversion being checked, e.g. "44.1 kHz → 192 kHz", for the hidden-items line. */
-    ratioLabel?: string;
-    /** Values are HQPlayer identifiers, set in the mono font (v2 layout, rule 3). */
+    /** Values are HQPlayer identifiers, set in the mono font (rule 3 of the layout). */
     mono?: boolean;
     onpick: (item: Item) => void;
   } = $props();
@@ -56,60 +36,23 @@
   let dialog: HTMLDialogElement;
   let query = $state("");
   let search: HTMLInputElement;
-  let chips = $state<Set<string>>(new Set());
-  let openInfo = $state<number | null>(null);
-  let compatOnly = $state(true);
+  let worksHere = $state(false);
 
-  const rated = $derived(items.some((i) => i.rating !== undefined));
-  const tagChips = $derived([...new Set(items.flatMap((i) => i.tags ?? []))].sort());
   const anyWarn = $derived(items.some((i) => i.warn || i.disabled));
-  const anyApodizing = $derived(items.some((i) => i.apodizing === true));
-  const blockedCount = $derived(items.filter((i) => i.blocked && i.name !== current).length);
-  const toggle = (c: string) => {
-    const next = new Set(chips);
-    if (next.has(c)) next.delete(c);
-    else next.add(c);
-    chips = next;
-  };
   const shown = $derived(
     items.filter((i) => {
       const q = query.trim().toLowerCase();
-      if (q && !i.name.toLowerCase().includes(q) && !(i.tags ?? []).some((t) => t.includes(q))) return false;
-      if (compatOnly && i.blocked && i.name !== current) return false;
-      if (chips.has("5/5") && i.rating !== 5) return false;
-      if (chips.has("apodizing") && i.apodizing !== true) return false;
-      if (chips.has("works here") && (i.warn || i.disabled)) return false;
-      for (const t of tagChips) if (chips.has(t) && !(i.tags ?? []).includes(t)) return false;
+      if (q && !i.name.toLowerCase().includes(q)) return false;
+      if (worksHere && (i.warn || i.disabled)) return false;
       return true;
     }),
   );
-  const groups = $derived(
-    groupByRating && rated
-      ? [5, 4, 3, 2, 1, 0]
-          .map((r) => ({ rating: r, items: shown.filter((i) => (i.rating ?? 0) === r) }))
-          .filter((g) => g.items.length)
-      : [{ rating: -1, items: shown }],
-  );
-  /** Some rows have ⓘ: the others keep its column, so stars line up. */
-  const anyInfo = $derived(items.some((i) => i.tags?.length || i.ratioText || i.apodizing));
-  // HQPlayer's terse ratio wording, said plainly.
-  const RATIO_WORDS: Record<string, string> = {
-    Any: "any conversion ratio",
-    "Any up": "any ratio, upsampling only",
-    Int: "whole-number ratios",
-    "Int up": "whole-number ratios, upsampling only",
-    "2^x": "power-of-two ratios",
-    "2^x up": "power-of-two ratios, upsampling only",
-    "1:1": "no rate conversion",
-  };
 
-  /** Open the sheet; `chips` pre-selects narrowing chips, e.g. ["apodizing"]. */
-  export async function open(opts: { chips?: string[] } = {}) {
-    chips = new Set(opts.chips ?? []);
+  /** Open the sheet. */
+  export async function open() {
     query = "";
-    openInfo = null;
-    compatOnly = true;
-    await tick(); // let the narrowing apply before looking for the current row
+    worksHere = false;
+    await tick();
     dialog.showModal();
     const list = dialog.querySelector("ul");
     if (list) list.scrollTop = 0;
@@ -150,96 +93,31 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
       <input bind:this={search} bind:value={query} type="search" placeholder="Search {items.length}…" autocomplete="off" />
     </label>
-    {#if rated || anyWarn || blockedCount || anyApodizing}
+    {#if anyWarn}
       <div class="chips" role="group" aria-label="Narrow the list">
-        {#if blockedCount}
-          <button class:on={compatOnly} aria-pressed={compatOnly} onclick={() => (compatOnly = !compatOnly)}>compatible</button>
-        {/if}
-        {#if anyApodizing}
-          <button class:on={chips.has("apodizing")} aria-pressed={chips.has("apodizing")} onclick={() => toggle("apodizing")}
-            >apodizing</button
-          >
-        {/if}
-        {#if rated}
-          <button class:on={chips.has("5/5")} aria-pressed={chips.has("5/5")} onclick={() => toggle("5/5")}>★ 5/5</button>
-          {#each tagChips as t (t)}
-            <button class:on={chips.has(t)} aria-pressed={chips.has(t)} onclick={() => toggle(t)}>{t}</button>
-          {/each}
-        {/if}
-        {#if anyWarn}
-          <button class:on={chips.has("works here")} aria-pressed={chips.has("works here")} onclick={() => toggle("works here")}
-            >✓ works here</button
-          >
-        {/if}
+        <button class:on={worksHere} aria-pressed={worksHere} onclick={() => (worksHere = !worksHere)}>✓ works here</button>
       </div>
     {/if}
-    {#if blockedCount && compatOnly}
-      <p class="hidden-note">
-        {blockedCount} hidden: they can't convert {ratioLabel || "at this ratio"}.
-        <button class="link" onclick={() => (compatOnly = false)}>Show all</button>
-      </p>
-    {/if}
     <ul>
-      {#each groups as g (g.rating)}
-        {#if g.rating >= 0}<li class="group">
-            {g.rating ? `${g.rating} star${g.rating === 1 ? "" : "s"}` : "Not rated"} · {g.items.length}
-          </li>{/if}
-        {#each g.items as item (item.index)}
-          {@const note = filterNote(item.name)}
-          {@const info = item.tags?.length || item.ratioText || item.apodizing || note}
-          <li>
-            <div class="item">
-              <button
-                class="main"
-                class:current={item.name === current}
-                aria-current={item.name === current ? "true" : undefined}
-                class:warn={!!item.warn}
-                class:blocked={!!item.blocked}
-                disabled={item.disabled}
-                onclick={() => pick(item)}
-              >
-                <span class="name">
-                  <span class:mono>{item.name}</span>
-                  {#if item.blocked}<small class="why">{item.blocked}</small>{:else if item.warn}<small class="why"
-                      >⚠ {item.warn}</small
-                    >{:else if item.note}<small class="why">{item.note}</small>{/if}
-                </span>
-                <span class="trail">
-                  {#if item.blocked && item.ratioText}<s class="ratio" title="Can't do this conversion">{item.ratioText}</s>{/if}
-                  {#if item.rating !== undefined && !(groupByRating && rated)}<span
-                      class="stars"
-                      role="img"
-                      aria-label="{item.rating} of 5"
-                      >{"★".repeat(item.rating)}<span class="off">{"★".repeat(5 - item.rating)}</span></span
-                    >{/if}
-                  {#if item.gen !== undefined}<span class="gen" title="Modulator generation">Gen {item.gen}</span>{/if}
-                </span>
-              </button>
-              {#if info}
-                <button
-                  class="info"
-                  class:open={openInfo === item.index}
-                  aria-label="Details for {item.name}"
-                  aria-expanded={openInfo === item.index}
-                  onclick={() => (openInfo = openInfo === item.index ? null : item.index)}
-                  ><svg viewBox="0 0 24 24" aria-hidden="true"
-                    ><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5M12 7.6v.1" /></svg
-                  ></button
-                >
-              {:else if anyInfo}
-                <span class="info" aria-hidden="true"></span>
-              {/if}
-            </div>
-            {#if info && openInfo === item.index}
-              <p class="details">
-                {#if item.tags?.length}Favours {item.tags.join(", ")}.{/if}
-                {#if item.ratioText}Works with {RATIO_WORDS[item.ratioText] ?? item.ratioText}.{/if}
-                {#if item.apodizing === true}Apodizing.{:else if item.apodizing === "partial"}Partly apodizing.{/if}
-              </p>
-              {#if note}<FilterNoteView {note} />{/if}
-            {/if}
-          </li>
-        {/each}
+      {#each shown as item (item.index)}
+        <li>
+          <div class="item">
+            <button
+              class="main"
+              class:current={item.name === current}
+              aria-current={item.name === current ? "true" : undefined}
+              class:warn={!!item.warn}
+              disabled={item.disabled}
+              onclick={() => pick(item)}
+            >
+              <span class="name">
+                <span class:mono>{item.name}</span>
+                {#if item.warn}<small class="why">⚠ {item.warn}</small>{:else if item.note}<small class="why">{item.note}</small
+                  >{/if}
+              </span>
+            </button>
+          </div>
+        </li>
       {:else}
         <li class="empty">No match</li>
       {/each}
@@ -461,79 +339,6 @@
     padding: 16px 12px;
     color: var(--text-dim);
   }
-  .trail {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .ratio {
-    font-size: 0.72rem;
-    padding: 1px 7px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    color: var(--text-faint);
-    white-space: nowrap;
-  }
-  li .main.blocked .name {
-    color: var(--text-dim);
-  }
-  li .main.blocked .why {
-    color: var(--warn);
-  }
-  .hidden-note {
-    margin: -6px 16px 12px;
-    font-size: 0.82rem;
-    color: var(--text-dim);
-  }
-  .link {
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    color: var(--accent-text);
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .stars {
-    color: var(--accent-text);
-    font-size: 0.78rem;
-    letter-spacing: 2px;
-    white-space: nowrap;
-  }
-  .stars .off {
-    color: var(--border);
-  }
-  .gen {
-    font-size: 0.72rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    white-space: nowrap;
-  }
-  .info {
-    display: grid;
-    place-items: center;
-    width: 40px;
-    height: 44px;
-    background: none;
-    border: 0;
-    color: var(--text-faint);
-    cursor: pointer;
-  }
-  .info.open {
-    color: var(--accent-text);
-  }
-  .details {
-    margin: 0 12px 10px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: var(--bg);
-    font-size: 0.84rem;
-    line-height: 1.45;
-    color: var(--text-dim);
-  }
   .chips {
     display: flex;
     flex-wrap: wrap;
@@ -555,16 +360,6 @@
     border-color: transparent;
     color: var(--accent-text);
     font-weight: 600;
-  }
-  .group {
-    padding: 16px 12px 6px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--text);
-  }
-  .group:not(:first-child) {
-    margin-top: 6px;
-    border-top: 1px solid var(--border);
   }
   .mono {
     font-family: var(--font-mono);

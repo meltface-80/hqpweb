@@ -1,28 +1,21 @@
 <script lang="ts">
-  // Advanced: mode, output rate, convolution and matrix, and the options. These can stop
+  // Advanced: convolution and matrix, and the options (mode and rate are on the signal card). These can stop
   // playback; the server checks that it recovers and tries to roll back if it doesn't.
   import Picker from "./Picker.svelte";
-  import { formatRate, type ApplyResult, type Capabilities, type Change, type Snapshot } from "./api.ts";
-  import type { rateItems as rateItemsOf } from "./hints.ts";
-  import { applyMajor, pickRate } from "./rate-pick.ts";
+  import type { ApplyResult, Capabilities, Change, Snapshot } from "./api.ts";
 
   let {
     caps,
     snap,
     busy,
-    rateItems,
     apply,
     open = $bindable(),
-    modeAndRate = true,
   }: {
     caps: Capabilities;
     snap: Snapshot;
     busy: boolean;
-    rateItems: ReturnType<typeof rateItemsOf>;
     apply: (change: Change) => Promise<ApplyResult | void>;
     open: boolean;
-    /** The v2 layout has mode and rate on its signal card: here only the rare switches. */
-    modeAndRate?: boolean;
   } = $props();
 
   /** Apply a switch, then show what HQPlayer actually reports (it can say OK and not change). */
@@ -35,27 +28,6 @@
 <details class="advanced" bind:open>
   <summary>Advanced</summary>
   <p class="help">These can stop playback. The app checks that playback recovers, and tries to roll back if it doesn't.</p>
-  {#if modeAndRate}
-    <section class="card list">
-      <Picker
-        label="Mode"
-        items={caps.modes}
-        current={caps.mode.name}
-        disabled={busy}
-        onpick={(i) => applyMajor(`mode to ${i.name}`, { mode: i.name }, apply)}
-      />
-      {#if caps.rateSettable}
-        <Picker
-          label="Rate"
-          hint={snap.state.rate === 0 ? `now ${formatRate(snap.status.activeRate, caps.mode.name)}` : ""}
-          items={rateItems}
-          current={formatRate(caps.rates.find((r) => r.index === snap!.state.rate)?.rate ?? 0, caps.mode.name)}
-          disabled={busy}
-          onpick={(i) => pickRate(i as (typeof rateItems)[number], apply)}
-        />
-      {/if}
-    </section>
-  {/if}
 
   <h2 class="sub-h">Convolution and matrix</h2>
   <section class="card list">

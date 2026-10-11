@@ -4,4 +4,6 @@ import { type Flows } from "./flows-kit.ts";
 export const flows: Flows = {
   // Wide and narrow screens, with a meter stream.
   v2wide: { name: "V2 wide", profile: "desktop5-mac-sdm", meter: true },
+  // A device that had chosen the retired Classic layout.
+  v2fromclassic: { name: "V2 from classic", profile: "desktop5-mac-sdm" },
 };

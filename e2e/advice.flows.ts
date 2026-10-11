@@ -2,15 +2,6 @@
 import { setShaper, setRate, type Flows } from "./flows-kit.ts";
 
 export const flows: Flows = {
-  // SDM fixed at DSD512 with an old modulator, no setup answers yet: the guide's flow.
-  guide: {
-    name: "Guide",
-    profile: "desktop5-mac-sdm",
-    setup: (f) => {
-      setRate(f, 22_579_200);
-      setShaper(f, "DSD7");
-    },
-  },
   // PCM fixed at 384k with TPDF, playing, no setup answers yet: the dither guide's flow.
   dither: {
     name: "Dither",
@@ -41,10 +32,6 @@ export const flows: Flows = {
       setShaper(f, "AHM7EC8B");
     },
   },
-  // A short screen: the sheet's body must scroll to its end.
-  scroll: { name: "Scroll", profile: "desktop5-mac-sdm" },
-  // Playing on a machine that can't keep up with anything: the falling-behind alarm.
-  behind: { name: "Behind", profile: "desktop5-mac-sdm", speed: () => 0.6 },
   // HQPlayer stops answering (a test closes it): the restart steps.
   down: { name: "Down", profile: "desktop5-mac-sdm" },
 };

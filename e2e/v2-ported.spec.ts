@@ -1,4 +1,4 @@
-// Flows the classic layout's tests cover (smoke, advice), in the default layout: a filter the
+// Flows first tested in the classic layout (retired), in the layout: a filter the
 // ratio rules out offers rates that fit; the dither guide; a queued track the modulator can't start.
 import { expect, test, type Page } from "@playwright/test";
 import { fakeUrl } from "./hosts.ts";
@@ -59,7 +59,7 @@ test("v2: a queued track the modulator can't start opens the list, where it says
   await sheet(page)
     .getByRole("button", { name: /another modulator/ })
     .click();
-  await expect(sheet(page).getByRole("searchbox")).toBeVisible(); // the list (the new layout has no tabs)
+  await expect(sheet(page).getByRole("searchbox")).toBeVisible(); // the list (no tabs)
   const ahm = sheet(page).locator("li.row", { has: page.getByRole("button", { name: /^AHM7EC8B\b/ }) });
   await expect(ahm.first()).toContainText("won't play");
   await shot(page, "v2-wedge-modulator");

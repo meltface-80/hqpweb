@@ -1,8 +1,7 @@
 <script lang="ts">
-  // The layout (docs/design-v2-layout.md), the default since beta.6 (classic is opt-in): the
-  // now card, the signal-path card, History, then presets and the rare switches. Two
-  // columns from 900 px (the card on the left, the now card on the right). The pieces
-  // App shares with the classic layout come in as snippets.
+  // The layout (docs/design-v2-layout.md): the now card, the signal-path card, History, then
+  // presets and the rare switches. Two columns from 900 px (the card on the left, the now card
+  // on the right). App's pieces (the now card, filters, shaping, presets) come in as snippets.
   import type { Snippet } from "svelte";
   import SignalCard, { type Resume } from "./SignalCard.svelte";
   import MiniBar from "./MiniBar.svelte";

@@ -23,15 +23,8 @@ const DITHER: FlowStep[] = [
   { key: null, title: "Where to start" },
 ];
 
-/**
- * Where the guide sends you to change the rate or mode. The current layout keeps them
- * under Advanced; the v2 layout has them on the signal card.
- */
-export const PLACES = {
-  current: { rate: "under Advanced → Rate", mode: "under Advanced → Mode" },
-  v2: { rate: "on the card's Rate row", mode: "with the card's DSD tab" },
-} as const;
-export type Places = (typeof PLACES)[keyof typeof PLACES];
+/** Where the guide sends you to change the rate or mode: the signal card. */
+export const PLACE = { rate: "on the card's Rate row", mode: "with the card's DSD tab" } as const;
 
 /**
  * The guide's last step hands over to the filters (case 2 of the filter picker's ways in:

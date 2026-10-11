@@ -27,13 +27,6 @@ const fmtX = (v: number) => (v >= 10 ? `${Math.round(v)}×` : `${v.toFixed(1)}×
 export const speedText = (processSpeed: number | null, speed: number | null, cls: SpeedClass) =>
   processSpeed != null ? fmtX(processSpeed) : speed == null ? "—" : LABEL[cls];
 
-export const speedTitle = (processSpeed: number | null, speed: number | null) =>
-  processSpeed != null
-    ? `HQPlayer is processing at ${processSpeed.toFixed(1)}× real time (3-second average): it could run that many times faster than playback needs. Below 1× it can't keep up and audio drops; close to 1× leaves little headroom.`
-    : speed == null
-      ? "Shown while playing, after about 30 s of a track."
-      : `HQPlayer is processing at ${speed.toFixed(3)}× real time over the last 30 s. Below 1.0 it can't keep up and audio will drop. Brief dips during a change are normal.`;
-
 /** Readings in a row below real time before the alarm (HQPTuner uses 3 too): one dip isn't an overload. */
 export const SUSTAIN = 3;
 /** The count of consecutive readings below real time (1×), after this one. */

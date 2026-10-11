@@ -1,7 +1,7 @@
 // Per-device preferences, kept in this browser only. Storage may be unavailable
 // (private mode, blocked site data), so every access is guarded and the app
 // works with the defaults.
-import { layoutOf } from "./prefs-migrate.ts";
+import { withoutRetired } from "./prefs-migrate.ts";
 
 export const THEMES = [
   { id: "system", label: "Match system", note: "Dark or light, following this device", theme: null, palette: "classic" },
@@ -17,18 +17,12 @@ export interface Prefs {
   /** dB per tap of the volume buttons. */
   volumeStep: 0.5 | 1 | 2;
   advancedOpen: boolean;
-  /** Filter lists: HQPlayer's own order, or grouped by HQPlayer 6's rating. */
-  filterOrder: "hqplayer" | "rating";
   /** The v2 filter sheet sorts by what's worked here: "Won't fit your settings" below, asking first (fit/). */
   fitSort: boolean;
   /** Load results older than this many days are ignored by that sort; null: never (fit/evidence.ts). */
   fitMaxAgeDays: number | null;
-  /** The modulator/dither sheet opens on the tab used last. */
-  adviceTab: "list" | "guide";
   /** The guide's intro has been read once: show it as one line from then on. */
   guideIntroSeen: boolean;
-  /** The layout (docs/design-v2-layout.md) by default, or the earlier one-column "classic", chosen in Settings. */
-  layout: "v2" | "classic";
   /** The v2 meter: open as a square, and which view. */
   meterOpen: boolean;
   /** The meter was opened or closed by hand; until then it opens by itself at laptop width (meter-view.ts). */
@@ -44,12 +38,9 @@ const DEFAULTS: Prefs = {
   theme: "system",
   volumeStep: 1,
   advancedOpen: false,
-  filterOrder: "hqplayer",
   fitSort: true,
   fitMaxAgeDays: 90,
-  adviceTab: "list",
   guideIntroSeen: false,
-  layout: "v2",
   meterOpen: false,
   meterChosen: false,
   meterView: "waterfall",
@@ -60,8 +51,7 @@ function load(): Prefs {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { ...DEFAULTS };
-    const stored = JSON.parse(raw) as Partial<Prefs>;
-    return { ...DEFAULTS, ...stored, layout: layoutOf(stored.layout) };
+    return { ...DEFAULTS, ...(withoutRetired(JSON.parse(raw) as Record<string, unknown>) as Partial<Prefs>) };
   } catch {
     return { ...DEFAULTS };
   }

@@ -104,8 +104,6 @@ it easier, that's all I'm hoping for!
 - **Seek** within files HQPlayer plays itself.
 - **Roon (optional):** track, cover art, seek and working play/pause/skip for the Roon
   zone that feeds HQPlayer. Off until you switch it on.
-- **Classic layout:** the earlier one-column layout is still there (Settings →
-  Appearance), without the newer parts (filter sort, guide flow, meters, Compare).
 
 ## How it fits
 

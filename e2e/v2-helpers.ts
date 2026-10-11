@@ -1,11 +1,10 @@
-// Shared by the v2 layout's specs: open an instance in the v2 layout, and screenshot.
+// Shared by the layout's specs: open an instance, and screenshot.
 import { expect, type Page } from "@playwright/test";
 import { shotPath } from "./hosts.ts";
 
 export async function openV2(page: Page, id: string) {
   await page.addInitScript((i) => {
     localStorage.setItem("instance", i);
-    localStorage.setItem("prefs-v1", JSON.stringify({ layout: "v2" }));
   }, id);
   await page.goto("/");
   await expect(page.locator(".signal")).toBeVisible();

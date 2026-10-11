@@ -102,7 +102,6 @@
   /** HQPlayer's own figure must stay below 1× for a while; the position fit has its own timing. */
   const fallingBehind = $derived(processSpeed != null ? speedRules.lasting(behind) : speedClass === "bad" && speed != null);
   const speedText = $derived(speedRules.speedText(processSpeed, speed, speedClass));
-  const speedTitle = $derived(speedRules.speedTitle(processSpeed, speed));
   let offlineSince = $state<Date | null>(null);
   const slow = $derived(speedRules.answersSlowly(snap?.health?.latencyMs));
   const dotTitle = $derived(
@@ -183,7 +182,6 @@
   const inUseFilter = $derived(ctx?.inUseFilter ?? "");
   const inUseApodizing = $derived(inUseFilter ? isApodizing(inUseFilter) : undefined);
   const filterItems = (slot: "1x" | "Nx") => (ctx ? hints.filterItems(ctx, slot) : []);
-  const ratioLabel = $derived(ctx ? hints.ratioLabel(ctx) : "");
   const rateOptions = (filter: string) => (ctx ? hints.rateOptions(ctx, filter) : { options: [], auto: false });
   const wedge = $derived(ctx ? hints.wedge(ctx) : null);
   const otherSourceNotes = $derived(ctx ? hints.otherSourceNotes(ctx) : []);
@@ -200,8 +198,6 @@
         : field === "mode"
           ? modeLabel(String(v))
           : String(v);
-
-  const takenFor = (slot: "1x" | "Nx", name: string) => (snap ? hints.filterTaken(snap, inUse, slot, name) : null);
 
   // ---- incompatible filter or rate: offer output rates that fit -----------------
   // One sheet at a time: a picker closes before the rate sheet opens, and the rate
@@ -253,7 +249,7 @@
     // Let the sheet finish closing before the picker opens.
     // The list shows which ones won't play here, so the wedge opens it rather than the guide.
     setTimeout(() => {
-      if (w?.cause === "modulator") shaperPicker?.open({ tab: "list" });
+      if (w?.cause === "modulator") shaperPicker?.open();
       else (w?.slot === "filter1x" ? picker1x : pickerNx)?.open();
     }, 0);
   }
@@ -319,7 +315,7 @@
   }
 </script>
 
-<main class:wide={prefs.layout === "v2"}>
+<main class="wide">
   <Header {instances} bind:selected {online} {slow} {dotTitle} onsettings={() => settings.open()} ondacs={refreshInstances} />
   {#if updated}
     <p class="updated">
@@ -362,14 +358,10 @@
         {wedge}
         {inUseFilter}
         {inUseApodizing}
-        {speedClass}
-        {speedText}
-        {speedTitle}
         onfixwedge={fixWedge}
         onsuggestapodizing={() => openFilters(["apodizing"])}
         onstatus={(status) => snap && (snap = { ...snap, status })}
         onmessage={(m) => (message = m)}
-        showSpeed={prefs.layout !== "v2"}
         switching={holding ? switchingTo : null}
       />
     {/if}
@@ -383,12 +375,7 @@
         items1x={filterItems("1x")}
         itemsNx={filterItems("Nx")}
         {inUse}
-        taken1x={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
-        takenNx={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
-        {ratioLabel}
         {busy}
-        v2={prefs.layout === "v2"}
-        groupByRating={prefs.filterOrder === "rating"}
         {outRate}
         onpick={pickFilter}
         onapply={apply}
@@ -420,7 +407,6 @@
         onpcm={() => apply({ mode: "PCM" })}
         result={message}
         onsaved={refreshInstances}
-        v2={prefs.layout === "v2"}
         mode={caps.mode.name}
         keptUp={caps.keptUp}
       />
@@ -445,14 +431,14 @@
           At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
         </p>
       {/if}
-      <Advanced {caps} {snap} {busy} {rateItems} {apply} bind:open={advancedOpen} modeAndRate={false} />
+      <Advanced {caps} {snap} {busy} {apply} bind:open={advancedOpen} />
     {/if}
   {/snippet}
 
   {#if snap}
     <!-- While HQPlayer doesn't answer, what's shown is its last known state: dimmed and inert. -->
     <div class="live" class:stale={online === "unreachable"} inert={online === "unreachable" || undefined}>
-      {#if prefs.layout === "v2" && caps}
+      {#if caps}
         <LayoutV2
           {caps}
           {snap}
@@ -481,21 +467,8 @@
           switching={holding ? switchingTo : null}
         />
       {:else}
+        <!-- Until its lists have loaded: what's playing. -->
         {@render nowCard()}
-        {#if caps}
-          <!-- Most frequent jobs, kept above the fold: filters, then dither/modulator, then presets. -->
-          <section class="card list quick" title="1x is used for sources below 50 kHz (44.1/48k), Nx for higher rates.">
-            {@render filters()}
-          </section>
-          {#if otherSourceNotes.length}
-            <p class="card-note">
-              At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
-            </p>
-          {/if}
-          <section class="card list quick">{@render shaping()}</section>
-          {#if selected}<section class="card list quick">{@render presets()}</section>{/if}
-          <Advanced {caps} {snap} {busy} {rateItems} {apply} bind:open={advancedOpen} />
-        {/if}
       {/if}
       {#if caps}
         <RateSwitch
@@ -546,19 +519,9 @@
     }
   }
 
-  .quick {
-    margin-top: 10px;
-  }
   .stale {
     opacity: 0.45;
     filter: grayscale(0.6);
-  }
-  .card {
-    background: var(--bg-elev);
-    border-radius: 14px;
-  }
-  .card.list {
-    overflow: hidden;
   }
   .muted {
     color: var(--text-dim);

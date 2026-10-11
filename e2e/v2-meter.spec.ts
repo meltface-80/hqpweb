@@ -72,7 +72,7 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
 test("v2: a meter view stored as Levels (from before) opens as Bars", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("instance", "v2meter");
-    localStorage.setItem("prefs-v1", JSON.stringify({ layout: "v2", meterOpen: true, meterView: "levels" }));
+    localStorage.setItem("prefs-v1", JSON.stringify({ meterOpen: true, meterView: "levels" }));
   });
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Meter" }).getByRole("button", { name: "Bars" })).toHaveAttribute(
@@ -93,7 +93,7 @@ test("v2: the meter waits to line up with what's heard", async ({ page }) => {
   // Fake output buffer 1.05 s, less hqpweb's own 0.5 s, plus a 2.5 s nudge: 3 s before anything is drawn.
   await page.addInitScript(() => {
     localStorage.setItem("instance", "v2meter");
-    localStorage.setItem("prefs-v1", JSON.stringify({ layout: "v2", meterNudge: { v2meter: 2500 } }));
+    localStorage.setItem("prefs-v1", JSON.stringify({ meterNudge: { v2meter: 2500 } }));
   });
   await page.goto("/");
   const strip = page.getByRole("region", { name: "Meter" }).getByRole("button", { name: /the meter$/ });

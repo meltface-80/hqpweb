@@ -1,5 +1,5 @@
 // The fake HQPlayers for v2-ported.spec.ts, keyed by instance id (e2e/stack.ts loads every *.flows.ts).
-// The same set-ups as smoke and advice's classic-layout tests, for the default layout.
+// Set-ups first written for the classic layout's tests (retired), in the layout.
 import { setRate, setShaper, type Flows } from "./flows-kit.ts";
 
 export const flows: Flows = {

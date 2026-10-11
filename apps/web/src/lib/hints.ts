@@ -134,9 +134,6 @@ export function apodization(apod: number, inUseApodizing: boolean | "partial" | 
   return inUseApodizing === true ? "handled" : "suggest";
 }
 
-/** The ✓ next to a filter: has the chosen one taken? null when its slot isn't in use. */
-export const filterTaken = (snap: Snapshot, inUse: "1x" | "Nx" | null, slot: "1x" | "Nx", name: string) =>
-  snap.status.state === 2 && inUse === slot ? snap.status.activeFilter === name : null;
 /** The ✓ next to the dither or modulator: has the chosen one taken? null when not playing. */
 export const shaperTaken = (snap: Snapshot, name: string) => (snap.status.state === 2 ? snap.status.activeShaper === name : null);
 
@@ -147,9 +144,6 @@ export function inUseSlot(snap: Snapshot): "1x" | "Nx" | null {
   if (sr) return filterSlot(sr);
   return snap.state.filterInUse === snap.state.filter1x ? "1x" : "Nx";
 }
-
-export const ratioLabel = (c: Ctx) =>
-  c.source && c.outRate ? `${formatRate(c.source, "PCM")} → ${formatRate(c.outRate, c.caps.mode.name)}` : "";
 
 /** Output rates that fit `filter` from the current source, for the rate sheet. */
 export function rateOptions(c: Ctx, filter: string) {

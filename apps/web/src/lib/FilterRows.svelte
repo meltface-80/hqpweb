@@ -1,9 +1,7 @@
 <script lang="ts">
-  // The 1x and Nx filter rows, shared by both layouts: the chip sheet (FilterSheet) by
-  // default, the plain Picker in the classic layout. The parent gets the one in use back
+  // The 1x and Nx filter rows: each opens the chip sheet (FilterSheet). The parent gets the one in use back
   // through `picker1x`/`pickerNx`, to open it from elsewhere (the apodizing suggestion,
   // "choose another filter" for a track that can't start).
-  import Picker from "./Picker.svelte";
   import FilterSheet from "./FilterSheet.svelte";
   import { api, type Capabilities, type Change, type Combo, type Snapshot } from "./api.ts";
   import { prefs } from "./prefs.svelte.ts";
@@ -22,12 +20,7 @@
     items1x,
     itemsNx,
     inUse,
-    taken1x,
-    takenNx,
-    ratioLabel,
     busy,
-    v2,
-    groupByRating,
     outRate,
     onpick,
     onapply,
@@ -41,12 +34,7 @@
     items1x: Items;
     itemsNx: Items;
     inUse: "1x" | "Nx" | null;
-    taken1x: boolean | null;
-    takenNx: boolean | null;
-    ratioLabel: string;
     busy: boolean;
-    v2: boolean;
-    groupByRating: boolean;
     outRate: number;
     onpick: (field: Slot, item: Items[number]) => void;
     /** Several settings at once, from the sheet's "What would it take?". */
@@ -59,70 +47,43 @@
 
   const cur1x = $derived(nameAt(caps.filters, snap.state.filter1x));
   const curNx = $derived(nameAt(caps.filters, snap.state.filterNx));
-  const ctx = $derived(v2 && prefs.fitSort ? context(caps, snap) : null);
+  const ctx = $derived(prefs.fitSort ? context(caps, snap) : null);
   const forget = (c: Combo) => api.forgetCombo(instanceId, c).then(onforgot, onforgot);
   const fit1x = $derived(ctx && sheetFit(ctx, "1x", prefs.fitMaxAgeDays));
   const fitNx = $derived(ctx && sheetFit(ctx, "Nx", prefs.fitMaxAgeDays));
 </script>
 
-{#if v2}
-  <FilterSheet
-    bind:this={picker1x}
-    label="1x filter"
-    slot="1x"
-    items={items1x}
-    current={cur1x}
-    inUse={inUse === "1x"}
-    keptUp={caps.keptUp}
-    slowSwitches={caps.slowSwitches}
-    mode={caps.mode.name}
-    rateHz={outRate}
-    disabled={busy}
-    fit={fit1x}
-    {onapply}
-    onforget={forget}
-    onpick={(i) => onpick("filter1x", i as Items[number])}
-  />
-  <FilterSheet
-    bind:this={pickerNx}
-    label="Nx filter"
-    slot="Nx"
-    items={itemsNx}
-    current={curNx}
-    inUse={inUse === "Nx"}
-    keptUp={caps.keptUp}
-    slowSwitches={caps.slowSwitches}
-    mode={caps.mode.name}
-    rateHz={outRate}
-    disabled={busy}
-    fit={fitNx}
-    {onapply}
-    onforget={forget}
-    onpick={(i) => onpick("filterNx", i as Items[number])}
-  />
-{:else}
-  <Picker
-    bind:this={picker1x}
-    label="1x filter"
-    hint={inUse === "1x" ? "in use" : ""}
-    active={taken1x}
-    items={items1x}
-    {groupByRating}
-    current={cur1x}
-    disabled={busy}
-    {ratioLabel}
-    onpick={(i) => onpick("filter1x", i as Items[number])}
-  />
-  <Picker
-    bind:this={pickerNx}
-    label="Nx filter"
-    hint={inUse === "Nx" ? "in use" : ""}
-    active={takenNx}
-    items={itemsNx}
-    {groupByRating}
-    current={curNx}
-    disabled={busy}
-    {ratioLabel}
-    onpick={(i) => onpick("filterNx", i as Items[number])}
-  />
-{/if}
+<FilterSheet
+  bind:this={picker1x}
+  label="1x filter"
+  slot="1x"
+  items={items1x}
+  current={cur1x}
+  inUse={inUse === "1x"}
+  keptUp={caps.keptUp}
+  slowSwitches={caps.slowSwitches}
+  mode={caps.mode.name}
+  rateHz={outRate}
+  disabled={busy}
+  fit={fit1x}
+  {onapply}
+  onforget={forget}
+  onpick={(i) => onpick("filter1x", i as Items[number])}
+/>
+<FilterSheet
+  bind:this={pickerNx}
+  label="Nx filter"
+  slot="Nx"
+  items={itemsNx}
+  current={curNx}
+  inUse={inUse === "Nx"}
+  keptUp={caps.keptUp}
+  slowSwitches={caps.slowSwitches}
+  mode={caps.mode.name}
+  rateHz={outRate}
+  disabled={busy}
+  fit={fitNx}
+  {onapply}
+  onforget={forget}
+  onpick={(i) => onpick("filterNx", i as Items[number])}
+/>

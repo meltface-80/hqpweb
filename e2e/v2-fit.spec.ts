@@ -7,7 +7,6 @@ import { shotPath } from "./hosts.ts";
 async function openV2(page: Page, id: string) {
   await page.addInitScript((i) => {
     localStorage.setItem("instance", i);
-    localStorage.setItem("prefs-v1", JSON.stringify({ layout: "v2" }));
   }, id);
   await page.goto("/");
   await expect(page.locator(".signal")).toBeVisible();

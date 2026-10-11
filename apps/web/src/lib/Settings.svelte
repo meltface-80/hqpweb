@@ -130,7 +130,7 @@
           />
         </label>
         <p class="help">Filters that failed here, or probably would, go below the others.</p>
-        <More>Picking one of those asks first. Off: one plain list. Not in the classic layout. On this device.</More>
+        <More>Picking one of those asks first. Off: one plain list. On this device.</More>
         <label class="age">
           <span>{ageSentence(prefs.fitMaxAgeDays)}</span>
           <input
@@ -220,33 +220,6 @@
             </button>
           {/each}
         </div>
-
-        <label class="row">
-          <span>Classic layout</span>
-          <input
-            type="checkbox"
-            role="switch"
-            checked={prefs.layout === "classic"}
-            onchange={(e) => set("layout", e.currentTarget.checked ? "classic" : "v2")}
-          />
-        </label>
-        <p class="help">
-          The earlier one-column layout, with plain lists. No filter sort, guide flow, meter or Compare there. On this device
-          only.
-        </p>
-
-        {#if prefs.layout === "classic"}
-          <h4>Filter lists (classic layout)</h4>
-          <div class="seg" role="radiogroup" aria-label="Filter list order">
-            <button class:on={prefs.filterOrder === "hqplayer"} onclick={() => set("filterOrder", "hqplayer")}
-              >HQPlayer's order</button
-            >
-            <button class:on={prefs.filterOrder === "rating"} onclick={() => set("filterOrder", "rating")}
-              >Grouped by rating</button
-            >
-          </div>
-          <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
-        {/if}
 
         <label class="row">
           <span>Open “Advanced” by default</span>

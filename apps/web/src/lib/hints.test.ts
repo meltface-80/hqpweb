@@ -8,10 +8,8 @@ import {
   context,
   failedText,
   filterItems,
-  filterTaken,
   inUseSlot,
   otherSourceNotes,
-  ratioLabel,
   rateItems,
   rateOptions,
   shaperItems,
@@ -209,16 +207,10 @@ describe("the apodization counter (manual §2.6)", () => {
   });
 });
 
-describe("the ✓ next to a choice (HQPlayer reports what it actually uses)", () => {
+describe("the ✓ next to the dither or modulator (HQPlayer reports what it actually uses)", () => {
   const base = snap({ source: 44_100 });
   const playing = { ...base, status: { ...base.status, activeFilter: "sinc-M", activeShaper: "NS5" } } as Snapshot;
-  it("shows whether the chosen filter is the one HQPlayer uses, in the slot in use", () => {
-    expect(filterTaken(playing, "1x", "1x", "sinc-M")).toBe(true);
-    expect(filterTaken(playing, "1x", "1x", "FFT")).toBe(false);
-    expect(filterTaken(playing, "1x", "Nx", "sinc-M")).toBeNull();
-  });
   it("says nothing while stopped", () => {
-    expect(filterTaken(snap({ playing: false }), "1x", "1x", "sinc-M")).toBeNull();
     expect(shaperTaken(snap({ playing: false }), "NS5")).toBeNull();
   });
   it("shows whether the chosen dither or modulator is the one in use", () => {
@@ -242,12 +234,6 @@ describe("details the first tests missed (found by mutation testing)", () => {
     const s = snap({ source: null, filter1x: "poly-sinc-hb", filterNx: "sinc-M" });
     expect(inUseSlot({ ...s, state: { ...s.state, filterInUse: filter("sinc-M") } })).toBe("Nx");
     expect(inUseSlot({ ...s, state: { ...s.state, filterInUse: filter("poly-sinc-hb") } })).toBe("1x");
-  });
-
-  it("labels the ratio as source → output, and leaves it blank with no source", () => {
-    const caps = pcm();
-    expect(ratioLabel(context(caps, snap({ rate: at(caps, 176_400) })))).toBe("44.1 kHz → 176.4 kHz");
-    expect(ratioLabel(context(caps, snap({ playing: false })))).toBe("");
   });
 
   it("offers Auto only when the rate is fixed and Auto is allowed", () => {

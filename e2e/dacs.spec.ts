@@ -4,17 +4,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { shotPath } from "./hosts.ts";
 
-/** Open on an instance, in the default layout or (opt-in, still shipped) the classic one. */
-async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
-  await page.addInitScript(
-    ([i, l]) => {
-      localStorage.setItem("instance", i);
-      // Merged, not replaced: this runs again on every reload, and the page's own prefs must survive it.
-      const prefs = JSON.parse(localStorage.getItem("prefs-v1") ?? "{}") as Record<string, unknown>;
-      localStorage.setItem("prefs-v1", JSON.stringify({ ...prefs, layout: l }));
-    },
-    [id, layout] as const,
-  );
+/** Open on an instance. */
+async function openOn(page: Page, id: string) {
+  await page.addInitScript((i) => localStorage.setItem("instance", i), id);
   await page.goto("/");
   await expect(page.locator("section.now")).toBeVisible();
 }

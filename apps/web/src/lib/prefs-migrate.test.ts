@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { layoutOf } from "./prefs-migrate.ts";
+import { withoutRetired } from "./prefs-migrate.ts";
 
 describe("stored preferences from older builds", () => {
-  it("moves everyone to the new layout except those who chose classic", () => {
-    expect(layoutOf("current")).toBe("v2"); // the old default, saved with any setting
-    expect(layoutOf("v2")).toBe("v2");
-    expect(layoutOf(undefined)).toBe("v2");
-    expect(layoutOf("classic")).toBe("classic");
+  it("drop the classic layout's settings, whatever they were, and keep the rest", () => {
+    const stored = { layout: "classic", filterOrder: "rating", adviceTab: "guide", theme: "dark", volumeStep: 2 };
+    expect(withoutRetired(stored)).toEqual({ theme: "dark", volumeStep: 2 });
+    expect(withoutRetired({ layout: "v2", meterOpen: true })).toEqual({ meterOpen: true });
   });
 });

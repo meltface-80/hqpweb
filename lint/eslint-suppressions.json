@@ -7,11 +7,6 @@
       "count": 1
     }
   },
-  "apps/web/src/lib/Picker.svelte": {
-    "svelte/prefer-svelte-reactivity": {
-      "count": 1
-    }
-  },
   "apps/web/src/lib/Presets.svelte": {
     "@typescript-eslint/no-floating-promises": {
       "count": 1

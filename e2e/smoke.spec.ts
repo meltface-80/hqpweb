@@ -7,17 +7,9 @@ import { expect, test, type Page } from "@playwright/test";
 import pkg from "../package.json" with { type: "json" };
 import { can, fakeUrl, shotPath } from "./hosts.ts";
 
-/** Open on an instance, in the default layout or (opt-in, still shipped) the classic one. */
-async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
-  await page.addInitScript(
-    ([i, l]) => {
-      localStorage.setItem("instance", i);
-      // Merged, not replaced: this runs again on every reload, and the page's own prefs must survive it.
-      const prefs = JSON.parse(localStorage.getItem("prefs-v1") ?? "{}") as Record<string, unknown>;
-      localStorage.setItem("prefs-v1", JSON.stringify({ ...prefs, layout: l }));
-    },
-    [id, layout] as const,
-  );
+/** Open on an instance. */
+async function openOn(page: Page, id: string) {
+  await page.addInitScript((i) => localStorage.setItem("instance", i), id);
   await page.goto("/");
   await expect(page.locator("section.now")).toBeVisible();
 }
@@ -79,23 +71,6 @@ test("the result bar goes 30 s after a change (and doesn't come back by itself)"
   await expect(page.locator("footer")).not.toHaveClass(/show/);
 });
 
-test("classic: a filter this machine can't keep up with is rolled back, and flagged next time", async ({ page }) => {
-  await openOn(page, "rollback", "classic");
-  await row(page, "1x filter").click();
-  await sheet(page)
-    .getByRole("button", { name: /^poly-sinc-gauss-long/ })
-    .click();
-
-  await expect(footer(page)).toContainText(/rolled back/i, { timeout: 10_000 });
-  await expect(row(page, "1x filter")).toContainText("poly-sinc-gauss-xla");
-  await expect(page.locator(".headline .state")).toHaveText("Playing");
-  await shot(page, "rollback-1-rolled-back");
-
-  await row(page, "1x filter").click();
-  await expect(sheet(page).getByRole("button", { name: /^poly-sinc-gauss-long/ })).toContainText(/failed here/);
-  await shot(page, "rollback-2-flagged");
-});
-
 test("a rollback that leaves HQPlayer's own playlist stopped offers Restart playback", async ({ page }) => {
   await openOn(page, "restart");
   await page.locator("summary", { hasText: "Advanced" }).click();
@@ -116,27 +91,6 @@ test("a rollback that leaves HQPlayer's own playlist stopped offers Restart play
   const at = await position.textContent();
   await expect.poll(() => position.textContent(), { timeout: 10_000 }).not.toBe(at);
   await expect(page.getByRole("button", { name: "Restart playback" })).toBeHidden();
-});
-
-test("classic: a filter that can't convert this ratio is hidden, and picking it offers rates that fit", async ({ page }) => {
-  await openOn(page, "ratio", "classic");
-  await row(page, "1x filter").click();
-
-  await expect(sheet(page).getByRole("button", { name: "compatible" })).toHaveAttribute("aria-pressed", "true");
-  await expect(sheet(page).getByRole("button", { name: /^FFT/ })).toHaveCount(0);
-  await shot(page, "ratio-1-compatible");
-
-  await sheet(page).getByRole("button", { name: "Show all" }).click();
-  await sheet(page).getByRole("button", { name: /^FFT/ }).click();
-
-  await expect(sheet(page).getByRole("heading")).toContainText("FFT");
-  await expect(sheet(page)).toContainText("power-of-two");
-  await shot(page, "ratio-2-rate-sheet");
-  await sheet(page).getByRole("button", { name: "176.4 kHz" }).click();
-
-  await succeeded(page);
-  await expect(row(page, "1x filter")).toContainText("FFT");
-  await expect(page.locator(".headline .big")).toHaveText("176.4 kHz");
 });
 
 test("a queued track that can't start is explained, and Fix offers rates that fit", async ({ page }) => {
@@ -191,21 +145,6 @@ test("the volume buttons step by 1 dB", async ({ page }) => {
   // Volume is quiet: no result message and no Undo (the slider undoes itself).
   await expect(page.locator("footer.show")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
-});
-
-test("classic: a recording that keeps needing apodization suggests apodizing filters", async ({ page }) => {
-  await openOn(page, "apod", "classic");
-  const notice = page.locator("p", { hasText: /apodization/ });
-  await expect(notice).toContainText("25");
-  await shot(page, "apod-1-notice");
-
-  await notice.getByRole("button").click();
-  await expect(sheet(page).getByRole("heading")).toHaveText("1x filter");
-  await expect(sheet(page).getByRole("button", { name: "apodizing" })).toHaveAttribute("aria-pressed", "true");
-  // IIR is apodizing; poly-sinc-hb isn't.
-  await expect(sheet(page).getByRole("button", { name: /^IIR\b/ })).toBeVisible();
-  await expect(sheet(page).getByRole("button", { name: /^poly-sinc-hb\b/ })).toHaveCount(0);
-  await shot(page, "apod-2-picker");
 });
 
 test("Advanced: change the output rate after confirming, and switch an option", async ({ page }) => {

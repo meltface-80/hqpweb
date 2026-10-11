@@ -19,7 +19,6 @@
   import { apodization, type wedge as wedgeOf } from "./hints.ts";
   import { prefs } from "./prefs.svelte.ts";
   import { notStartedMessage, type ResultMessage } from "./result.ts";
-  import type { SpeedClass } from "./speed.ts";
   import { rateInMode } from "./signal.ts";
 
   let {
@@ -34,14 +33,10 @@
     wedge,
     inUseFilter,
     inUseApodizing,
-    speedClass,
-    speedText,
-    speedTitle,
     onfixwedge,
     onsuggestapodizing,
     onstatus,
     onmessage,
-    showSpeed = true,
     switching = null,
   }: {
     selected: string | null;
@@ -55,15 +50,11 @@
     wedge: ReturnType<typeof wedgeOf>;
     inUseFilter: string;
     inUseApodizing: boolean | "partial" | undefined;
-    speedClass: SpeedClass;
-    speedText: string;
-    speedTitle: string;
     onfixwedge: () => void;
     onsuggestapodizing: () => void;
     onstatus: (status: Status) => void;
     onmessage: (m: ResultMessage) => void;
     /** The v2 layout says it on the path line ("keeping up 25×"), so once is enough there. */
-    showSpeed?: boolean;
     /** A mode switch to this mode is running (switching.ts): one steady state, not each step. */
     switching?: string | null;
   } = $props();
@@ -303,10 +294,6 @@
     <dd>
       {snap.status.source ? `${formatRate(snap.status.source.sampleRate, "PCM")} / ${snap.status.source.bits}-bit` : "—"}
     </dd>
-    {#if showSpeed}
-      <dt title={speedTitle}>Processing</dt>
-      <dd class="speed {speedClass}" title={speedTitle}>{speedText}</dd>
-    {/if}
     {#if apod > 0}
       <dt title={APOD_TITLE}>Apod</dt>
       <dd class="speed {apodState === 'suggest' ? 'bad' : 'warn'}" title={APOD_TITLE}>

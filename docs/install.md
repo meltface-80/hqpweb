@@ -83,7 +83,7 @@ plain text, and hqpweb rewrites them as you use it:
 | `history.json`   | History: every change, here or elsewhere                                                    |
 | `roon.json`      | The Roon core's address and the pairing Roon approved (only if you switch Roon on)          |
 
-**In each browser**, not on the server: theme, layout (classic or not), volume step,
+**In each browser**, not on the server: theme, volume step,
 the filter sort and how long load results count, the meter view and its timing nudge.
 A new phone starts with the defaults.
 
