@@ -28,6 +28,22 @@ async function run<T>(call: () => Promise<T>): Promise<T> {
 }
 
 /** With `roon`, the status stream carries its zone updates too, as the server's /events does. */
+/**
+ * A stream's events as the wire hands them over: never during the subscribing call (the
+ * core sends Roon's current zone at once, and a page subscribing inside a Svelte effect would
+ * take that as part of the effect, and loop), in order, and none after it's stopped.
+ */
+function stream() {
+  let open = true;
+  return {
+    send: (deliver: () => void) => queueMicrotask(() => open && deliver()),
+    stop: (off: () => void) => () => {
+      open = false;
+      off();
+    },
+  };
+}
+
 export function localApi(service: Service, { roon }: { roon?: RoonLink } = {}): CoreApi {
   return {
     instances: () => run(() => service.instances()),
@@ -68,17 +84,23 @@ export function localApi(service: Service, { roon }: { roon?: RoonLink } = {}): 
     // A stream: the same events the server's /events sends (a snapshot with its health, or
     // why HQPlayer can't be reached, and Roon's zone). Nothing in-process can be "lost".
     status: (id, on) => {
-      const off = service.subscribe(id, (e) => {
-        if (e.snapshot) on.now(wire({ ...e.snapshot, health: e.health }) as Parameters<typeof on.now>[0]);
-        else on.unreachable(e.error ?? "unreachable");
-      });
-      const offRoon = roon && on.roon ? watchRoonZone(roon, id, (e) => on.roon!(wire(e))) : () => {};
-      return () => {
+      const s = stream();
+      const off = service.subscribe(id, (e) =>
+        s.send(() => {
+          if (e.snapshot) on.now(wire({ ...e.snapshot, health: e.health }) as Parameters<typeof on.now>[0]);
+          else on.unreachable(e.error ?? "unreachable");
+        }),
+      );
+      const offRoon = roon && on.roon ? watchRoonZone(roon, id, (e) => s.send(() => on.roon!(wire(e)))) : () => {};
+      return s.stop(() => {
         off();
         offRoon();
-      };
+      });
     },
-    meter: (id, on) => service.subscribeMeter(id, (e) => on(wire(e))),
+    meter: (id, on) => {
+      const s = stream();
+      return s.stop(service.subscribeMeter(id, (e) => s.send(() => on(wire(e)))));
+    },
   };
 }
 

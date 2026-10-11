@@ -17,6 +17,14 @@ export const can = (): HostCan => (onApp() ? APP_CAN : SERVER_CAN);
 /** Where to change one of this lane's fakes, as HQPlayer or its owner would (stack.ts). */
 export const fakeUrl = (id: string) => `http://127.0.0.1:${CONTROL_PORT}/fake/${id}?lane=${running()}`;
 
+/** This lane's fake Roon Core: its port, and approving the extension as its owner would in Roon. */
+export const fakeRoonPort = async () =>
+  ((await (await fetch(`http://127.0.0.1:${CONTROL_PORT}/roon?lane=${running()}`)).json()) as { port: number }).port;
+export const approveRoon = async () => {
+  const r = await fetch(`http://127.0.0.1:${CONTROL_PORT}/roon/approve?lane=${running()}`, { method: "POST" });
+  if (r.status !== 204) throw new Error(`approving Roon: ${r.status}`);
+};
+
 /** Where a screenshot goes, for a person to look at: the web in Chromium's in screenshots/, other lanes' in screenshots/<lane>/. */
 export const shotPath = (name: string) =>
   fileURLToPath(new URL(`screenshots/${running() === "web" ? "" : `${running()}/`}${name}.png`, import.meta.url));

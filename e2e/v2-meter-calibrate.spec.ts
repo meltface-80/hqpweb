@@ -22,17 +22,23 @@ async function openCalibration(page: Page, id: string) {
 test("v2: tapping after each of the phone's clicks moves on to the claps through HQPlayer", async ({ page }) => {
   const sheet = await openCalibration(page, "v2cal");
   await shot(page, "v2-cal-1-intro");
-  await sheet.getByRole("button", { name: "Start" }).click();
+  // The clicks come 1.0, 2.7, 4.0, 6.1, 7.6 and 9.5 s after Start, plus the audio output's
+  // latency; a tap counts 0.1-0.9 s after one. Tap 0.5 s after each, timed in the page from
+  // the Start press itself, as a person would: waits from the test runner add up, and a slow
+  // runner (WebKit in CI) drifted out of the window.
+  await sheet.evaluate(
+    (dialog, offsets) => {
+      [...dialog.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Start")!.click();
+      for (const at of offsets)
+        setTimeout(
+          () => dialog.querySelector("button.pad")?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })),
+          at,
+        );
+    },
+    [1500, 3200, 4500, 6600, 8100, 10_000],
+  );
   await expect(sheet).toContainText("Step 1 of 2");
-  // The clicks come 1.0, 2.7, 4.0, 6.1, 7.6 and 9.5 s after Start: tap ~0.25 s after each.
-  const pad = sheet.getByRole("button", { name: /^Tap/ });
-  let last = 0;
-  for (const at of [1250, 2950, 4250, 6350, 7850, 9750]) {
-    await page.waitForTimeout(at - last);
-    last = at;
-    await pad.dispatchEvent("pointerdown");
-  }
-  await expect(sheet).toContainText("6 tapped");
+  await expect(sheet).toContainText("6 tapped", { timeout: 15_000 });
   await expect(sheet).toContainText("Step 2 of 2", { timeout: 5000 });
   await shot(page, "v2-cal-2-claps");
   await sheet.getByRole("button", { name: "Cancel" }).click();

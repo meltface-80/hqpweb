@@ -128,6 +128,26 @@ describe.each(ways)("Roon %s", (_way, start) => {
     expect(events[2]!.zone?.nowPlaying?.seek).toBe(200);
   });
 
+  // A page subscribes inside a reactive effect (App.svelte): an event delivered during the call
+  // becomes part of that effect, and a Svelte page loops until it gives up (the phone app went
+  // blank once Roon was on). Over HTTP nothing can arrive during the call; in-process mustn't either.
+  it("delivers nothing during the subscribe call, not even Roon's current zone", async () => {
+    await paired();
+    await api.setRoonZone("hq", "zone-hqp");
+    const during: string[] = [];
+    let subscribing = true;
+    const note = (what: string) => () => void (subscribing && during.push(what));
+    const off = api.status("hq", { now: note("now"), unreachable: note("unreachable"), roon: note("roon") });
+    subscribing = false;
+    done.push(off);
+    expect(during).toEqual([]);
+    // And the zone does come, just after.
+    let zone: RoonZone | null = null;
+    const off2 = api.status("hq", { now: () => {}, unreachable: () => {}, roon: (e) => (zone = e.zone) });
+    done.push(off2);
+    await until(() => zone !== null);
+  });
+
   it("loads the track's art from the URL it gives", async () => {
     await paired();
     await api.setRoonZone("hq", "zone-hqp");

@@ -234,8 +234,8 @@ test("Settings: add an instance by address, rename it, and remove it", async ({ 
 
   // Port 1 never answers: it's added anyway, with a warning saying why.
   await sheet(page).getByLabel("Name", { exact: true }).fill("Spare test box");
-  await sheet(page).getByLabel("Host").fill("127.0.0.1");
-  await sheet(page).getByLabel("Port").fill("1");
+  await sheet(page).getByLabel("Host", { exact: true }).fill("127.0.0.1");
+  await sheet(page).getByLabel("Port", { exact: true }).fill("1");
   await sheet(page).getByRole("button", { name: "Add", exact: true }).click();
   await expect(item()).toContainText("Spare test box");
   await expect(sheet(page)).toContainText("doesn't answer");

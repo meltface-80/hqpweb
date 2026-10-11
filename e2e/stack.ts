@@ -8,10 +8,10 @@
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { readdirSync } from "node:fs";
-import { FakeHqp, FakeMeter, loadProfile } from "@app/fake-hqp";
+import { FakeHqp, FakeMeter, FakeRoon, loadProfile } from "@app/fake-hqp";
 import type { Flows } from "./flows-kit.ts";
 import { buildApp } from "../apps/server/src/app.ts";
-import type { InstanceConfig } from "@app/core";
+import { RoonLink, type InstanceConfig } from "@app/core";
 import { startAppHost } from "./app-host.ts";
 import { TUNING } from "./tuning.ts";
 
@@ -66,22 +66,44 @@ async function startFakes(flows: Flows) {
 
 export async function startStack() {
   const flows = await loadFlows();
-  const running: { name: string; fakes: Map<string, FakeHqp>; close: () => Promise<unknown> }[] = [];
+  type Running = { name: string; fakes: Map<string, FakeHqp>; roon: FakeRoon; roonPort: number; close: () => Promise<unknown> };
+  const running: Running[] = [];
   for (const l of LANES) {
     const { fakes, instances } = await startFakes(flows);
+    // A Roon Core per lane, off until a test switches Roon on and points the app at it.
+    const roon = new FakeRoon();
+    const roonPort = await roon.listen();
     if (l.host === "web") {
-      const app = buildApp({ instances }, { staticDir: fileURLToPath(new URL("../apps/web/dist", import.meta.url)), ...TUNING });
+      const link = new RoonLink(null, { reconnectMs: 200 });
+      const app = buildApp(
+        { instances },
+        { staticDir: fileURLToPath(new URL("../apps/web/dist", import.meta.url)), roon: link, ...TUNING },
+      );
       await app.listen(l.port, "127.0.0.1");
-      running.push({ name: l.name, fakes, close: () => app.close() });
+      running.push({
+        name: l.name,
+        fakes,
+        roon,
+        roonPort,
+        close: async () => (link.close(), await app.close(), await roon.close()),
+      });
     } else {
       const host = await startAppHost(l.port, instances);
-      running.push({ name: l.name, fakes, close: async () => host.close() });
+      running.push({ name: l.name, fakes, roon, roonPort, close: async () => (host.close(), await roon.close()) });
     }
   }
 
   // POST /fake/<id>?lane=<project>: change that lane's fake (hosts.ts fakeUrl).
+  // GET /roon?lane=: its Roon Core's port; POST /roon/approve?lane=: Enable in Roon's Extensions.
   const control = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
+    const roonLane = running.find((r) => r.name === url.searchParams.get("lane"));
+    if (roonLane && req.method === "GET" && url.pathname === "/roon")
+      return res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ port: roonLane.roonPort }));
+    if (roonLane && req.method === "POST" && url.pathname === "/roon/approve") {
+      roonLane.roon.approve();
+      return res.writeHead(204).end();
+    }
     const id = url.pathname.match(/^\/fake\/([a-z0-9-]+)$/)?.[1];
     const fake = id ? running.find((r) => r.name === url.searchParams.get("lane"))?.fakes.get(id) : undefined;
     if (req.method !== "POST" || !fake) return res.writeHead(404).end();
