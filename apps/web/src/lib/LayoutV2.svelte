@@ -23,6 +23,7 @@
     source,
     outRate,
     dacName,
+    product,
     resume,
     speedClass,
     speedText,
@@ -49,6 +50,7 @@
     source: number;
     outRate: number;
     dacName?: string;
+    product?: string;
     resume: Resume;
     speedClass: SpeedClass;
     speedText: string;
@@ -119,6 +121,7 @@
       {source}
       {outRate}
       {dacName}
+      {product}
       {resume}
       {failedHere}
       {speedClass}

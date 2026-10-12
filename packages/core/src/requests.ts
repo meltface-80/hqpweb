@@ -5,7 +5,7 @@ import { HttpError } from "./errors.ts";
 import { TRANSPORT_ACTIONS, type Change, type TransportAction } from "./instance-types.ts";
 import type { Combo } from "./learned.ts";
 
-const FIELDS: Record<keyof Change, "name" | "number" | "rate" | "boolean"> = {
+const FIELDS: Record<keyof Change, "name" | "profile" | "number" | "rate" | "boolean"> = {
   mode: "name",
   rate: "rate",
   filterNx: "name",
@@ -16,7 +16,8 @@ const FIELDS: Record<keyof Change, "name" | "number" | "rate" | "boolean"> = {
   filter20k: "boolean",
   adaptive: "boolean",
   convolution: "boolean",
-  matrixProfile: "name",
+  // "" is no profile: HQPlayer's base matrix settings (measured: MatrixSetProfile "" returns to them).
+  matrixProfile: "profile",
 };
 
 /** A change, by name. */
@@ -30,13 +31,16 @@ export function parseChange(body: unknown): Change {
     const ok =
       kind === "name"
         ? typeof v === "string" && v.length > 0
-        : kind === "number"
-          ? typeof v === "number" && Number.isFinite(v)
-          : kind === "rate"
-            ? Number.isInteger(v) && (v as number) >= 0
-            : typeof v === "boolean";
+        : kind === "profile"
+          ? typeof v === "string"
+          : kind === "number"
+            ? typeof v === "number" && Number.isFinite(v)
+            : kind === "rate"
+              ? Number.isInteger(v) && (v as number) >= 0
+              : typeof v === "boolean";
     const want = {
       name: "a non-empty string",
+      profile: 'a profile name, or "" for none',
       number: "a number",
       rate: "a whole number of Hz (0 = auto)",
       boolean: "a boolean",

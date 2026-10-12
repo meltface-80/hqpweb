@@ -33,6 +33,8 @@ export interface Flow {
   busyAfterModeSwitch?: FakeOptions["busyAfterModeSwitch"];
   /** A fake meter stream beside it (the fake's meter.ts); without one, nothing listens there. */
   meter?: boolean;
+  /** Other fake settings, e.g. its matrix profiles (FakeOptions). */
+  options?: Partial<FakeOptions>;
 }
 
 export type Flows = Record<string, Flow>;

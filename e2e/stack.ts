@@ -53,6 +53,7 @@ async function startFakes(flows: Flows) {
       ...(flow.speed ? { speed: flow.speed } : {}),
       ...(flow.busyAfterFilter ? { busyAfterFilter: flow.busyAfterFilter } : {}),
       ...(flow.busyAfterModeSwitch ? { busyAfterModeSwitch: flow.busyAfterModeSwitch } : {}),
+      ...flow.options,
     });
     flow.setup?.(fake);
     await fake.listen();

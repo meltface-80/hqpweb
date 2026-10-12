@@ -247,10 +247,12 @@ export class ChangeEngine {
     const nx = resolve(caps.filters, "filterNx", change.filterNx);
     const x1 = resolve(caps.filters, "filter1x", change.filter1x);
     const shaper = resolve(caps.shapers, "shaper", change.shaper);
-    // HQPlayer accepts unknown profile names with OK (reported), so only send listed ones.
-    // Undo/rollback may restore "" (no profile active); read-back verifies it took.
-    const restoringNone = isUndo && change.matrixProfile === "";
-    if (change.matrixProfile !== undefined && !restoringNone && !caps.matrixProfiles.includes(change.matrixProfile))
+    // HQPlayer accepts unknown profile names with OK (reported), so only send listed ones, or ""
+    // (no profile: HQPlayer's base matrix settings; measured on Desktop 5.35.10 and Embedded 6.2.5,
+    // 2026-10-11). Undo and
+    // rollback may restore "" anywhere; read-back verifies it took.
+    const none = change.matrixProfile === "" && (isUndo || caps.matrixProfiles.length > 0);
+    if (change.matrixProfile !== undefined && !none && !caps.matrixProfiles.includes(change.matrixProfile))
       problems.push({
         field: "matrixProfile",
         reason: caps.matrixProfiles.length
@@ -437,6 +439,7 @@ export class ChangeEngine {
     const [caps, status] = await Promise.all([this.capabilities(), this.client.status()]);
     if (!status.activeFilter || !status.source?.sampleRate) return;
     this.learned.recordSlow({
+      correction: status.correction,
       instance: scope,
       engine: caps.engine,
       mode: caps.mode.name,
@@ -457,6 +460,7 @@ export class ChangeEngine {
       filterNx: s.filterNx,
       filter1x: s.filter1x,
       shaper: s.shaper,
+      correction: status.correction,
     };
     // A stopped track has no source in Status (measured): use the queued one, as explain() does.
     const source =

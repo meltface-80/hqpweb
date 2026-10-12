@@ -5,6 +5,7 @@
   // rate-pick.ts; the filter and shaping rows are App's pickers, passed in.
   import type { Snippet } from "svelte";
   import Picker from "./Picker.svelte";
+  import MatrixRow from "./MatrixRow.svelte";
   import { appName, formatRate, type Capabilities, type Change, type Snapshot } from "./api.ts";
   import type { rateItems as rateItemsOf } from "./hints.ts";
   import { pickRate } from "./rate-pick.ts";
@@ -34,6 +35,7 @@
     source,
     outRate,
     dacName,
+    product,
     resume,
     failedHere,
     speedClass,
@@ -51,6 +53,8 @@
     source: number;
     outRate: number;
     dacName?: string;
+    /** HQPlayer's product name (GetInfo): where its matrix profiles are set up (MatrixRow). */
+    product?: string;
     resume: Resume;
     /** How often the combination in use has failed here (learned failures). */
     failedHere: number;
@@ -168,6 +172,7 @@
         </div>
       {/if}
     {/if}
+    <MatrixRow {caps} {snap} {busy} {product} {apply} />
     <div class="foot"><button class="guide" onclick={onguide} disabled={busy}>Guide me</button></div>
   {:else}
     <div class="other">

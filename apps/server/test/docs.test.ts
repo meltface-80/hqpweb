@@ -119,7 +119,7 @@ describe("stores over any storage", () => {
       changes: [{ field: "filter1x", from: "a", to: "b" }],
     });
     await Promise.all([l.flush(), h.flush()]);
-    expect((await LearnedStore.open(docs)).slowFor("mac", "5.35.10", "PCM")).toHaveLength(1);
+    expect((await LearnedStore.open(docs)).slowFor("mac", "5.35.10", "PCM", false)).toHaveLength(1);
     expect((await HistoryStore.open(docs)).forInstance("mac")).toHaveLength(1);
   });
 });

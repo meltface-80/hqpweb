@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, type Snippet } from "svelte";
   // A searchable picker for a list (output rates, matrix profiles). Opens as a bottom sheet.
   // Items can be disabled (with a reason) or carry a warning, e.g. "failed here before",
   // with a chip to show only those that work here. Filters and modulators have their own
@@ -19,6 +19,8 @@
     active = null,
     disabled = false,
     mono = false,
+    wrap = false,
+    intro,
     onpick,
   }: {
     label: string;
@@ -30,12 +32,48 @@
     disabled?: boolean;
     /** Values are HQPlayer identifiers, set in the mono font (rule 3 of the layout). */
     mono?: boolean;
+    /**
+     * A value too long for the row moves below the label and wraps, instead of being cut off: for
+     * names people choose (matrix profiles), whose distinguishing part is often at the end.
+     */
+    wrap?: boolean;
+    /** Shown at the top of the sheet, e.g. where the list's entries are set up. With no items, all there is. */
+    intro?: Snippet;
     onpick: (item: Item) => void;
   } = $props();
 
   let dialog: HTMLDialogElement;
+  // `wrap`: does the value fit beside the label? Measured, as it depends on the width and the font.
+  let rowEl = $state<HTMLButtonElement>();
+  let labelEl = $state<HTMLSpanElement>();
+  let chevEl = $state<HTMLSpanElement>();
+  let measureEl = $state<HTMLSpanElement>();
+  let stacked = $state(false);
+  $effect(() => {
+    if (!wrap || !rowEl || !labelEl || !chevEl || !measureEl) return;
+    void current;
+    const [row, label, chev, measure] = [rowEl, labelEl, chevEl, measureEl];
+    const fit = () => {
+      const style = getComputedStyle(row);
+      const gap = parseFloat(style.columnGap) || 0;
+      const room =
+        row.clientWidth -
+        parseFloat(style.paddingLeft) -
+        parseFloat(style.paddingRight) -
+        label.offsetWidth -
+        chev.offsetWidth -
+        2 * gap;
+      stacked = measure.offsetWidth > room;
+    };
+    fit();
+    // The row's width, and the name's (a new name resizes the measuring copy).
+    const watch = new ResizeObserver(fit);
+    watch.observe(row);
+    watch.observe(measure);
+    return () => watch.disconnect();
+  });
   let query = $state("");
-  let search: HTMLInputElement;
+  let search = $state<HTMLInputElement>();
   let worksHere = $state(false);
 
   const anyWarn = $derived(items.some((i) => i.warn || i.disabled));
@@ -58,7 +96,7 @@
     if (list) list.scrollTop = 0;
     dialog.querySelector(".main.current")?.scrollIntoView({ block: "center" });
     // Don't pop the keyboard on phones; do focus search on desktop.
-    if (matchMedia("(pointer: fine)").matches) search.focus();
+    if (items.length && matchMedia("(pointer: fine)").matches) search?.focus();
   }
   function pick(item: Item) {
     if (item.disabled) return;
@@ -67,10 +105,11 @@
   }
 </script>
 
-<button class="row" onclick={() => open()} {disabled}>
-  <span class="label"
+<button class="row" class:stacked bind:this={rowEl} onclick={() => open()} {disabled}>
+  <span class="label" bind:this={labelEl}
     >{label}{#if hint}<span class="hint">{hint}</span>{/if}</span
   >
+  {#if wrap}<span class="value measure" class:mono aria-hidden="true" bind:this={measureEl}>{current || "—"}</span>{/if}
   <span class="value" class:mono>
     {#if active === true}<span class="taken" title="Active in HQPlayer">✓</span>{:else if active === false}<span
         class="not-taken"
@@ -78,7 +117,7 @@
       >{/if}
     {current || "—"}
   </span>
-  <span class="chev" aria-hidden="true">›</span>
+  <span class="chev" aria-hidden="true" bind:this={chevEl}>›</span>
 </button>
 
 <dialog bind:this={dialog} onclick={(e) => e.target === dialog && dialog.close()}>
@@ -89,44 +128,54 @@
         ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button
       >
     </header>
-    <label class="search">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
-      <input bind:this={search} bind:value={query} type="search" placeholder="Search {items.length}…" autocomplete="off" />
-    </label>
-    {#if anyWarn}
-      <div class="chips" role="group" aria-label="Narrow the list">
-        <button class:on={worksHere} aria-pressed={worksHere} onclick={() => (worksHere = !worksHere)}>✓ works here</button>
-      </div>
+    {#if intro}<div class="intro">{@render intro()}</div>{/if}
+    {#if items.length}
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+        <input bind:this={search} bind:value={query} type="search" placeholder="Search {items.length}…" autocomplete="off" />
+      </label>
+      {#if anyWarn}
+        <div class="chips" role="group" aria-label="Narrow the list">
+          <button class:on={worksHere} aria-pressed={worksHere} onclick={() => (worksHere = !worksHere)}>✓ works here</button>
+        </div>
+      {/if}
+      <ul>
+        {#each shown as item (item.index)}
+          <li>
+            <div class="item">
+              <button
+                class="main"
+                class:current={item.name === current}
+                aria-current={item.name === current ? "true" : undefined}
+                class:warn={!!item.warn}
+                disabled={item.disabled}
+                onclick={() => pick(item)}
+              >
+                <span class="name">
+                  <span class:mono>{item.name}</span>
+                  {#if item.warn}<small class="why">⚠ {item.warn}</small>{:else if item.note}<small class="why">{item.note}</small
+                    >{/if}
+                </span>
+              </button>
+            </div>
+          </li>
+        {:else}
+          <li class="empty">No match</li>
+        {/each}
+      </ul>
     {/if}
-    <ul>
-      {#each shown as item (item.index)}
-        <li>
-          <div class="item">
-            <button
-              class="main"
-              class:current={item.name === current}
-              aria-current={item.name === current ? "true" : undefined}
-              class:warn={!!item.warn}
-              disabled={item.disabled}
-              onclick={() => pick(item)}
-            >
-              <span class="name">
-                <span class:mono>{item.name}</span>
-                {#if item.warn}<small class="why">⚠ {item.warn}</small>{:else if item.note}<small class="why">{item.note}</small
-                  >{/if}
-              </span>
-            </button>
-          </div>
-        </li>
-      {:else}
-        <li class="empty">No match</li>
-      {/each}
-    </ul>
   </div>
 </dialog>
 
 <style>
+  .intro {
+    margin: 0 16px 10px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
   .row {
+    position: relative;
+    overflow: hidden;
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;
@@ -166,6 +215,34 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 500;
+  }
+  /* The value's width on one line, for `wrap`: measured, never seen. */
+  .value.measure {
+    position: absolute;
+    left: 0;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+    overflow: visible;
+  }
+  /* Too long beside the label: the label and › on the first line, the value below at full width. */
+  .row.stacked {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "label chev" "value value";
+    row-gap: 4px;
+  }
+  .row.stacked .label {
+    grid-area: label;
+    justify-self: start; /* its own width, as measured for the fit */
+  }
+  .row.stacked .chev {
+    grid-area: chev;
+  }
+  .row.stacked .value:not(.measure) {
+    grid-area: value;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .chev {
     color: var(--text-dim);

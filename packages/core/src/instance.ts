@@ -128,6 +128,8 @@ export class Instance {
         filterNx: s.filterNx,
         filter1x: s.filter1x,
         shaper: s.shaper,
+        // Correction switching on or off is another combination: it ends the session (it's heavy).
+        correction: status.correction,
       };
       result = this.kept.feed({ t, key: JSON.stringify(sample), speed: status.processSpeed });
     }
@@ -242,15 +244,18 @@ export class Instance {
    * because indices must be resolved at the moment of use (CLAUDE.md rule 5).
    */
   async capabilities(fresh = false): Promise<Capabilities> {
-    const [info, state] = await Promise.all([this.client.info(), this.client.state()]);
+    const [info, state, status] = await Promise.all([this.client.info(), this.client.state(), this.client.status()]);
     const key = `${info.engine}|${state.mode}`;
+    // What's been learned applies with HQPlayer's DAC correction running or not, as now (learned.ts).
+    const correction = status.correction;
     if (!fresh && this.caps?.key === key) {
-      // Learned failures can change without a mode change.
+      // Learned failures can change without a mode change, and so can correction.
       return {
         ...this.caps.value,
-        knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name),
-        keptUp: this.learned.keptFor(this.scope(), info.engine, this.caps.value.mode.name),
-        slowSwitches: this.learned.slowFor(this.scope(), info.engine, this.caps.value.mode.name),
+        correction,
+        knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name, correction),
+        keptUp: this.learned.keptFor(this.scope(), info.engine, this.caps.value.mode.name, correction),
+        slowSwitches: this.learned.slowFor(this.scope(), info.engine, this.caps.value.mode.name, correction),
         lastSeen: this.history.lastSeen(this.scope()),
         modeLists: this.modeLists(info.engine),
       };
@@ -290,9 +295,10 @@ export class Instance {
       rateSettable: mode.value !== -1,
       volumeRange,
       matrixProfiles,
-      knownBad: this.learned.forInstance(this.scope(), info.engine, mode.name),
-      keptUp: this.learned.keptFor(this.scope(), info.engine, mode.name),
-      slowSwitches: this.learned.slowFor(this.scope(), info.engine, mode.name),
+      correction,
+      knownBad: this.learned.forInstance(this.scope(), info.engine, mode.name, correction),
+      keptUp: this.learned.keptFor(this.scope(), info.engine, mode.name, correction),
+      slowSwitches: this.learned.slowFor(this.scope(), info.engine, mode.name, correction),
       lastSeen: this.history.lastSeen(this.scope()),
       modeLists: this.modeLists(info.engine),
     };
@@ -424,9 +430,10 @@ export class Instance {
     return this.learned.all(this.cfg.id);
   }
 
-  /** Everything learned here, or one combination (its failures and slow runs). */
-  forgetFailures(combo?: Combo): { forgotten: number } {
-    const n = combo ? this.learned.forgetCombo(this.cfg.id, combo) : this.learned.all(this.cfg.id).length;
+  /** Everything learned here, or one combination as it applies now, correction running or not (its failures and slow runs). */
+  async forgetFailures(combo?: Combo): Promise<{ forgotten: number }> {
+    const correction = combo ? (await this.client.status()).correction : false;
+    const n = combo ? this.learned.forgetCombo(this.cfg.id, { ...combo, correction }) : this.learned.all(this.cfg.id).length;
     if (!combo) this.learned.forget(this.cfg.id);
     this.caps = null;
     return { forgotten: n };

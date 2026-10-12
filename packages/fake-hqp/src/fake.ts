@@ -80,6 +80,7 @@ export class FakeHqp {
       speed: opts.speed ?? (() => 1),
       now: opts.now ?? Date.now,
       matrixProfiles: opts.matrixProfiles ?? [],
+      correctingProfiles: opts.correctingProfiles ?? [],
       convolutionConfigured: opts.convolutionConfigured ?? false,
       log: opts.log,
       modeSwitchWhilePlayingCrashes: opts.modeSwitchWhilePlayingCrashes ?? true,
@@ -299,6 +300,7 @@ export class FakeHqp {
           active_shaper: this.shaperName,
           apod: this.apod,
           clips: this.clips,
+          correction: this.opts.correctingProfiles.includes(this.matrixProfile) ? 1 : 0,
           filter_20k: this.filter20k,
           // Real replies: the track length for files, 0 for a Roon stream (measured).
           length: playing && this.feeder !== "Roon" ? 300 : 0,

@@ -1,6 +1,8 @@
 // Combinations that failed on an instance, learned from rollbacks (design §4.4), and
-// ones that kept up, with how fast (kept-up.ts). Kept per instance (or named DAC) and
-// engine version, because both change what works.
+// ones that kept up, with how fast (kept-up.ts). Kept per instance (or named DAC), engine
+// version, and whether HQPlayer's DAC correction was running (Status `correction`), because all
+// three change what works: correction is heavy (measured ~15-30% of the headroom). Other matrix
+// processing isn't told apart: a deliberate simplification, open to requests (changes/ note).
 import { DocWriter, listOf, loadDoc, type DocStore } from "./docs.ts";
 import { SETTINGS_FORMAT } from "./format.ts";
 
@@ -13,6 +15,11 @@ export interface Combo {
   filterNx: string;
   filter1x: string;
   shaper: string;
+  /**
+   * HQPlayer's DAC correction was running (Status `correction`). Absent: not known (records from
+   * before 0.1.0-beta.7), and such a record applies whether or not correction runs.
+   */
+  correction?: boolean;
 }
 
 export interface Failure extends Combo {
@@ -60,10 +67,19 @@ export interface SlowSwitch {
   at: string;
   /** How many times it's been seen. */
   count: number;
+  /** HQPlayer's DAC correction was running; absent: not known (Combo.correction). */
+  correction?: boolean;
 }
 
-const sameCombo = (a: Combo, b: Combo) =>
+/** The same record: correction known the same way (an unknown state is a record of its own). */
+const sameState = (a: { correction?: boolean }, b: { correction?: boolean }) => a.correction === b.correction;
+/** It applies with correction running or not: a record made in that state, or one from before it was known. */
+const appliesTo = (r: { correction?: boolean }, correction: boolean | undefined) =>
+  correction === undefined || r.correction === undefined || r.correction === correction;
+
+const sameFields = (a: Combo, b: Combo) =>
   a.mode === b.mode && a.rateHz === b.rateHz && a.filterNx === b.filterNx && a.filter1x === b.filter1x && a.shaper === b.shaper;
+const sameCombo = (a: Combo, b: Combo) => sameFields(a, b) && sameState(a, b);
 
 /** A failure's scope belongs to an instance: its own id, or `id#dac` for one of its named DACs. */
 const ofInstance = (scope: string, instance: string) => scope === instance || scope.startsWith(`${instance}#`);
@@ -134,22 +150,26 @@ export class LearnedStore {
       x.mode === s.mode &&
       x.rateHz === s.rateHz &&
       x.filter === s.filter &&
-      x.sourceRate === s.sourceRate;
+      x.sourceRate === s.sourceRate &&
+      sameState(x, s);
     const prev = this.slow.find(same);
     this.slow = [...this.slow.filter((x) => !same(x)), { ...s, count: (prev?.count ?? 0) + 1 }];
     this.save();
   }
 
-  slowFor(instance: string, engine: string, mode: string): SlowSwitch[] {
-    return this.slow.filter((x) => x.instance === instance && x.engine === engine && x.mode === mode);
+  // What applies now: this instance, engine and mode, with correction running or not.
+  slowFor(instance: string, engine: string, mode: string, correction: boolean): SlowSwitch[] {
+    return this.slow.filter((x) => x.instance === instance && x.engine === engine && x.mode === mode && appliesTo(x, correction));
   }
 
-  keptFor(instance: string, engine: string, mode: string): KeptUp[] {
-    return this.kept.filter((k) => k.instance === instance && k.engine === engine && k.mode === mode);
+  keptFor(instance: string, engine: string, mode: string, correction: boolean): KeptUp[] {
+    return this.kept.filter((k) => k.instance === instance && k.engine === engine && k.mode === mode && appliesTo(k, correction));
   }
 
-  forInstance(instance: string, engine: string, mode: string): Failure[] {
-    return this.failures.filter((f) => f.instance === instance && f.engine === engine && f.mode === mode);
+  forInstance(instance: string, engine: string, mode: string, correction: boolean): Failure[] {
+    return this.failures.filter(
+      (f) => f.instance === instance && f.engine === engine && f.mode === mode && appliesTo(f, correction),
+    );
   }
 
   /** An instance's failures, for all its DACs (kept under `id` and `id#dac`, dac-scope.ts). */
@@ -158,13 +178,15 @@ export class LearnedStore {
   }
 
   /**
-   * Forget one combination here, for every DAC and engine: its failures and its runs that
+   * Forget one combination here, for every DAC and engine, as it applies with correction in the
+   * given state (records from before it was known included): its failures and its runs that
    * didn't keep up (below 1x; the web's KEPT_UP). Runs that kept up stay. How many went.
    */
   forgetCombo(instance: string, c: Combo): number {
     const before = this.failures.length + this.kept.length;
-    this.failures = this.failures.filter((f) => !(ofInstance(f.instance, instance) && sameCombo(f, c)));
-    this.kept = this.kept.filter((k) => !(ofInstance(k.instance, instance) && sameCombo(k, c) && k.low < 1));
+    const same = (r: Combo) => sameFields(r, c) && appliesTo(r, c.correction);
+    this.failures = this.failures.filter((f) => !(ofInstance(f.instance, instance) && same(f)));
+    this.kept = this.kept.filter((k) => !(ofInstance(k.instance, instance) && same(k) && k.low < 1));
     const n = before - this.failures.length - this.kept.length;
     if (n) this.save();
     return n;

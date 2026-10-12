@@ -42,6 +42,8 @@ export interface Capabilities {
   volumeRange: VolumeRange;
   /** Matrix profiles set up in HQPlayer (may be empty). */
   matrixProfiles: string[];
+  /** HQPlayer's DAC correction is running: knownBad, keptUp and slowSwitches are what applies in that state. */
+  correction: boolean;
   /** Combinations that failed here before, for this engine and mode. */
   knownBad: Failure[];
   /** Combinations that kept up here, settled, with how fast (kept-up.ts). */

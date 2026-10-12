@@ -160,6 +160,48 @@ describe("rollback when playback fails", () => {
     expect(JSON.parse(readFileSync(learnedPath, "utf8")).failures).toEqual([]);
   });
 
+  it("learns a failure with DAC correction running or not, and shows it only in that state", async () => {
+    const profiles = ["Correction On", "No Pipeline"];
+    await setup({
+      matrixProfiles: profiles,
+      correctingProfiles: ["", "Correction On"],
+      speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1),
+    });
+    fake.matrixProfile = "Correction On";
+    await change({ filter1x: "poly-sinc-gauss-long" });
+    const under = await caps();
+    expect(under.correction).toBe(true);
+    expect(under.knownBad).toEqual([expect.objectContaining({ filter1x: "poly-sinc-gauss-long", correction: true })]);
+    // A profile without correction: what was learned with it doesn't apply.
+    fake.matrixProfile = "No Pipeline";
+    expect((await caps()).knownBad).toEqual([]);
+    // No profile, whose base setup corrects here: the same state, so it does.
+    fake.matrixProfile = "";
+    expect((await caps()).knownBad).toHaveLength(1);
+    // And Status says whether correction runs, as HQPlayer reports it.
+    const now = (await req("GET", "/api/instances/mac/now")).json();
+    expect(now.status.correction).toBe(true);
+    // Forgetting acts on the state in use: its record goes.
+    fake.matrixProfile = "Correction On";
+    const [{ mode, rateHz, filter1x, filterNx, shaper }] = (await caps()).knownBad;
+    const forget = (b: object) => req("POST", "/api/instances/mac/forget", { body: b });
+    expect((await forget({ mode, rateHz, filter1x, filterNx, shaper })).json()).toEqual({ forgotten: 1 });
+    expect((await caps()).knownBad).toEqual([]);
+  });
+
+  it('chooses no matrix profile ("") where profiles exist, and refuses it where none do', async () => {
+    await setup({ matrixProfiles: ["Correction On"], correctingProfiles: [""] });
+    fake.matrixProfile = "Correction On";
+    const r = (await change({ matrixProfile: "" })).json();
+    expect(r.results[0]).toMatchObject({ field: "matrixProfile", actual: "", applied: true });
+    expect(fake.matrixProfile).toBe("");
+    await fake.close();
+    await setup();
+    const none = await change({ matrixProfile: "" });
+    expect(none.status).toBe(422);
+    expect(none.json().error).toMatch(/no matrix profiles/);
+  });
+
   it("rolls back a rule-explained stop without learning it (sinc-M, 44.1k → 192k)", async () => {
     await setup();
     await toPcm(); // 44.1 kHz source, so the 1x filter is in use

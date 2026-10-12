@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FileDocs } from "../src/file-docs.ts";
-import { LearnedStore, type Failure } from "@app/core";
+import { LearnedStore, type Failure, type KeptUp } from "@app/core";
 
 /** The store as saved in learned.json's directory, the server's way (file-docs.ts). */
 const open = (path: string) => LearnedStore.open(new FileDocs(dirname(path)));
@@ -64,7 +64,7 @@ describe("kept up here, per DAC, engine, combination and source rate", () => {
     s.recordKept(k(), false);
     s.recordKept(k({ low: 1.9, typical: 2.2 }), true);
     s.recordKept(k({ low: 2.4, typical: 2.5, at: "2026-10-09T10:00:00.000Z" }), true);
-    expect(s.keptFor("mac", "5.35.10", "SDM (DSD)")).toEqual([
+    expect(s.keptFor("mac", "5.35.10", "SDM (DSD)", false)).toEqual([
       expect.objectContaining({ low: 1.9, typical: 2.5, sessions: 2, first: "2026-10-01T10:00:00.000Z" }),
     ]);
   });
@@ -74,9 +74,9 @@ describe("kept up here, per DAC, engine, combination and source rate", () => {
     s.recordKept(k(), true);
     s.recordKept(k({ sourceRate: 192_000 }), true);
     s.recordKept(k({ instance: "mac#desk" }), true);
-    expect(s.keptFor("mac", "5.35.10", "SDM (DSD)")).toHaveLength(2);
+    expect(s.keptFor("mac", "5.35.10", "SDM (DSD)", false)).toHaveLength(2);
     s.forget("mac");
-    expect(s.keptFor("mac#desk", "5.35.10", "SDM (DSD)")).toEqual([]);
+    expect(s.keptFor("mac#desk", "5.35.10", "SDM (DSD)", false)).toEqual([]);
   });
 
   it("reads a file from before kept-up records without calling it corrupt, and saves both lists", async () => {
@@ -88,7 +88,7 @@ describe("kept up here, per DAC, engine, combination and source rate", () => {
     s.recordKept(k(), true);
     await s.flush();
     const again = await open(path);
-    expect([again.all("mac").length, again.keptFor("mac", "5.35.10", "SDM (DSD)").length]).toEqual([1, 1]);
+    expect([again.all("mac").length, again.keptFor("mac", "5.35.10", "SDM (DSD)", false).length]).toEqual([1, 1]);
   });
 });
 
@@ -122,7 +122,7 @@ describe("forgetting one combination", () => {
     expect(s.forgetCombo("mac", combo)).toBe(4);
     expect(s.all("mac").map((x) => x.shaper)).toEqual(["ASDM7EC-light"]);
     expect(s.all("lxc")).toHaveLength(1);
-    expect(s.keptFor("mac", "5.35.10", "SDM (DSD)").map((k) => k.low)).toEqual([1.5]);
+    expect(s.keptFor("mac", "5.35.10", "SDM (DSD)", false).map((k) => k.low)).toEqual([1.5]);
   });
 });
 
@@ -145,14 +145,14 @@ describe("filters slow to switch to", () => {
     s.recordSlow(slow({ busyMs: 9300, at: "2026-10-09T18:40:00.000Z" }));
     s.recordSlow(slow({ rateHz: 22_579_200 }));
     s.recordSlow(slow({ instance: "lxc" }));
-    const mine = s.slowFor("mac", "5.35.10", "SDM (DSD)");
+    const mine = s.slowFor("mac", "5.35.10", "SDM (DSD)", false);
     expect(mine).toEqual([
       expect.objectContaining({ rateHz: 11_289_600, busyMs: 9300, count: 2 }),
       expect.objectContaining({ rateHz: 22_579_200, count: 1 }),
     ]);
     s.forget("mac");
-    expect(s.slowFor("mac", "5.35.10", "SDM (DSD)")).toEqual([]);
-    expect(s.slowFor("lxc", "5.35.10", "SDM (DSD)")).toHaveLength(1);
+    expect(s.slowFor("mac", "5.35.10", "SDM (DSD)", false)).toEqual([]);
+    expect(s.slowFor("lxc", "5.35.10", "SDM (DSD)", false)).toHaveLength(1);
   });
 
   it("keeps them across a restart", async () => {
@@ -160,6 +160,90 @@ describe("filters slow to switch to", () => {
     const s = await open(path);
     s.recordSlow(slow());
     await s.flush();
-    expect((await open(path)).slowFor("mac", "5.35.10", "SDM (DSD)")).toHaveLength(1);
+    expect((await open(path)).slowFor("mac", "5.35.10", "SDM (DSD)", false)).toHaveLength(1);
+  });
+});
+
+describe("whether HQPlayer's DAC correction is running (it's heavy, so what keeps up differs)", () => {
+  const k = (o: Partial<KeptUp> = {}) => ({
+    instance: "mac",
+    engine: "5.35.10",
+    mode: "SDM (DSD)",
+    rateHz: 45_158_400,
+    filterNx: "poly-sinc-gauss-hires-lp",
+    filter1x: "poly-sinc-gauss-xla",
+    shaper: "ASDM7EC",
+    sourceRate: 44_100,
+    low: 1.4,
+    typical: 1.6,
+    at: "2026-10-01T10:00:00.000Z",
+    ...o,
+  });
+  const slow = {
+    instance: "mac",
+    engine: "5.35.10",
+    mode: "SDM (DSD)",
+    rateHz: 45_158_400,
+    filter: "sinc-L",
+    sourceRate: 44_100,
+    busyMs: 9000,
+    at: "2026-10-01T10:00:00.000Z",
+  };
+  const now = (s: LearnedStore, correction: boolean) => [
+    s.forInstance("mac", "5.35.10", "SDM (DSD)", correction).length,
+    s.keptFor("mac", "5.35.10", "SDM (DSD)", correction).length,
+    s.slowFor("mac", "5.35.10", "SDM (DSD)", correction).length,
+  ];
+
+  it("serves records made with correction running only while it runs, and the others only while it doesn't", () => {
+    const s = new LearnedStore(null);
+    s.record(f({ correction: true }));
+    s.recordKept(k({ correction: true, low: 0.8 }), true);
+    s.recordSlow({ ...slow, correction: true });
+    expect(now(s, true)).toEqual([1, 1, 1]);
+    expect(now(s, false)).toEqual([0, 0, 0]);
+  });
+
+  it("serves records from before this was known in both states", () => {
+    const s = new LearnedStore(null);
+    s.record(f());
+    s.recordKept(k(), true);
+    s.recordSlow(slow);
+    expect(now(s, true)).toEqual([1, 1, 1]);
+    expect(now(s, false)).toEqual([1, 1, 1]);
+  });
+
+  it("keeps the same combination with and without correction apart, and forgets only the state asked", () => {
+    const s = new LearnedStore(null);
+    s.record(f({ correction: false }));
+    s.record(f({ correction: true }));
+    s.record(f({ correction: true }));
+    expect(s.all("mac").map((x) => [x.correction, x.count])).toEqual([
+      [false, 1],
+      [true, 2],
+    ]);
+    s.forgetCombo("mac", {
+      mode: "SDM (DSD)",
+      rateHz: 45_158_400,
+      filterNx: "poly-sinc-gauss-hires-lp",
+      filter1x: "poly-sinc-gauss-xla",
+      shaper: "ASDM7EC",
+      correction: true,
+    });
+    expect(s.all("mac").map((x) => x.correction)).toEqual([false]);
+  });
+
+  it("forgetting under one state also drops an old record of the same combination (it applied there too)", () => {
+    const s = new LearnedStore(null);
+    s.record(f());
+    s.forgetCombo("mac", {
+      mode: "SDM (DSD)",
+      rateHz: 45_158_400,
+      filterNx: "poly-sinc-gauss-hires-lp",
+      filter1x: "poly-sinc-gauss-xla",
+      shaper: "ASDM7EC",
+      correction: false,
+    });
+    expect(s.all("mac")).toEqual([]);
   });
 });

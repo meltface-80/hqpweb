@@ -56,9 +56,18 @@ async function until<T>(f: () => Promise<T>, ok: (x: T) => boolean, ms = 4000): 
 describe("kept up here, live", () => {
   it("records settled playback with its source rate and speed, only while someone watches", async () => {
     await setup();
-    // Nobody watching: nothing polls Status, so nothing is measured.
+    // Nobody watching: nothing polls Status, so nothing is measured. Asking for capabilities reads
+    // Status once (whether DAC correction runs, learned.ts); after that, no more over ten poll intervals.
     expect(await kept()).toEqual([]);
-    expect(fake.received.some((x) => x.includes("<Status"))).toBe(false);
+    const statusReads = () => fake.received.filter((x) => x.includes("<Status")).length;
+    const asked = statusReads();
+    expect(
+      await until(
+        async () => statusReads(),
+        (n) => n > asked,
+        200,
+      ),
+    ).toBe(asked);
     await watch();
     const list = await until(kept, (l) => l.length > 0);
     expect(list).toEqual([

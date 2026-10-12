@@ -1,17 +1,14 @@
 <script lang="ts">
-  // Advanced: convolution and matrix, and the options (mode and rate are on the signal card). These can stop
+  // Advanced: convolution, and the options (mode, rate and matrix profile are on the signal card). These can stop
   // playback; the server checks that it recovers and tries to roll back if it doesn't.
-  import Picker from "./Picker.svelte";
-  import type { ApplyResult, Capabilities, Change, Snapshot } from "./api.ts";
+  import type { ApplyResult, Change, Snapshot } from "./api.ts";
 
   let {
-    caps,
     snap,
     busy,
     apply,
     open = $bindable(),
   }: {
-    caps: Capabilities;
     snap: Snapshot;
     busy: boolean;
     apply: (change: Change) => Promise<ApplyResult | void>;
@@ -29,7 +26,7 @@
   <summary>Advanced</summary>
   <p class="help">These can stop playback. The app checks that playback recovers, and tries to roll back if it doesn't.</p>
 
-  <h2 class="sub-h">Convolution and matrix</h2>
+  <h2 class="sub-h">Convolution</h2>
   <section class="card list">
     <label class="toggle">
       <span>Convolution</span>
@@ -41,20 +38,10 @@
         onchange={(e) => toggle(e.currentTarget, "convolution")}
       />
     </label>
-    {#if caps.matrixProfiles.length}
-      <Picker
-        label="Matrix profile"
-        items={caps.matrixProfiles.map((name, index) => ({ index, name }))}
-        current={snap.state.matrixProfile}
-        disabled={busy}
-        onpick={(i) => apply({ matrixProfile: i.name })}
-      />
-    {/if}
   </section>
   <p class="help">
-    Impulse responses and matrix profiles are set up in HQPlayer itself (its Convolution and Matrix menus); the control API can
-    only switch them.
-    {#if !caps.matrixProfiles.length}No matrix profiles are set up on this instance.{/if}
+    Impulse responses are set up in HQPlayer itself (its Convolution menu); the control API can only switch convolution on and
+    off. Matrix profiles are on the card above.
   </p>
 
   <h2 class="sub-h">Options</h2>

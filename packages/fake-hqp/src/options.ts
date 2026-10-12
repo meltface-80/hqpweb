@@ -19,6 +19,12 @@ export interface FakeOptions {
   speed?: (c: { modeName: string; rateHz: number; filterName: string; shaperName: string }) => number;
   /** Matrix profiles configured in HQPlayer. Measured on both instances: none. */
   matrixProfiles?: string[];
+  /**
+   * The profiles whose matrix runs DAC correction ("" for the base config, no profile chosen):
+   * Status `correction` reports 1 under them. Measured 2026-10-11 on Desktop 5.35.10: the base config
+   * and a correction profile reported 1, a profile without it 0. Default: none.
+   */
+  correctingProfiles?: string[];
   /** Whether convolution impulse responses are configured. Measured: not, on both. */
   convolutionConfigured?: boolean;
   /** The clock playback position advances by, in ms. Default Date.now; tests pass one they advance. */

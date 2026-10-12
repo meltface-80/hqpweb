@@ -23,6 +23,8 @@ export interface Prefs {
   fitMaxAgeDays: number | null;
   /** The guide's intro has been read once: show it as one line from then on. */
   guideIntroSeen: boolean;
+  /** The matrix profile help has been collapsed once: show it as a few words from then on. */
+  matrixHelpShort: boolean;
   /** The v2 meter: open as a square, and which view. */
   meterOpen: boolean;
   /** The meter was opened or closed by hand; until then it opens by itself at laptop width (meter-view.ts). */
@@ -41,6 +43,7 @@ const DEFAULTS: Prefs = {
   fitSort: true,
   fitMaxAgeDays: 90,
   guideIntroSeen: false,
+  matrixHelpShort: false,
   meterOpen: false,
   meterChosen: false,
   meterView: "waterfall",

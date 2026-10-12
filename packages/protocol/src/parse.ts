@@ -154,6 +154,13 @@ export interface Status {
   apod: number;
   /** HQPlayer's clip counter (inferred: overs it had to clip). 0 so far in every capture. */
   clips: number;
+  /**
+   * DAC correction is running: a post-process plugin in the matrix stage (hqplayerd readme §1.11.2),
+   * so the matrix profile in use decides it. Status `correction` (SDK 6.0.1); on Desktop 5.35.10 it
+   * followed the profile, 0 or 1, and read 1 with no profile when the base matrix config corrects
+   * (measured 2026-10-11). False when not reported.
+   */
+  correction: boolean;
   track: number;
   tracksTotal: number;
   /** From the <metadata> child, present while playing (measured). Decides 1x vs Nx filter. */
@@ -188,6 +195,7 @@ export function parseStatus(el: Element): Status {
     outputDelayMs: el.attrs.output_delay === undefined ? null : (Number(el.attrs.output_delay) || 0) / 1000,
     apod: Number(el.attrs.apod ?? 0) || 0,
     clips: Number(el.attrs.clips ?? 0) || 0,
+    correction: Number(el.attrs.correction ?? 0) > 0,
     track: Number(el.attrs.track ?? 0),
     tracksTotal: Number(el.attrs.tracks_total ?? 0),
     source: sourceOf(el),
